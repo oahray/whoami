@@ -12,6 +12,7 @@ import {
   handleStartGame,
   handleSubmitGuess
 } from './sockets/handlers.js'
+import adminRoutes from './admin/routes.js'
 
 dotenv.config()
 
@@ -32,6 +33,9 @@ app.use(express.json())
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
+
+// Admin routes
+app.use('/admin', adminRoutes)
 
 // Socket.io setup
 const io = new Server(server, {
