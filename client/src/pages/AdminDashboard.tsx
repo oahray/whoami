@@ -1,18 +1,21 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import type { Entity, Stats, Difficulty } from '../types'
 
 const API_BASE_URL = import.meta.env.VITE_SOCKET_URL?.replace('ws://', 'http://').replace('wss://', 'https://') || 'http://localhost:3001'
 
 function AdminDashboard() {
   const { user, signOut, getAccessToken } = useAuth()
   const navigate = useNavigate()
-  const [entities, setEntities] = useState([])
-  const [stats, setStats] = useState(null)
+  const [entities, setEntities] = useState<Entity[]>([])
+  const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [filterDifficulty, setFilterDifficulty] = useState('all')
-  const [filterPublished, setFilterPublished] = useState('all')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [filterDifficulty, setFilterDifficulty] = useState<string>('all')
+  const [filterType, setFilterType] = useState<string>('all')
+  const [filterPublished, setFilterPublished] = useState<string>('all')
 
   useEffect(() => {
     loadData()
@@ -35,7 +38,7 @@ function AdminDashboard() {
           },
         }).then(res => {
           if (!res.ok) throw new Error('Request failed')
-          return res.json()
+          return res.json() as Promise<Entity[]>
         }),
         fetch(`${API_BASE_URL}/admin/stats`, {
           headers: {
@@ -44,13 +47,13 @@ function AdminDashboard() {
           },
         }).then(res => {
           if (!res.ok) throw new Error('Request failed')
-          return res.json()
+          return res.json() as Promise<Stats>
         }),
       ])
 
       setEntities(entitiesData)
       setStats(statsData)
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message || 'Failed to load data')
       if (err.message.includes('Unauthorized') || err.message.includes('Forbidden')) {
         navigate('/admin/login')
@@ -65,11 +68,17 @@ function AdminDashboard() {
     navigate('/admin/login')
   }
 
-  const getTrafficLightColor = (count) => {
+  const getTrafficLightColor = (count: number): string => {
     return count >= 10 ? 'bg-green-500' : 'bg-red-500'
   }
 
   const filteredEntities = entities.filter((entity) => {
+    if (searchQuery && !entity.name.toLowerCase().includes(searchQuery.toLowerCase())) {
+      return false
+    }
+    if (filterType !== 'all' && entity.type !== filterType) {
+      return false
+    }
     if (filterDifficulty !== 'all' && entity.difficulty !== filterDifficulty) {
       return false
     }
@@ -118,7 +127,6 @@ function AdminDashboard() {
           </div>
         )}
 
-        {/* Stats Panel */}
         {stats && (
           <div className="mb-8 bg-white rounded-lg shadow p-6">
             <h2 className="text-lg font-semibold mb-4">Statistics</h2>
@@ -144,7 +152,7 @@ function AdminDashboard() {
             <div className="mt-6">
               <h3 className="text-sm font-semibold mb-2">Published by Difficulty</h3>
               <div className="grid grid-cols-4 gap-4">
-                {['easy', 'medium', 'hard', 'nightmare'].map((difficulty) => {
+                {(['easy', 'medium', 'hard', 'nightmare'] as Difficulty[]).map((difficulty) => {
                   const count = stats.publishedCount[difficulty] || 0
                   return (
                     <div key={difficulty} className="flex items-center gap-2">
@@ -158,37 +166,59 @@ function AdminDashboard() {
           </div>
         )}
 
-        {/* Filters */}
-        <div className="mb-4 bg-white rounded-lg shadow p-4 flex gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Difficulty</label>
-            <select
-              value={filterDifficulty}
-              onChange={(e) => setFilterDifficulty(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md"
-            >
-              <option value="all">All</option>
-              <option value="easy">Easy</option>
-              <option value="medium">Medium</option>
-              <option value="hard">Hard</option>
-              <option value="nightmare">Nightmare</option>
-            </select>
+        <div className="mb-4 bg-white rounded-lg shadow p-4">
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Search by Name</label>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search entities..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Published</label>
-            <select
-              value={filterPublished}
-              onChange={(e) => setFilterPublished(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-md"
-            >
-              <option value="all">All</option>
-              <option value="published">Published</option>
-              <option value="unpublished">Unpublished</option>
-            </select>
+          <div className="flex gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+              <select
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-md"
+              >
+                <option value="all">All</option>
+                <option value="character">Character</option>
+                <option value="place">Place</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Difficulty</label>
+              <select
+                value={filterDifficulty}
+                onChange={(e) => setFilterDifficulty(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-md"
+              >
+                <option value="all">All</option>
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
+                <option value="nightmare">Nightmare</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Published</label>
+              <select
+                value={filterPublished}
+                onChange={(e) => setFilterPublished(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-md"
+              >
+                <option value="all">All</option>
+                <option value="published">Published</option>
+                <option value="unpublished">Unpublished</option>
+              </select>
+            </div>
           </div>
         </div>
 
-        {/* Entities List */}
         <div className="bg-white rounded-lg shadow overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
             <h2 className="text-lg font-semibold">Entities ({filteredEntities.length})</h2>

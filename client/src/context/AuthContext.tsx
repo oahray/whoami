@@ -1,20 +1,28 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 import { supabase } from '../lib/supabase'
+import type { User } from '@supabase/supabase-js'
 
-const AuthContext = createContext(null)
+interface AuthContextType {
+  user: User | null
+  loading: boolean
+  signInWithEmail: (email: string, password: string) => Promise<{ data: any; error: any }>
+  signInWithGoogle: () => Promise<{ data: any; error: any }>
+  signOut: () => Promise<void>
+  getAccessToken: () => Promise<string | null>
+}
 
-export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null)
+const AuthContext = createContext<AuthContextType | null>(null)
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null)
       setLoading(false)
     })
 
-    // Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -25,7 +33,7 @@ export function AuthProvider({ children }) {
     return () => subscription.unsubscribe()
   }, [])
 
-  const signInWithEmail = async (email, password) => {
+  const signInWithEmail = async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -52,7 +60,7 @@ export function AuthProvider({ children }) {
     return session?.access_token || null
   }
 
-  const value = {
+  const value: AuthContextType = {
     user,
     loading,
     signInWithEmail,

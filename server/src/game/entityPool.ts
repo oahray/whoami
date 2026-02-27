@@ -1,12 +1,17 @@
 import { getPublishedEntities } from '../db/entities.js'
 
-/**
- * Get backfill order for a difficulty mode
- * @param {string} mode - Difficulty mode (easy, medium, hard, nightmare)
- * @returns {string[]} Array of difficulty tiers in backfill order
- */
-function getBackfillOrder(mode) {
-  const backfillMap = {
+type Difficulty = 'easy' | 'medium' | 'hard' | 'nightmare'
+
+interface Entity {
+  id: string
+  name: string
+  type: string
+  difficulty: Difficulty
+  is_published: boolean
+}
+
+function getBackfillOrder(mode: Difficulty): Difficulty[] {
+  const backfillMap: Record<Difficulty, Difficulty[]> = {
     easy: ['medium', 'hard', 'nightmare'],
     medium: ['hard', 'nightmare'],
     hard: ['medium', 'easy', 'nightmare'],
@@ -15,22 +20,11 @@ function getBackfillOrder(mode) {
   return backfillMap[mode] || []
 }
 
-/**
- * Filter entities by difficulty
- * @param {Array} entities - Array of entity objects
- * @param {string} difficulty - Difficulty level to filter by
- * @returns {Array} Filtered entities
- */
-function filterByDifficulty(entities, difficulty) {
+function filterByDifficulty(entities: Entity[], difficulty: Difficulty): Entity[] {
   return entities.filter(e => e.difficulty === difficulty)
 }
 
-/**
- * Shuffle array using Fisher-Yates algorithm
- * @param {Array} array - Array to shuffle
- * @returns {Array} Shuffled array
- */
-function shuffle(array) {
+function shuffle<T>(array: T[]): T[] {
   const shuffled = [...array]
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
@@ -39,18 +33,10 @@ function shuffle(array) {
   return shuffled
 }
 
-/**
- * Build entity pool for a game session
- * @param {string} mode - Difficulty mode (easy, medium, hard, nightmare)
- * @param {number} totalRounds - Total number of rounds needed
- * @returns {Promise<Array>} Shuffled array of entities for the session
- */
-export async function buildEntityPool(mode, totalRounds) {
-  // Fetch all published entities
+export async function buildEntityPool(mode: Difficulty, totalRounds: number): Promise<Entity[]> {
   const allEntities = await getPublishedEntities()
 
-  // Get primary pool based on mode
-  let primary = []
+  let primary: Entity[] = []
   if (mode === 'easy') {
     primary = filterByDifficulty(allEntities, 'easy')
   } else if (mode === 'medium') {
@@ -64,10 +50,8 @@ export async function buildEntityPool(mode, totalRounds) {
     primary = filterByDifficulty(allEntities, 'nightmare')
   }
 
-  // Shuffle primary pool
   let pool = shuffle(primary)
 
-  // If we don't have enough, backfill from adjacent tiers
   if (pool.length < totalRounds) {
     const backfillOrder = getBackfillOrder(mode)
 
@@ -80,6 +64,5 @@ export async function buildEntityPool(mode, totalRounds) {
     }
   }
 
-  // Return only what we need, shuffled again to mix backfilled items
   return shuffle(pool).slice(0, totalRounds)
 }

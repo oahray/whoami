@@ -1,25 +1,29 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import type { Entity, Clue } from '../types'
 
 const API_BASE_URL = import.meta.env.VITE_SOCKET_URL?.replace('ws://', 'http://').replace('wss://', 'https://') || 'http://localhost:3001'
 
 function AdminPreview() {
-  const { id } = useParams()
+  const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { getAccessToken } = useAuth()
 
-  const [entity, setEntity] = useState(null)
-  const [clues, setClues] = useState([])
-  const [revealedClues, setRevealedClues] = useState(new Set())
+  const [entity, setEntity] = useState<Entity | null>(null)
+  const [clues, setClues] = useState<Clue[]>([])
+  const [revealedClues, setRevealedClues] = useState<Set<number>>(new Set())
   const [showAnswer, setShowAnswer] = useState(false)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    loadEntity()
+    if (id) {
+      loadEntity()
+    }
   }, [id])
 
   const loadEntity = async () => {
+    if (!id) return
     try {
       setLoading(true)
       const token = await getAccessToken()
@@ -31,7 +35,7 @@ function AdminPreview() {
           },
         }).then(res => {
           if (!res.ok) throw new Error('Failed to load entity')
-          return res.json()
+          return res.json() as Promise<Entity>
         }),
         fetch(`${API_BASE_URL}/admin/entities/${id}/clues`, {
           headers: {
@@ -39,7 +43,7 @@ function AdminPreview() {
           },
         }).then(res => {
           if (!res.ok) throw new Error('Failed to load clues')
-          return res.json()
+          return res.json() as Promise<Clue[]>
         }),
       ])
 
@@ -52,7 +56,7 @@ function AdminPreview() {
     }
   }
 
-  const toggleClue = (clueOrder) => {
+  const toggleClue = (clueOrder: number) => {
     const newRevealed = new Set(revealedClues)
     if (newRevealed.has(clueOrder)) {
       newRevealed.delete(clueOrder)
@@ -103,9 +107,8 @@ function AdminPreview() {
             <p className="text-gray-600">Difficulty: {entity.difficulty}</p>
           </div>
 
-          {/* Clues */}
           <div className="space-y-4 mb-8">
-            {clues.map((clue, index) => {
+            {clues.map((clue) => {
               const isRevealed = revealedClues.has(clue.order)
               return (
                 <div
@@ -135,7 +138,6 @@ function AdminPreview() {
             })}
           </div>
 
-          {/* Answer Section */}
           <div className="border-t border-gray-200 pt-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">Answer</h3>
@@ -157,7 +159,7 @@ function AdminPreview() {
                     <ul className="list-disc list-inside space-y-1">
                       {clues
                         .filter(c => c.citations)
-                        .map((clue, index) => (
+                        .map((clue) => (
                           <li key={clue.id} className="text-sm text-gray-700">
                             Clue {clue.order}: {clue.citations}
                           </li>

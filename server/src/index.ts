@@ -11,8 +11,8 @@ import {
   handleUpdateSettings,
   handleStartGame,
   handleSubmitGuess
-} from './sockets/handlers.js'
-import adminRoutes from './admin/routes.js'
+} from './sockets/handlers/index.js'
+import adminRoutes from './admin/routes/index.js'
 
 dotenv.config()
 
@@ -21,7 +21,6 @@ const server = createServer(app)
 const PORT = process.env.PORT || 3001
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'http://localhost:5173'
 
-// CORS configuration
 app.use(cors({
   origin: CLIENT_ORIGIN,
   credentials: true
@@ -29,15 +28,12 @@ app.use(cors({
 
 app.use(express.json())
 
-// Health check route
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
 
-// Admin routes
 app.use('/admin', adminRoutes)
 
-// Socket.io setup
 const io = new Server(server, {
   cors: {
     origin: CLIENT_ORIGIN,
@@ -48,7 +44,6 @@ const io = new Server(server, {
 io.on('connection', (socket) => {
   console.log(`Client connected: ${socket.id}`)
 
-  // Register event handlers
   socket.on('CREATE_ROOM', (payload) => handleCreateRoom(io, socket, payload))
   socket.on('JOIN_ROOM', (payload) => handleJoinRoom(io, socket, payload))
   socket.on('LEAVE_ROOM', () => handleLeaveRoom(io, socket))
