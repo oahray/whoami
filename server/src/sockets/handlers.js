@@ -1,8 +1,14 @@
 import { Server } from 'socket.io'
 import { getRoom, getRoomBySocket, createRoom } from '../rooms/store.js'
-import { isRateLimited, hasExceededMaxGuesses } from '../game/rateLimit.js'
-import { validateGuess } from '../game/validation.js'
-import { calculateScore } from '../game/scoring.js'
+import {
+  startGame,
+  startNextRound,
+  activateRound,
+  revealClue,
+  processGuess,
+  endRound,
+  endGame
+} from '../game/roundState.js'
 
 const GRACE_PERIOD_MS = 30000 // 30 seconds
 
@@ -24,19 +30,6 @@ function findReturningPlayer(room, nickname) {
   return null
 }
 
-/**
- * Check if all players are locked
- * @param {Object} room - Room state
- * @returns {boolean} True if all players are locked
- */
-function allPlayersLocked(room) {
-  for (const player of room.players.values()) {
-    if (player.isConnected && !player.isLocked) {
-      return false
-    }
-  }
-  return true
-}
 
 /**
  * Transfer host to next available player
@@ -470,4 +463,282 @@ export function handleUpdateSettings(io, socket, payload) {
       message: 'An error occurred'
     })
   }
+}
+
+/**
+ * Handle START_GAME event
+ */
+export async function handleStartGame(io, socket, payload) {
+  try {
+    const room = getRoomBySocket(socket.id)
+    if (!room) {
+      socket.emit('ROOM_ERROR', {
+        code: 'ROOM_NOT_FOUND',
+        message: 'Room not found'
+      })
+      return
+    }
+
+    const player = room.players.get(socket.id)
+    if (!player || !player.isHost) {
+      socket.emit('ROOM_ERROR', {
+        code: 'NOT_HOST',
+        message: 'Only the host can start the game'
+      })
+      return
+    }
+
+    if (room.status !== 'waiting') {
+      socket.emit('ROOM_ERROR', {
+        code: 'GAME_IN_PROGRESS',
+        message: 'Game is already in progress'
+      })
+      return
+    }
+
+    // Validate minimum players
+    const connectedPlayers = Array.from(room.players.values()).filter(p => p.isConnected)
+    if (connectedPlayers.length < 2) {
+      socket.emit('ROOM_ERROR', {
+        code: 'INSUFFICIENT_PLAYERS',
+        message: 'Need at least 2 players to start'
+      })
+      return
+    }
+
+    // Start the game
+    await startGame(room)
+
+    // Start first round (IDLE → STARTING)
+    await startNextRound(room)
+
+    // Broadcast ROUND_STARTED with clue 1
+    const firstClue = room.currentRound.clues[0]
+    io.to(room.code).emit('ROUND_STARTED', {
+      roundNumber: room.currentRound.roundNumber,
+      totalRounds: room.settings.totalRounds,
+      serverStartTime: room.currentRound.serverStartTime,
+      roundDuration: room.settings.roundDuration,
+      clue: {
+        order: firstClue.order,
+        text: firstClue.text
+      }
+    })
+
+    // Start 3s pre-guess countdown timer
+    setTimeout(() => {
+      // Transition to ACTIVE
+      activateRound(room)
+
+      // Set up round end timer
+      const roundEndDelay = room.settings.roundDuration - 3000 // Already waited 3s
+      room.currentRound.timers.roundEnd = setTimeout(() => {
+        endRound(room)
+        const roundResult = room.roundHistory[room.roundHistory.length - 1]
+        broadcastRoundEnd(io, room, roundResult)
+      }, roundEndDelay)
+    }, 3000)
+
+    // Set up clue reveal broadcast
+    const clueRevealDelay = room.settings.clueRevealTime
+    if (clueRevealDelay > 3000) {
+      setTimeout(() => {
+        if (room.currentRound && room.currentRound.phase !== 'ended') {
+          revealClue(room)
+          const secondClue = room.currentRound.clues[1]
+          if (secondClue) {
+            io.to(room.code).emit('CLUE_REVEALED', {
+              clue: {
+                order: secondClue.order,
+                text: secondClue.text
+              }
+            })
+          }
+        }
+      }, clueRevealDelay)
+    }
+
+  } catch (error) {
+    console.error('Error in handleStartGame:', error)
+    socket.emit('ROOM_ERROR', {
+      code: 'INTERNAL_ERROR',
+      message: error.message || 'An error occurred'
+    })
+  }
+}
+
+/**
+ * Handle SUBMIT_GUESS event
+ */
+export function handleSubmitGuess(io, socket, payload) {
+  try {
+    const { guess } = payload
+
+    if (!guess || typeof guess !== 'string') {
+      socket.emit('ROOM_ERROR', {
+        code: 'INVALID_PAYLOAD',
+        message: 'Guess is required'
+      })
+      return
+    }
+
+    const room = getRoomBySocket(socket.id)
+    if (!room) {
+      socket.emit('ROOM_ERROR', {
+        code: 'ROOM_NOT_FOUND',
+        message: 'Room not found'
+      })
+      return
+    }
+
+    const player = room.players.get(socket.id)
+    if (!player) {
+      socket.emit('ROOM_ERROR', {
+        code: 'PLAYER_NOT_FOUND',
+        message: 'Player not found'
+      })
+      return
+    }
+
+    // Process the guess
+    const result = processGuess(room, socket.id, guess.trim())
+
+    if (result === null) {
+      // Invalid guess (rate limited, locked, etc.)
+      if (room.currentRound?.phase === 'starting' || room.currentRound?.phase === 'ended') {
+        socket.emit('ROOM_ERROR', {
+          code: 'GUESSING_NOT_OPEN',
+          message: 'Guessing is not open'
+        })
+      } else if (player.isLocked) {
+        socket.emit('ROOM_ERROR', {
+          code: 'PLAYER_LOCKED',
+          message: 'You have already guessed correctly this round'
+        })
+      } else {
+        // Rate limited or exceeded max guesses (handled by processGuess)
+        socket.emit('ROOM_ERROR', {
+          code: 'GUESS_RATE_LIMITED',
+          message: 'Please wait before guessing again'
+        })
+      }
+      return
+    }
+
+    // Broadcast guess (respect transparency mode)
+    const broadcastPayload = room.settings.transparencyMode === 'full'
+      ? { nickname: player.nickname, guess, correct: result.correct }
+      : { nickname: player.nickname, correct: result.correct }
+
+    io.to(room.code).emit('GUESS_BROADCAST', broadcastPayload)
+
+    // If correct, broadcast PLAYER_CORRECT
+    if (result.correct) {
+      io.to(room.code).emit('PLAYER_CORRECT', {
+        nickname: player.nickname,
+        position: result.position,
+        timeElapsedMs: result.timeElapsedMs
+      })
+
+      // Check if round ended early (all players locked)
+      if (room.currentRound?.phase === 'ended') {
+        // Round ended, broadcast ROUND_ENDED
+        const roundResult = room.roundHistory[room.roundHistory.length - 1]
+        broadcastRoundEnd(io, room, roundResult)
+      }
+    }
+
+  } catch (error) {
+    console.error('Error in handleSubmitGuess:', error)
+    socket.emit('ROOM_ERROR', {
+      code: 'INTERNAL_ERROR',
+      message: 'An error occurred'
+    })
+  }
+}
+
+/**
+ * Broadcast ROUND_ENDED event
+ * @param {Server} io - Socket.io server
+ * @param {Object} room - Room state
+ * @param {Object} roundResult - Round result from roundHistory
+ */
+function broadcastRoundEnd(io, room, roundResult) {
+  const payload = {
+    answerRevealed: roundResult.answerRevealed,
+    scoreboard: roundResult.scoreboard
+  }
+
+  if (roundResult.answerRevealed) {
+    payload.answer = roundResult.entity.name
+    payload.citations = roundResult.clues.map(c => c.citations).filter(Boolean)
+  }
+
+  io.to(room.code).emit('ROUND_ENDED', payload)
+
+  // After 5s, move to next round or end game
+  setTimeout(() => {
+    if (room.status === 'in_progress') {
+      // Start next round
+      startNextRound(room).then(() => {
+        if (room.status === 'finished') {
+          // Game ended
+          io.to(room.code).emit('GAME_ENDED', {
+            finalScoreboard: room.finalScoreboard
+          })
+        } else {
+          // Next round starting
+          const firstClue = room.currentRound.clues[0]
+          io.to(room.code).emit('ROUND_STARTED', {
+            roundNumber: room.currentRound.roundNumber,
+            totalRounds: room.settings.totalRounds,
+            serverStartTime: room.currentRound.serverStartTime,
+            roundDuration: room.settings.roundDuration,
+            clue: {
+              order: firstClue.order,
+              text: firstClue.text
+            }
+          })
+
+          // Start 3s pre-guess countdown
+          setTimeout(() => {
+            activateRound(room)
+
+            // Set up round end timer
+            const roundEndDelay = room.settings.roundDuration - 3000 // Already waited 3s
+            room.currentRound.timers.roundEnd = setTimeout(() => {
+              endRound(room)
+              const roundResult = room.roundHistory[room.roundHistory.length - 1]
+              broadcastRoundEnd(io, room, roundResult)
+            }, roundEndDelay)
+          }, 3000)
+
+          // Set up clue reveal
+          const clueRevealDelay = room.settings.clueRevealTime
+          if (clueRevealDelay > 3000) {
+            setTimeout(() => {
+              if (room.currentRound && room.currentRound.phase !== 'ended') {
+                revealClue(room)
+                const secondClue = room.currentRound.clues[1]
+                if (secondClue) {
+                  io.to(room.code).emit('CLUE_REVEALED', {
+                    clue: {
+                      order: secondClue.order,
+                      text: secondClue.text
+                    }
+                  })
+                }
+              }
+            }, clueRevealDelay)
+          }
+        }
+      }).catch(error => {
+        console.error('Error starting next round:', error)
+        io.to(room.code).emit('ROOM_ERROR', {
+          code: 'INTERNAL_ERROR',
+          message: 'Failed to start next round'
+        })
+      })
+    }
+  }, 5000)
 }

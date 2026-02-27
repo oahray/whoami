@@ -8,7 +8,9 @@ import {
   handleCreateRoom,
   handleLeaveRoom,
   handleDisconnect,
-  handleUpdateSettings
+  handleUpdateSettings,
+  handleStartGame,
+  handleSubmitGuess
 } from './sockets/handlers.js'
 
 dotenv.config()
@@ -47,6 +49,8 @@ io.on('connection', (socket) => {
   socket.on('JOIN_ROOM', (payload) => handleJoinRoom(io, socket, payload))
   socket.on('LEAVE_ROOM', () => handleLeaveRoom(io, socket))
   socket.on('UPDATE_SETTINGS', (payload) => handleUpdateSettings(io, socket, payload))
+  socket.on('START_GAME', (payload) => handleStartGame(io, socket, payload))
+  socket.on('SUBMIT_GUESS', (payload) => handleSubmitGuess(io, socket, payload))
   socket.on('disconnect', () => handleDisconnect(io, socket))
 })
 
