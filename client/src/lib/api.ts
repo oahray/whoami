@@ -2,10 +2,7 @@ import { useAuth } from '../context/AuthContext'
 
 const API_BASE_URL = import.meta.env.VITE_SOCKET_URL?.replace('ws://', 'http://').replace('wss://', 'https://') || 'http://localhost:3001'
 
-/**
- * Make an authenticated API request to admin endpoints
- */
-export async function adminApiRequest(endpoint, options = {}) {
+export async function adminApiRequest(endpoint: string, options: RequestInit = {}) {
   const { getAccessToken } = useAuth()
   const token = await getAccessToken()
 
@@ -30,10 +27,7 @@ export async function adminApiRequest(endpoint, options = {}) {
   return response.json()
 }
 
-/**
- * Standalone function for API requests (for use outside React components)
- */
-export async function adminApiRequestWithToken(endpoint, token, options = {}) {
+export async function adminApiRequestWithToken(endpoint: string, token: string, options: RequestInit = {}) {
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
     headers: {

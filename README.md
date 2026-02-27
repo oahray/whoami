@@ -76,6 +76,14 @@ whoami/
    node src/scripts/seed.js
    ```
 
+6. Add admin user:
+   - First, sign in to the admin dashboard at `/admin/login` to create your user account
+   - Then add yourself as admin:
+   ```bash
+   cd server
+   node src/scripts/addAdmin.js your-email@example.com
+   ```
+
 ### Development
 
 Run both client and server in development mode:

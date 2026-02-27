@@ -1,11 +1,29 @@
 import { supabase } from './supabase.js'
 
-/**
- * Get published entities filtered by difficulty
- * @param {string[]} difficulties - Array of difficulty levels to filter by
- * @returns {Promise<Array>} Array of published entities
- */
-export async function getPublishedEntities(difficulties = []) {
+type Difficulty = 'easy' | 'medium' | 'hard' | 'nightmare'
+
+export interface Entity {
+  id: string
+  name: string
+  type: 'character' | 'place'
+  difficulty: Difficulty
+  is_published: boolean
+  created_at?: string
+  updated_at?: string
+}
+
+export interface Clue {
+  id: string
+  entity_id: string
+  order: number
+  text: string
+  citations: string | null
+  difficulty: Difficulty | null
+  created_at?: string
+  updated_at?: string
+}
+
+export async function getPublishedEntities(difficulties: Difficulty[] = []): Promise<Entity[]> {
   let query = supabase
     .from('entities')
     .select('*')
@@ -24,12 +42,7 @@ export async function getPublishedEntities(difficulties = []) {
   return data || []
 }
 
-/**
- * Get all clues for a specific entity, ordered by clue order
- * @param {string} entityId - UUID of the entity
- * @returns {Promise<Array>} Array of clues with citations
- */
-export async function getCluesForEntity(entityId) {
+export async function getCluesForEntity(entityId: string): Promise<Clue[]> {
   const { data, error } = await supabase
     .from('clues')
     .select('*')

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
@@ -10,7 +10,7 @@ function AdminLogin() {
   const { signInWithEmail, signInWithGoogle } = useAuth()
   const navigate = useNavigate()
 
-  const handleEmailSignIn = async (e) => {
+  const handleEmailSignIn = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
     setLoading(true)
@@ -22,7 +22,7 @@ function AdminLogin() {
       } else {
         navigate('/admin')
       }
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message || 'An error occurred')
     } finally {
       setLoading(false)
@@ -39,8 +39,7 @@ function AdminLogin() {
         setError(error.message)
         setLoading(false)
       }
-      // Google OAuth will redirect, so we don't navigate here
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message || 'An error occurred')
       setLoading(false)
     }

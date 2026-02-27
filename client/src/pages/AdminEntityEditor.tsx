@@ -1,34 +1,44 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import type { Entity, Clue, Difficulty } from '../types'
 
 const API_BASE_URL = import.meta.env.VITE_SOCKET_URL?.replace('ws://', 'http://').replace('wss://', 'https://') || 'http://localhost:3001'
 
+interface ClueForm extends Partial<Clue> {
+  id: string | null
+  text: string
+  citations: string
+  difficulty: Difficulty | null
+  order: number
+}
+
 function AdminEntityEditor() {
-  const { id } = useParams()
+  const { id } = useParams<{ id: string }>()
   const isNew = id === 'new'
   const navigate = useNavigate()
   const { getAccessToken } = useAuth()
 
-  const [entity, setEntity] = useState({
+  const [entity, setEntity] = useState<Partial<Entity> & { is_published: boolean }>({
     name: '',
     type: 'character',
     difficulty: 'medium',
     is_published: false,
   })
-  const [clues, setClues] = useState([])
+  const [clues, setClues] = useState<ClueForm[]>([])
   const [loading, setLoading] = useState(!isNew)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [publishError, setPublishError] = useState('')
 
   useEffect(() => {
-    if (!isNew) {
+    if (!isNew && id) {
       loadEntity()
     }
   }, [id])
 
   const loadEntity = async () => {
+    if (!id) return
     try {
       setLoading(true)
       const token = await getAccessToken()
@@ -40,7 +50,7 @@ function AdminEntityEditor() {
           },
         }).then(res => {
           if (!res.ok) throw new Error('Failed to load entity')
-          return res.json()
+          return res.json() as Promise<Entity>
         }),
         fetch(`${API_BASE_URL}/admin/entities/${id}/clues`, {
           headers: {
@@ -48,13 +58,17 @@ function AdminEntityEditor() {
           },
         }).then(res => {
           if (!res.ok) throw new Error('Failed to load clues')
-          return res.json()
+          return res.json() as Promise<Clue[]>
         }),
       ])
 
       setEntity(entityData)
-      setClues(cluesData.sort((a, b) => a.order - b.order))
-    } catch (err) {
+      setClues(cluesData.sort((a, b) => a.order - b.order).map(c => ({
+        ...c,
+        id: c.id,
+        citations: c.citations || '',
+      })))
+    } catch (err: any) {
       setError(err.message || 'Failed to load entity')
     } finally {
       setLoading(false)
@@ -69,7 +83,6 @@ function AdminEntityEditor() {
 
       let entityId = id
 
-      // Create or update entity
       if (isNew) {
         const response = await fetch(`${API_BASE_URL}/admin/entities`, {
           method: 'POST',
@@ -85,7 +98,7 @@ function AdminEntityEditor() {
           throw new Error(error.error || 'Failed to create entity')
         }
 
-        const newEntity = await response.json()
+        const newEntity = await response.json() as Entity
         entityId = newEntity.id
         navigate(`/admin/entities/${entityId}`, { replace: true })
       } else {
@@ -109,10 +122,8 @@ function AdminEntityEditor() {
         }
       }
 
-      // Save clues
       for (const clue of clues) {
         if (clue.id) {
-          // Update existing clue
           await fetch(`${API_BASE_URL}/admin/clues/${clue.id}`, {
             method: 'PUT',
             headers: {
@@ -127,7 +138,6 @@ function AdminEntityEditor() {
             }),
           })
         } else {
-          // Create new clue
           await fetch(`${API_BASE_URL}/admin/entities/${entityId}/clues`, {
             method: 'POST',
             headers: {
@@ -145,7 +155,7 @@ function AdminEntityEditor() {
       }
 
       navigate('/admin')
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message || 'Failed to save')
     } finally {
       setSaving(false)
@@ -165,15 +175,14 @@ function AdminEntityEditor() {
     ])
   }
 
-  const handleUpdateClue = (index, field, value) => {
+  const handleUpdateClue = (index: number, field: keyof ClueForm, value: any) => {
     const updated = [...clues]
     updated[index] = { ...updated[index], [field]: value }
     setClues(updated)
   }
 
-  const handleDeleteClue = async (clueId, index) => {
+  const handleDeleteClue = async (clueId: string | null, index: number) => {
     if (!clueId) {
-      // Remove unsaved clue
       setClues(clues.filter((_, i) => i !== index))
       return
     }
@@ -187,14 +196,13 @@ function AdminEntityEditor() {
         },
       })
 
-      // Reload clues to get updated order
       await loadEntity()
-    } catch (err) {
+    } catch (err: any) {
       setError(err.message || 'Failed to delete clue')
     }
   }
 
-  const handleMoveClue = async (index, direction) => {
+  const handleMoveClue = async (index: number, direction: 'up' | 'down') => {
     if (
       (direction === 'up' && index === 0) ||
       (direction === 'down' && index === clues.length - 1)
@@ -251,7 +259,6 @@ function AdminEntityEditor() {
           </div>
         )}
 
-        {/* Entity Form */}
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <h2 className="text-lg font-semibold mb-4">Entity Details</h2>
           <div className="space-y-4">
@@ -261,7 +268,7 @@ function AdminEntityEditor() {
               </label>
               <input
                 type="text"
-                value={entity.name}
+                value={entity.name || ''}
                 onChange={(e) => setEntity({ ...entity, name: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 required
@@ -274,8 +281,8 @@ function AdminEntityEditor() {
                   Type *
                 </label>
                 <select
-                  value={entity.type}
-                  onChange={(e) => setEntity({ ...entity, type: e.target.value })}
+                  value={entity.type || 'character'}
+                  onChange={(e) => setEntity({ ...entity, type: e.target.value as 'character' | 'place' })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 >
                   <option value="character">Character</option>
@@ -288,8 +295,8 @@ function AdminEntityEditor() {
                   Difficulty *
                 </label>
                 <select
-                  value={entity.difficulty}
-                  onChange={(e) => setEntity({ ...entity, difficulty: e.target.value })}
+                  value={entity.difficulty || 'medium'}
+                  onChange={(e) => setEntity({ ...entity, difficulty: e.target.value as Difficulty })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 >
                   <option value="easy">Easy</option>
@@ -319,7 +326,6 @@ function AdminEntityEditor() {
           </div>
         </div>
 
-        {/* Clues Section */}
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-semibold">Clues ({clues.length})</h2>
@@ -377,7 +383,7 @@ function AdminEntityEditor() {
                       value={clue.text}
                       onChange={(e) => handleUpdateClue(index, 'text', e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      rows="2"
+                      rows={2}
                       required
                     />
                   </div>
@@ -400,7 +406,6 @@ function AdminEntityEditor() {
           </div>
         </div>
 
-        {/* Actions */}
         <div className="flex justify-end gap-4">
           <button
             onClick={() => navigate('/admin')}
