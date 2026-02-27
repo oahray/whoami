@@ -1,0 +1,25 @@
+{
+  "name": "whoami-server",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "node --watch src/index.js",
+    "start": "node src/index.js",
+    "test": "vitest",
+    "db:migrate": "supabase db push",
+    "db:migrate:up": "supabase migrate up",
+    "db:migrate:down": "supabase migrate down",
+    "db:reset": "supabase db reset"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.6.1",
+    "@supabase/supabase-js": "^2.38.4",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "vitest": "^1.0.4"
+  }
+}

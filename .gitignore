@@ -1,0 +1,19 @@
+.tmp/
+node_modules/
+dist/
+build/
+.env
+.env.local
+.env.*.local
+*.log
+.DS_Store
+.vscode/
+.idea/
+coverage/
+*.swp
+*.swo
+*~
+
+# Supabase
+server/.supabase/
+server/supabase/.temp/
