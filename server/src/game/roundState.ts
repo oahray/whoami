@@ -247,3 +247,19 @@ export function endGame(room: RoomState): void {
 
   room.finalScoreboard = finalScoreboard
 }
+
+export function resetRoomForNewGame(room: RoomState): void {
+  room.status = 'waiting'
+  room.currentRound = null
+  room.roundHistory = []
+  room.entityPool = []
+  room.usedEntityIds.clear()
+  room.scores.clear()
+  room.finalScoreboard = undefined
+
+  for (const player of room.players.values()) {
+    player.guessCount = 0
+    player.lastGuessAt = null
+    player.isLocked = false
+  }
+}

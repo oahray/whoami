@@ -9,11 +9,13 @@ import AdminDashboard from './pages/AdminDashboard'
 import AdminEntityEditor from './pages/AdminEntityEditor'
 import AdminPreview from './pages/AdminPreview'
 import ProtectedRoute from './components/ProtectedRoute'
+import ReconnectingIndicator from './components/ReconnectingIndicator'
 
 function App() {
   return (
     <AuthProvider>
       <GameProvider>
+        <ReconnectingIndicator />
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Home />} />

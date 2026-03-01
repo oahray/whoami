@@ -1,6 +1,6 @@
 import { Server, Socket } from 'socket.io'
 import { getRoomBySocket } from '../../rooms/store.js'
-import { startGame, startNextRound, activateRound, revealClue, processGuess, endRound } from '../../game/roundState.js'
+import { startGame, startNextRound, activateRound, revealClue, processGuess, endRound, resetRoomForNewGame } from '../../game/roundState'
 import { broadcastRoundEnd } from './utils.js'
 
 export async function handleStartGame(io: Server, socket: Socket, payload: any) {
@@ -23,12 +23,16 @@ export async function handleStartGame(io: Server, socket: Socket, payload: any) 
       return
     }
 
-    if (room.status !== 'waiting') {
+    if (room.status === 'in_progress') {
       socket.emit('ROOM_ERROR', {
         code: 'GAME_IN_PROGRESS',
         message: 'Game is already in progress'
       })
       return
+    }
+
+    if (room.status === 'finished') {
+      resetRoomForNewGame(room)
     }
 
     const connectedPlayers = Array.from(room.players.values()).filter(p => p.isConnected)

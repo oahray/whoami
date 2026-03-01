@@ -24,17 +24,53 @@ export function handleJoinRoom(io: Server, socket: Socket, payload: any) {
     }
 
     const returning = findReturningPlayer(room, nickname)
-    if (returning && room.status === 'in_progress') {
-      returning.id = socket.id
-      returning.isConnected = true
-      returning.disconnectedAt = null
-      room.players.delete(returning.id)
-      room.players.set(socket.id, returning)
+    if (returning) {
+      let oldPlayerId: string | null = null
+      for (const [playerId, player] of room.players.entries()) {
+        if (player === returning) {
+          oldPlayerId = playerId
+          break
+        }
+      }
 
-      socket.join(roomCode)
-      socket.emit('RECONNECT_SUCCESS', buildReconnectPayload(room, returning))
-      socket.to(roomCode).emit('PLAYER_RECONNECTED', { nickname })
-      return
+      if (oldPlayerId) {
+        returning.id = socket.id
+        returning.isConnected = true
+        returning.disconnectedAt = null
+        room.players.delete(oldPlayerId)
+        room.players.set(socket.id, returning)
+
+        socket.join(roomCode)
+
+        if (room.status === 'in_progress') {
+          socket.emit('RECONNECT_SUCCESS', buildReconnectPayload(room, returning))
+        } else {
+          socket.emit('ROOM_JOINED', {
+            playerId: socket.id,
+            isHost: returning.isHost,
+            players: Array.from(room.players.values()).map(p => ({
+              id: p.id,
+              nickname: p.nickname,
+              isHost: p.isHost,
+              isConnected: p.isConnected
+            })),
+            settings: room.settings,
+            roomCode: room.code
+          })
+        }
+
+        socket.to(roomCode).emit('PLAYER_RECONNECTED', {
+          id: socket.id,
+          nickname,
+          players: Array.from(room.players.values()).map(p => ({
+            id: p.id,
+            nickname: p.nickname,
+            isHost: p.isHost,
+            isConnected: p.isConnected
+          }))
+        })
+        return
+      }
     }
 
     if (room.status !== 'waiting') {
@@ -46,7 +82,7 @@ export function handleJoinRoom(io: Server, socket: Socket, payload: any) {
     }
 
     for (const player of room.players.values()) {
-      if (player.nickname.toLowerCase() === nickname.toLowerCase()) {
+      if (player.nickname.toLowerCase() === nickname.toLowerCase() && player.isConnected) {
         socket.emit('ROOM_ERROR', {
           code: 'NICKNAME_TAKEN',
           message: 'Nickname already taken'

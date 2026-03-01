@@ -1,37 +1,118 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useGame } from '../context/GameContext'
+import { useGame } from '../hooks/useGame'
 import { useSocket } from '../hooks/useSocket'
 
 function Home() {
   const navigate = useNavigate()
-  const { emit } = useSocket()
-  const { setRoomCode, setError } = useGame()
+  const { socket, emit, connected } = useSocket()
+  const { roomCode, error, setError, setRoomCode } = useGame()
   const [nickname, setNickname] = useState('')
   const [joinCode, setJoinCode] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const handleCreateRoom = async () => {
+  useEffect(() => {
+    if (roomCode && !loading) {
+      console.log('roomCode changed, navigating to lobby:', roomCode)
+      const timer = setTimeout(() => {
+        navigate('/lobby', { replace: true })
+      }, 50)
+      return () => clearTimeout(timer)
+    }
+  }, [roomCode, loading, navigate])
+
+  useEffect(() => {
+    const stored = localStorage.getItem('whoami_room')
+    if (stored && socket && connected && !roomCode) {
+      try {
+        const roomData = JSON.parse(stored)
+        if (roomData.roomCode && roomData.nickname) {
+          console.log('Attempting to reconnect to room:', roomData.roomCode)
+          emit('JOIN_ROOM', {
+            roomCode: roomData.roomCode,
+            nickname: roomData.nickname
+          })
+        }
+      } catch (e) {
+        localStorage.removeItem('whoami_room')
+      }
+    }
+  }, [socket, connected, roomCode, emit])
+
+  useEffect(() => {
+    if (!socket) return
+
+    const handleRoomJoined = (data: any) => {
+      console.log('ROOM_JOINED received:', data)
+      setLoading(false)
+      const finalRoomCode = data.roomCode || joinCode.trim().toUpperCase()
+      if (finalRoomCode) {
+        setRoomCode(finalRoomCode)
+        const player = data.players?.find((p: any) => p.id === data.playerId)
+        if (player) {
+          localStorage.setItem('whoami_room', JSON.stringify({
+            roomCode: finalRoomCode,
+            nickname: player.nickname,
+            playerId: data.playerId,
+            isHost: data.isHost
+          }))
+        }
+      }
+      setTimeout(() => {
+        navigate('/lobby', { replace: true })
+      }, 100)
+    }
+
+    const handleRoomError = (data: { code: string; message: string }) => {
+      console.error('ROOM_ERROR:', data)
+      setError(data.message)
+      setLoading(false)
+      if (data.code === 'ROOM_NOT_FOUND' || data.code === 'GAME_IN_PROGRESS') {
+        localStorage.removeItem('whoami_room')
+      }
+    }
+
+    socket.on('ROOM_JOINED', handleRoomJoined)
+    socket.on('ROOM_ERROR', handleRoomError)
+
+    return () => {
+      socket.off('ROOM_JOINED', handleRoomJoined)
+      socket.off('ROOM_ERROR', handleRoomError)
+    }
+  }, [socket, navigate, setError, joinCode, setRoomCode])
+
+  const handleCreateRoom = (e: React.MouseEvent) => {
+    e.preventDefault()
     if (!nickname.trim()) {
       setError('Please enter a nickname')
       return
     }
 
-    setLoading(true)
-    setError(null)
-
-    emit('CREATE_ROOM', { nickname: nickname.trim() })
-  }
-
-  const handleJoinRoom = async () => {
-    if (!nickname.trim() || !joinCode.trim()) {
-      setError('Please enter both nickname and room code')
+    if (!socket || !connected) {
+      setError('Not connected to server. Please wait...')
       return
     }
 
     setLoading(true)
     setError(null)
+    console.log('Emitting CREATE_ROOM with nickname:', nickname.trim())
+    emit('CREATE_ROOM', { nickname: nickname.trim() })
+  }
 
+  const handleJoinRoom = (e: React.MouseEvent) => {
+    e.preventDefault()
+    if (!nickname.trim() || !joinCode.trim()) {
+      setError('Please enter both nickname and room code')
+      return
+    }
+
+    if (!connected) {
+      setError('Not connected to server. Please wait...')
+      return
+    }
+
+    setLoading(true)
+    setError(null)
     emit('JOIN_ROOM', {
       roomCode: joinCode.trim().toUpperCase(),
       nickname: nickname.trim()
@@ -63,11 +144,12 @@ function Home() {
 
           <div>
             <button
+              type="button"
               onClick={handleCreateRoom}
-              disabled={loading || !nickname.trim()}
+              disabled={loading || !nickname.trim() || !connected}
               className="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
             >
-              Create Room
+              {loading ? 'Creating...' : 'Create Room'}
             </button>
           </div>
 
@@ -97,13 +179,26 @@ function Home() {
 
           <div>
             <button
+              type="button"
               onClick={handleJoinRoom}
-              disabled={loading || !nickname.trim() || !joinCode.trim()}
+              disabled={loading || !nickname.trim() || !joinCode.trim() || !connected}
               className="w-full bg-indigo-600 text-white py-3 px-4 rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
             >
-              Join Room
+              {loading ? 'Joining...' : 'Join Room'}
             </button>
           </div>
+
+          {!connected && (
+            <div className="mt-4 p-3 bg-yellow-100 border border-yellow-400 text-yellow-700 rounded text-sm">
+              Connecting to server...
+            </div>
+          )}
+
+          {error && (
+            <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+              {error}
+            </div>
+          )}
         </div>
       </div>
     </div>

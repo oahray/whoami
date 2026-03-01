@@ -8,6 +8,7 @@
     "start": "node dist/index.js",
     "build": "tsc",
     "test": "vitest",
+    "seed": "tsx src/scripts/seed.ts",
     "db:migrate": "supabase db push",
     "db:migrate:up": "supabase migrate up",
     "db:migrate:down": "supabase migrate down",
