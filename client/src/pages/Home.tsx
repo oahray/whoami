@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useGame } from '../hooks/useGame'
 import { useSocket } from '../hooks/useSocket'
+import { getErrorMessage, isFatalError } from '../utils/errorMessages'
 
 function Home() {
   const navigate = useNavigate()
@@ -65,9 +66,10 @@ function Home() {
 
     const handleRoomError = (data: { code: string; message: string }) => {
       console.error('ROOM_ERROR:', data)
-      setError(data.message)
+      const userMessage = getErrorMessage(data.code, data.message)
+      setError(userMessage)
       setLoading(false)
-      if (data.code === 'ROOM_NOT_FOUND' || data.code === 'GAME_IN_PROGRESS') {
+      if (isFatalError(data.code)) {
         localStorage.removeItem('whoami_room')
       }
     }

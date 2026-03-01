@@ -1,5 +1,6 @@
-import { createContext, useState, useEffect, ReactNode } from 'react'
+import { createContext, useState, useEffect, useRef, ReactNode } from 'react'
 import { useSocket } from '../hooks/useSocket'
+import { getErrorMessage, isFatalError } from '../utils/errorMessages'
 
 interface Player {
   id: string
@@ -52,6 +53,7 @@ export const GameContext = createContext<GameContextType | null>(null)
 
 export function GameProvider({ children }: { children: ReactNode }) {
   const { socket } = useSocket()
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [roomCode, setRoomCode] = useState<string | null>(null)
   const [playerId, setPlayerId] = useState<string | null>(null)
   const [isHost, setIsHost] = useState(false)
@@ -102,7 +104,23 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
 
     const handleDisconnect = () => {
-      setIsReconnecting(true)
+      if (roomCode) {
+        setIsReconnecting(true)
+        setError(getErrorMessage('CONNECTION_LOST'))
+
+        if (reconnectTimeoutRef.current) {
+          clearTimeout(reconnectTimeoutRef.current)
+        }
+
+        reconnectTimeoutRef.current = setTimeout(() => {
+          if (!socket.connected) {
+            setError(getErrorMessage('RECONNECTION_FAILED'))
+            setIsReconnecting(false)
+            localStorage.removeItem('whoami_room')
+            reset()
+          }
+        }, 30000)
+      }
     }
 
     if (socket.connected && !roomCode) {
@@ -262,8 +280,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
 
     const handleRoomError = (data: { code: string; message: string }) => {
-      setError(data.message)
-      if (data.code === 'ROOM_NOT_FOUND' || data.code === 'GAME_IN_PROGRESS') {
+      const userMessage = getErrorMessage(data.code, data.message)
+      setError(userMessage)
+      if (isFatalError(data.code)) {
         localStorage.removeItem('whoami_room')
       }
     }
