@@ -3,6 +3,14 @@ import { getRoomBySocket } from '../../rooms/store.js'
 
 export function handleUpdateSettings(io: Server, socket: Socket, payload: any) {
   try {
+    if (!payload || typeof payload !== 'object') {
+      socket.emit('ROOM_ERROR', {
+        code: 'INVALID_PAYLOAD',
+        message: 'Invalid request format'
+      })
+      return
+    }
+
     const room = getRoomBySocket(socket.id)
     if (!room) {
       socket.emit('ROOM_ERROR', {
@@ -102,11 +110,12 @@ export function handleUpdateSettings(io: Server, socket: Socket, payload: any) {
     }
 
     io.to(room.code).emit('SETTINGS_UPDATED', room.settings)
-  } catch (error) {
-    console.error('Error in handleUpdateSettings:', error)
+  } catch (error: any) {
+    const room = getRoomBySocket(socket.id)
+    console.error(`Error in handleUpdateSettings for socket ${socket.id}, room: ${room?.code || 'unknown'}:`, error)
     socket.emit('ROOM_ERROR', {
       code: 'INTERNAL_ERROR',
-      message: 'An error occurred'
+      message: 'An error occurred while updating settings'
     })
   }
 }

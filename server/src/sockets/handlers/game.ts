@@ -87,22 +87,39 @@ export async function handleStartGame(io: Server, socket: Socket, payload: any) 
       }, clueRevealDelay)
     }
   } catch (error: any) {
-    console.error('Error in handleStartGame:', error)
+    const room = getRoomBySocket(socket.id)
+    console.error(`Error in handleStartGame for socket ${socket.id}, room: ${room?.code || 'unknown'}:`, error)
     socket.emit('ROOM_ERROR', {
       code: 'INTERNAL_ERROR',
-      message: error.message || 'An error occurred'
+      message: 'An error occurred while starting the game'
     })
   }
 }
 
 export function handleSubmitGuess(io: Server, socket: Socket, payload: any) {
   try {
-    const { guess } = payload
-
-    if (!guess || typeof guess !== 'string') {
+    if (!payload || typeof payload !== 'object') {
       socket.emit('ROOM_ERROR', {
         code: 'INVALID_PAYLOAD',
-        message: 'Guess is required'
+        message: 'Invalid request format'
+      })
+      return
+    }
+
+    const guessValue = payload.guess
+
+    if (!guessValue || typeof guessValue !== 'string' || guessValue.trim().length === 0) {
+      socket.emit('ROOM_ERROR', {
+        code: 'INVALID_PAYLOAD',
+        message: 'Guess is required and must be a non-empty string'
+      })
+      return
+    }
+
+    if (guessValue.length > 100) {
+      socket.emit('ROOM_ERROR', {
+        code: 'INVALID_PAYLOAD',
+        message: 'Guess is too long (maximum 100 characters)'
       })
       return
     }
@@ -125,7 +142,7 @@ export function handleSubmitGuess(io: Server, socket: Socket, payload: any) {
       return
     }
 
-    const result = processGuess(room, socket.id, guess.trim())
+    const result = processGuess(room, socket.id, guessValue.trim())
 
     if (result === null) {
       if (room.currentRound?.phase === 'starting' || room.currentRound?.phase === 'ended') {
@@ -148,7 +165,7 @@ export function handleSubmitGuess(io: Server, socket: Socket, payload: any) {
     }
 
     const broadcastPayload = room.settings.transparencyMode === 'full'
-      ? { nickname: player.nickname, guess, correct: result.correct }
+      ? { nickname: player.nickname, guess: guessValue, correct: result.correct }
       : { nickname: player.nickname, correct: result.correct }
 
     io.to(room.code).emit('GUESS_BROADCAST', broadcastPayload)
@@ -165,11 +182,12 @@ export function handleSubmitGuess(io: Server, socket: Socket, payload: any) {
         broadcastRoundEnd(io, room, roundResult)
       }
     }
-  } catch (error) {
-    console.error('Error in handleSubmitGuess:', error)
+  } catch (error: any) {
+    const room = getRoomBySocket(socket.id)
+    console.error(`Error in handleSubmitGuess for socket ${socket.id}, room: ${room?.code || 'unknown'}, guess: ${payload?.guess?.substring(0, 20) || 'unknown'}:`, error)
     socket.emit('ROOM_ERROR', {
       code: 'INTERNAL_ERROR',
-      message: 'An error occurred'
+      message: 'An error occurred while processing your guess'
     })
   }
 }
