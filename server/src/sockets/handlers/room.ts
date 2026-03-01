@@ -4,12 +4,36 @@ import { findReturningPlayer, transferHost, buildReconnectPayload, GRACE_PERIOD_
 
 export function handleJoinRoom(io: Server, socket: Socket, payload: any) {
   try {
-    const { roomCode, nickname } = payload
-
-    if (!roomCode || !nickname) {
+    if (!payload || typeof payload !== 'object') {
       socket.emit('ROOM_ERROR', {
         code: 'INVALID_PAYLOAD',
-        message: 'Room code and nickname are required'
+        message: 'Invalid request format'
+      })
+      return
+    }
+
+    const { roomCode, nickname } = payload
+
+    if (!roomCode || typeof roomCode !== 'string' || roomCode.trim().length === 0) {
+      socket.emit('ROOM_ERROR', {
+        code: 'INVALID_PAYLOAD',
+        message: 'Room code is required'
+      })
+      return
+    }
+
+    if (!nickname || typeof nickname !== 'string' || nickname.trim().length === 0) {
+      socket.emit('ROOM_ERROR', {
+        code: 'INVALID_PAYLOAD',
+        message: 'Nickname is required'
+      })
+      return
+    }
+
+    if (nickname.length > 20) {
+      socket.emit('ROOM_ERROR', {
+        code: 'INVALID_PAYLOAD',
+        message: 'Nickname is too long (maximum 20 characters)'
       })
       return
     }
@@ -129,23 +153,39 @@ export function handleJoinRoom(io: Server, socket: Socket, payload: any) {
       id: socket.id,
       nickname
     })
-  } catch (error) {
-    console.error('Error in handleJoinRoom:', error)
+  } catch (error: any) {
+    console.error(`Error in handleJoinRoom for socket ${socket.id}, roomCode: ${payload?.roomCode || 'unknown'}:`, error)
     socket.emit('ROOM_ERROR', {
       code: 'INTERNAL_ERROR',
-      message: 'An error occurred'
+      message: 'An error occurred while joining the room'
     })
   }
 }
 
 export function handleCreateRoom(io: Server, socket: Socket, payload: any) {
   try {
+    if (!payload || typeof payload !== 'object') {
+      socket.emit('ROOM_ERROR', {
+        code: 'INVALID_PAYLOAD',
+        message: 'Invalid request format'
+      })
+      return
+    }
+
     const { nickname } = payload
 
-    if (!nickname) {
+    if (!nickname || typeof nickname !== 'string' || nickname.trim().length === 0) {
       socket.emit('ROOM_ERROR', {
         code: 'INVALID_PAYLOAD',
         message: 'Nickname is required'
+      })
+      return
+    }
+
+    if (nickname.length > 20) {
+      socket.emit('ROOM_ERROR', {
+        code: 'INVALID_PAYLOAD',
+        message: 'Nickname is too long (maximum 20 characters)'
       })
       return
     }
@@ -165,11 +205,11 @@ export function handleCreateRoom(io: Server, socket: Socket, payload: any) {
       settings: room.settings,
       roomCode: room.code
     })
-  } catch (error) {
-    console.error('Error in handleCreateRoom:', error)
+  } catch (error: any) {
+    console.error(`Error in handleCreateRoom for socket ${socket.id}, nickname: ${payload?.nickname || 'unknown'}:`, error)
     socket.emit('ROOM_ERROR', {
       code: 'INTERNAL_ERROR',
-      message: 'An error occurred'
+      message: 'An error occurred while creating the room'
     })
   }
 }
@@ -203,8 +243,8 @@ export function handleLeaveRoom(io: Server, socket: Socket) {
       nickname,
       newHost: newHostId ? room.players.get(newHostId)?.nickname : null
     })
-  } catch (error) {
-    console.error('Error in handleLeaveRoom:', error)
+  } catch (error: any) {
+    console.error(`Error in handleLeaveRoom for socket ${socket.id}:`, error)
   }
 }
 
@@ -254,7 +294,7 @@ export function handleDisconnect(io: Server, socket: Socket) {
         nickname: player.nickname
       })
     }
-  } catch (error) {
-    console.error('Error in handleDisconnect:', error)
+  } catch (error: any) {
+    console.error(`Error in handleDisconnect for socket ${socket.id}:`, error)
   }
 }
