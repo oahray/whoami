@@ -1,18 +1,26 @@
-import { supabase } from '../db/supabase'
+import { supabase } from '../db/supabase.js'
 import dotenv from 'dotenv'
 
 dotenv.config()
 
-/**
- * Dev seeding script - populates Supabase with test data
- * This script is idempotent and safe to run multiple times
- */
+interface Entity {
+  name: string
+  type: 'character' | 'place'
+  difficulty: 'easy' | 'medium' | 'hard' | 'nightmare'
+  is_published: boolean
+}
+
+interface Clue {
+  text: string
+  citations: string | null
+  difficulty?: string | null
+}
+
 async function seed() {
   console.log('Starting seed...')
 
   try {
-    // Sample entities for testing
-    const entities = [
+    const entities: Entity[] = [
       {
         name: 'Moses',
         type: 'character',
@@ -51,7 +59,6 @@ async function seed() {
       }
     ]
 
-    // Insert entities (with conflict handling)
     for (const entity of entities) {
       const { data: existing } = await supabase
         .from('entities')
@@ -59,9 +66,8 @@ async function seed() {
         .eq('name', entity.name)
         .single()
 
-      let entityId
+      let entityId: string
       if (existing) {
-        // Update existing
         const { data, error } = await supabase
           .from('entities')
           .update(entity)
@@ -73,7 +79,6 @@ async function seed() {
         entityId = data.id
         console.log(`Updated entity: ${entity.name}`)
       } else {
-        // Insert new
         const { data, error } = await supabase
           .from('entities')
           .insert(entity)
@@ -85,7 +90,6 @@ async function seed() {
         console.log(`Created entity: ${entity.name}`)
       }
 
-      // Add clues for each entity
       const clues = getCluesForEntity(entity.name)
       for (let i = 0; i < clues.length; i++) {
         const clue = clues[i]
@@ -96,7 +100,6 @@ async function seed() {
           .eq('order', i + 1)
           .single()
 
-        // Extract citations string from clue data
         const citations = clue.citations || null
 
         if (existingClue) {
@@ -135,11 +138,8 @@ async function seed() {
   }
 }
 
-/**
- * Get clues for an entity (sample data)
- */
-function getCluesForEntity(entityName) {
-  const clueMap = {
+function getCluesForEntity(entityName: string): Clue[] {
+  const clueMap: Record<string, Clue[]> = {
     'Moses': [
       {
         text: 'I led the Israelites out of Egypt',
@@ -229,9 +229,9 @@ function getCluesForEntity(entityName) {
   return clueMap[entityName] || []
 }
 
-// Run seed if called directly
-if (import.meta.url === `file://${process.argv[1]}`) {
-  seed()
-}
+seed().catch((error) => {
+  console.error('Unhandled error:', error)
+  process.exit(1)
+})
 
 export { seed }
