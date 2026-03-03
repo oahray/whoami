@@ -3,13 +3,13 @@ import { buildEntityPool } from './entityPool.js'
 import { calculateScore } from './scoring.js'
 import { validateGuess } from './validation.js'
 import { isRateLimited, hasExceededMaxGuesses } from './rateLimit.js'
-import type { RoomState, RoundState } from '../rooms/store.js'
+import type { RoomState } from '../rooms/store.js'
 
 export async function startGame(room: RoomState): Promise<void> {
-  room.entityPool = await buildEntityPool(
+  room.entityPool = (await buildEntityPool(
     room.settings.difficultyMode,
     room.settings.totalRounds
-  )
+  )) as any
 
   if (room.entityPool.length === 0) {
     throw new Error('No entities available for selected difficulty')
@@ -208,7 +208,6 @@ export function endRound(room: RoomState): void {
   room.currentRound.phase = 'ended'
 
   const scoreboard = room.currentRound.correctGuesses.map(guess => {
-    const player = room.players.get(guess.playerId)
     return {
       playerId: guess.playerId,
       nickname: guess.nickname,

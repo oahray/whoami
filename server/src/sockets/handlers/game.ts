@@ -3,7 +3,7 @@ import { getRoomBySocket } from '../../rooms/store.js'
 import { startGame, startNextRound, activateRound, revealClue, processGuess, endRound, resetRoomForNewGame } from '../../game/roundState'
 import { broadcastRoundEnd } from './utils.js'
 
-export async function handleStartGame(io: Server, socket: Socket, payload: any) {
+export async function handleStartGame(io: Server, socket: Socket, _payload: any) {
   try {
     const room = getRoomBySocket(socket.id)
     if (!room) {

@@ -1,7 +1,6 @@
 import { Server } from 'socket.io'
 import type { RoomState, Player } from '../../rooms/store.js'
 import { startNextRound, activateRound, revealClue, endRound } from '../../game/roundState'
-import { deleteRoom } from '../../rooms/store.js'
 
 const GRACE_PERIOD_MS = 30000
 
