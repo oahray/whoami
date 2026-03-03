@@ -17,7 +17,7 @@ import { buildEntityPool } from './entityPool.js'
 
 describe('Round Flow Integration', () => {
   let room: RoomState
-  const mockEntity = {
+  const mockEntity: any = {
     id: 'entity-1',
     name: 'Moses',
     type: 'character',
