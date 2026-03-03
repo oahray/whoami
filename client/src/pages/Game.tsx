@@ -116,25 +116,25 @@ function Game() {
   if (gameEndData) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-xl p-8 max-w-2xl w-full">
-          <h1 className="text-3xl font-bold text-center mb-6">Game Over!</h1>
-          <div className="space-y-2 mb-6">
+        <div className="bg-white rounded-lg shadow-xl p-4 sm:p-6 md:p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <h1 className="text-2xl sm:text-3xl font-bold text-center mb-4 sm:mb-6">Game Over!</h1>
+          <div className="space-y-2 mb-4 sm:mb-6">
             {gameEndData.finalScoreboard
               .sort((a: any, b: any) => b.score - a.score)
               .map((player: any, index: number) => (
                 <div
                   key={player.playerId}
-                  className={`p-4 rounded-md ${
+                  className={`p-3 sm:p-4 rounded-md ${
                     index === 0 ? 'bg-yellow-50 border-2 border-yellow-400' : 'bg-gray-50'
                   }`}
                 >
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl font-bold">#{index + 1}</span>
-                      <span className="font-medium">{player.nickname}</span>
-                      {index === 0 && <span className="text-sm bg-yellow-400 px-2 py-1 rounded">Winner!</span>}
+                  <div className="flex justify-between items-center gap-2">
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                      <span className="text-xl sm:text-2xl font-bold flex-shrink-0">#{index + 1}</span>
+                      <span className="font-medium truncate">{player.nickname}</span>
+                      {index === 0 && <span className="text-xs sm:text-sm bg-yellow-400 px-2 py-1 rounded flex-shrink-0">Winner!</span>}
                     </div>
-                    <span className="text-xl font-bold">{player.score} pts</span>
+                    <span className="text-lg sm:text-xl font-bold whitespace-nowrap flex-shrink-0">{player.score} pts</span>
                   </div>
                 </div>
               ))}
@@ -144,7 +144,7 @@ function Game() {
               setGameEndData(null)
               navigate('/lobby')
             }}
-            className="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 font-medium"
+            className="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 font-medium text-base"
           >
             Return to Lobby
           </button>
@@ -158,57 +158,57 @@ function Game() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100">
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <div className="bg-white rounded-lg shadow-xl p-8">
-          <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold mb-2">
+      <div className="max-w-4xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
+        <div className="bg-white rounded-lg shadow-xl p-4 sm:p-6 md:p-8">
+          <div className="text-center mb-4 sm:mb-6">
+            <h1 className="text-xl sm:text-2xl font-bold mb-2">
               Round {gameState.roundNumber}
               {settings && ` of ${settings.totalRounds}`}
             </h1>
             {preGuessPhase && timeRemaining > 0 && (
-              <div className="text-lg text-gray-600 mb-4">
+              <div className="text-base sm:text-lg text-gray-600 mb-3 sm:mb-4">
                 Get ready! Guessing opens in {Math.ceil(timeRemaining / 1000)}s
               </div>
             )}
             {canGuess && timeRemaining > 0 && (
-              <div className="text-lg font-semibold text-blue-600 mb-4">
+              <div className="text-xl sm:text-2xl font-bold text-blue-600 mb-3 sm:mb-4">
                 {Math.ceil(timeRemaining / 1000)}s remaining
               </div>
             )}
           </div>
 
-          <div className="space-y-4 mb-6">
+          <div className="space-y-3 sm:space-y-4 mb-4 sm:mb-6">
             {gameState.cluesRevealed
               .sort((a, b) => a.order - b.order)
               .map((clue) => (
                 <div
                   key={`clue-${clue.order}`}
-                  className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-200"
+                  className="p-4 sm:p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-200"
                 >
-                  <div className="text-sm font-medium text-gray-600 mb-2">
+                  <div className="text-xs sm:text-sm font-medium text-gray-600 mb-1 sm:mb-2">
                     Clue {clue.order}
                   </div>
-                  <div className="text-lg">{clue.text}</div>
+                  <div className="text-base sm:text-lg leading-relaxed">{clue.text}</div>
                 </div>
               ))}
           </div>
 
           {!gameState.isLocked && canGuess && (
-            <div className="mb-6">
-              <div className="flex gap-2">
+            <div className="mb-4 sm:mb-6">
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-2">
                 <input
                   type="text"
                   value={guess}
                   onChange={(e) => setGuess(e.target.value)}
                   onKeyPress={handleKeyPress}
                   placeholder="Enter your guess..."
-                  className="flex-1 px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1 px-4 py-3 sm:py-2.5 text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   disabled={gameState.isLocked}
                 />
                 <button
                   onClick={handleSubmitGuess}
                   disabled={!guess.trim() || gameState.isLocked}
-                  className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                  className="w-full sm:w-auto px-6 py-3 sm:py-2.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium text-base"
                 >
                   Submit
                 </button>
@@ -217,24 +217,24 @@ function Game() {
           )}
 
           {gameState.isLocked && (
-            <div className="mb-6 p-4 bg-green-50 border-2 border-green-400 rounded-md text-center">
-              <div className="text-green-800 font-semibold">✓ You guessed correctly!</div>
+            <div className="mb-4 sm:mb-6 p-3 sm:p-4 bg-green-50 border-2 border-green-400 rounded-md text-center">
+              <div className="text-base sm:text-lg text-green-800 font-semibold">✓ You guessed correctly!</div>
               <div className="text-sm text-green-600 mt-1">Waiting for other players...</div>
             </div>
           )}
 
-          <div className="bg-gray-50 rounded-lg p-4">
-            <h3 className="font-semibold mb-2">Scoreboard</h3>
-            <div className="space-y-1">
+          <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
+            <h3 className="font-semibold mb-2 text-sm sm:text-base">Scoreboard</h3>
+            <div className="space-y-1.5 sm:space-y-1">
               {gameState.currentScoreboard
                 .sort((a, b) => b.score - a.score)
                 .map((player, index) => (
-                  <div key={player.playerId} className="flex justify-between text-sm">
-                    <span>
+                  <div key={player.playerId} className="flex justify-between items-center text-sm sm:text-base">
+                    <span className="truncate pr-2">
                       {index + 1}. {player.nickname}
                       {player.playerId === playerId && ' (You)'}
                     </span>
-                    <span className="font-medium">{player.score} pts</span>
+                    <span className="font-medium whitespace-nowrap">{player.score} pts</span>
                   </div>
                 ))}
             </div>
@@ -247,14 +247,14 @@ function Game() {
           )}
 
           {guessFeed.length > 0 && settings?.transparencyMode === 'full' && (
-            <div className="mt-4 bg-gray-50 rounded-lg p-4">
-              <h3 className="font-semibold mb-2 text-sm">Recent Guesses</h3>
+            <div className="mt-3 sm:mt-4 bg-gray-50 rounded-lg p-3 sm:p-4">
+              <h3 className="font-semibold mb-2 text-xs sm:text-sm">Recent Guesses</h3>
               <div className="space-y-1">
                 {guessFeed
                   .filter(item => !item.correct)
                   .slice(-5)
                   .map((item, index) => (
-                    <div key={index} className="text-sm">
+                    <div key={index} className="text-xs sm:text-sm">
                       <span className="font-medium">{item.nickname}</span>
                       {item.guess && (
                         <span className="text-gray-600">: {item.guess}</span>
@@ -269,26 +269,26 @@ function Game() {
 
       {roundEndData && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl p-8 max-w-2xl w-full">
-            <h2 className="text-2xl font-bold mb-4">Round Over!</h2>
+          <div className="bg-white rounded-lg shadow-xl p-4 sm:p-6 md:p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Round Over!</h2>
             {roundEndData.answerRevealed && (
-              <div className="mb-4">
-                <div className="text-lg font-semibold mb-2">Answer: {roundEndData.answer}</div>
+              <div className="mb-3 sm:mb-4">
+                <div className="text-base sm:text-lg font-semibold mb-1 sm:mb-2">Answer: {roundEndData.answer}</div>
                 {roundEndData.citations && roundEndData.citations.length > 0 && (
-                  <div className="text-sm text-gray-600">
+                  <div className="text-xs sm:text-sm text-gray-600 break-words">
                     Citations: {roundEndData.citations.join(', ')}
                   </div>
                 )}
               </div>
             )}
-            <div className="space-y-2 mb-4">
-              <h3 className="font-semibold">Round Scoreboard:</h3>
+            <div className="space-y-2 mb-3 sm:mb-4">
+              <h3 className="font-semibold text-sm sm:text-base">Round Scoreboard:</h3>
               {roundEndData.scoreboard.map((entry: any, index: number) => (
-                <div key={index} className="flex justify-between text-sm">
-                  <span>
+                <div key={index} className="flex justify-between items-center text-xs sm:text-sm">
+                  <span className="truncate pr-2">
                     {index + 1}. {entry.nickname} ({Math.floor(entry.timeElapsedMs / 1000)}s)
                   </span>
-                  <span className="font-medium">+{entry.pointsEarned} pts</span>
+                  <span className="font-medium whitespace-nowrap">+{entry.pointsEarned} pts</span>
                 </div>
               ))}
             </div>

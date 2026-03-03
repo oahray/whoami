@@ -122,11 +122,11 @@ function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Who Am I?</h1>
-          <p className="text-gray-600">Bible Quiz Game</p>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4 sm:p-6">
+      <div className="bg-white rounded-lg shadow-xl p-6 sm:p-8 w-full max-w-md">
+        <div className="text-center mb-6 sm:mb-8">
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">Who Am I?</h1>
+          <p className="text-sm sm:text-base text-gray-600">Bible Quiz Game</p>
         </div>
 
         <div className="space-y-6">
@@ -139,7 +139,7 @@ function Home() {
               value={nickname}
               onChange={(e) => setNickname(e.target.value)}
               placeholder="Enter your nickname"
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-3 sm:py-2 text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               disabled={loading}
             />
           </div>
@@ -174,7 +174,7 @@ function Home() {
               onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
               placeholder="Enter room code"
               maxLength={6}
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase"
+              className="w-full px-4 py-3 sm:py-2 text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase"
               disabled={loading}
             />
           </div>

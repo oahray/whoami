@@ -8,6 +8,7 @@ import AdminLogin from './pages/AdminLogin'
 import AdminDashboard from './pages/AdminDashboard'
 import AdminEntityEditor from './pages/AdminEntityEditor'
 import AdminPreview from './pages/AdminPreview'
+import AdminBulkImport from './pages/AdminBulkImport'
 import ProtectedRoute from './components/ProtectedRoute'
 import ReconnectingIndicator from './components/ReconnectingIndicator'
 
@@ -43,6 +44,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <AdminPreview />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/bulk-import"
+              element={
+                <ProtectedRoute>
+                  <AdminBulkImport />
                 </ProtectedRoute>
               }
             />

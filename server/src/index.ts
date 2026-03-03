@@ -20,15 +20,26 @@ const app = express()
 const server = createServer(app)
 const PORT = process.env.PORT || 3001
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'http://localhost:5173'
+const CLIENT_ORIGINS = process.env.CLIENT_ORIGINS
+  ? process.env.CLIENT_ORIGINS.split(',').map(origin => origin.trim())
+  : [CLIENT_ORIGIN]
+
+const allowedOrigins = [...CLIENT_ORIGINS, CLIENT_ORIGIN].filter(Boolean)
 
 app.use(cors({
-  origin: CLIENT_ORIGIN,
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true)
+    } else {
+      callback(new Error('Not allowed by CORS'))
+    }
+  },
   credentials: true
 }))
 
 app.use(express.json())
 
-app.get('/health', (req, res) => {
+app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
 })
 
@@ -36,8 +47,9 @@ app.use('/admin', adminRoutes)
 
 const io = new Server(server, {
   cors: {
-    origin: CLIENT_ORIGIN,
-    methods: ['GET', 'POST']
+    origin: allowedOrigins,
+    methods: ['GET', 'POST'],
+    credentials: true
   }
 })
 
@@ -129,5 +141,5 @@ io.on('connection', (socket) => {
 
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`)
-  console.log(`CORS enabled for: ${CLIENT_ORIGIN}`)
+  console.log(`CORS enabled for: ${allowedOrigins.join(', ')}`)
 })
