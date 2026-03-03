@@ -1,0 +1,7 @@
+node_modules
+.tmp
+.git
+*.log
+.DS_Store
+server
+supabase

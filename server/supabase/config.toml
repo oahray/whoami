@@ -1,0 +1,17 @@
+# Supabase local development configuration
+# This file is used by Supabase CLI for local development
+
+[project]
+# Your project reference ID (get from Supabase dashboard)
+# Leave empty if using remote migrations only
+
+[auth]
+enabled = true
+
+[db]
+# Local database port (default: 54322)
+port = 54322
+
+[studio]
+# Local Studio port (default: 54323)
+port = 54323
