@@ -1,0 +1,12 @@
+node_modules
+.tmp
+.git
+*.log
+.DS_Store
+client
+.vscode
+.idea
+coverage
+*.swp
+*.swo
+*~
