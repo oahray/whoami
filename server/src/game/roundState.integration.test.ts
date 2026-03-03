@@ -22,7 +22,7 @@ describe('Round Flow Integration', () => {
     name: 'Moses',
     type: 'character',
     difficulty: 'medium',
-    published: true
+    is_published: true
   }
 
   const mockClues = [
