@@ -4,7 +4,7 @@ import type { AuthRequest } from '../auth.js'
 
 const router = Router()
 
-router.get('/stats', async (req: AuthRequest, res: Response) => {
+router.get('/stats', async (_req: AuthRequest, res: Response) => {
   try {
     const { data: publishedByDifficulty, error: publishedError } = await supabase
       .from('entities')
@@ -43,14 +43,17 @@ router.get('/stats', async (req: AuthRequest, res: Response) => {
 
     if (unpublishedError) throw unpublishedError
 
-    const avgCluesPerEntity = totalEntities > 0
-      ? Math.round((totalClues! / totalEntities!) * 100) / 100
+    const safeTotalEntities = totalEntities ?? 0
+    const safeTotalClues = totalClues ?? 0
+
+    const avgCluesPerEntity = safeTotalEntities > 0
+      ? Math.round((safeTotalClues / safeTotalEntities) * 100) / 100
       : 0
 
     res.json({
       publishedCount,
-      totalClues: totalClues || 0,
-      totalEntities: totalEntities || 0,
+      totalClues: safeTotalClues,
+      totalEntities: safeTotalEntities,
       avgCluesPerEntity,
       unpublishedCount: unpublishedCount || 0
     })

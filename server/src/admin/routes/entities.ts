@@ -4,7 +4,7 @@ import type { AuthRequest } from '../auth.js'
 
 const router = Router()
 
-router.get('/entities', async (req: AuthRequest, res: Response) => {
+router.get('/entities', async (_req: AuthRequest, res: Response) => {
   try {
     const { data: entities, error: entitiesError } = await supabase
       .from('entities')

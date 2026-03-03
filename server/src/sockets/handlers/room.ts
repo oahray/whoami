@@ -2,7 +2,7 @@ import { Server, Socket } from 'socket.io'
 import { getRoom, getRoomBySocket, createRoom, deleteRoom } from '../../rooms/store.js'
 import { findReturningPlayer, transferHost, buildReconnectPayload, GRACE_PERIOD_MS } from './utils.js'
 
-export function handleJoinRoom(io: Server, socket: Socket, payload: any) {
+export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
   try {
     if (!payload || typeof payload !== 'object') {
       socket.emit('ROOM_ERROR', {
@@ -162,7 +162,7 @@ export function handleJoinRoom(io: Server, socket: Socket, payload: any) {
   }
 }
 
-export function handleCreateRoom(io: Server, socket: Socket, payload: any) {
+export function handleCreateRoom(_io: Server, socket: Socket, payload: any) {
   try {
     if (!payload || typeof payload !== 'object') {
       socket.emit('ROOM_ERROR', {
@@ -214,7 +214,7 @@ export function handleCreateRoom(io: Server, socket: Socket, payload: any) {
   }
 }
 
-export function handleLeaveRoom(io: Server, socket: Socket) {
+export function handleLeaveRoom(_io: Server, socket: Socket) {
   try {
     const room = getRoomBySocket(socket.id)
     if (!room) return
@@ -248,7 +248,7 @@ export function handleLeaveRoom(io: Server, socket: Socket) {
   }
 }
 
-export function handleDisconnect(io: Server, socket: Socket) {
+export function handleDisconnect(_io: Server, socket: Socket) {
   try {
     const room = getRoomBySocket(socket.id)
     if (!room) return

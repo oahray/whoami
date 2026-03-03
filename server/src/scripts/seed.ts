@@ -113,7 +113,7 @@ async function seed() {
             .eq('id', existingClue.id)
           console.log(`  Updated clue ${i + 1}`)
         } else {
-          const { data: newClue, error } = await supabase
+          const { error } = await supabase
             .from('clues')
             .insert({
               entity_id: entityId,
