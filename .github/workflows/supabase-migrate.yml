@@ -8,6 +8,7 @@ on:
 jobs:
   migrate:
     runs-on: ubuntu-latest
+    environment: production
 
     defaults:
       run:
