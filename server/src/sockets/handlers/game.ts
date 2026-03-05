@@ -1,6 +1,7 @@
 import { Server, Socket } from 'socket.io'
 import { getRoomBySocket } from '../../rooms/store.js'
 import { startGame, startNextRound, activateRound, revealClue, processGuess, endRound, resetRoomForNewGame } from '../../game/roundState'
+import { ROUND_START_DELAY_MS } from '../../game/config.js'
 import { broadcastRoundEnd } from './utils.js'
 
 export async function handleStartGame(io: Server, socket: Socket, _payload: any) {
@@ -61,16 +62,16 @@ export async function handleStartGame(io: Server, socket: Socket, _payload: any)
 
     setTimeout(() => {
       activateRound(room)
-      const roundEndDelay = room.settings.roundDuration - 3000
+      const roundEndDelay = room.settings.roundDuration - ROUND_START_DELAY_MS
       room.currentRound!.timers.roundEnd = setTimeout(() => {
         endRound(room)
         const roundResult = room.roundHistory[room.roundHistory.length - 1]
         broadcastRoundEnd(io, room, roundResult)
       }, roundEndDelay)
-    }, 3000)
+    }, ROUND_START_DELAY_MS)
 
     const clueRevealDelay = room.settings.clueRevealTime
-    if (clueRevealDelay > 3000) {
+    if (clueRevealDelay > ROUND_START_DELAY_MS) {
       setTimeout(() => {
         if (room.currentRound && room.currentRound.phase !== 'ended') {
           revealClue(room)

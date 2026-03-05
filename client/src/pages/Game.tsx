@@ -11,12 +11,14 @@ function Game() {
     playerId,
     gameState,
     settings,
-    error
+    error,
+    players
   } = useGame()
   const [guess, setGuess] = useState('')
   const [timeRemaining, setTimeRemaining] = useState(0)
   const [roundEndData, setRoundEndData] = useState<any>(null)
   const [gameEndData, setGameEndData] = useState<any>(null)
+  const [autoReturnSeconds, setAutoReturnSeconds] = useState<number | null>(null)
   const [guessFeed, setGuessFeed] = useState<Array<{ nickname: string; guess?: string; correct: boolean }>>([])
   const [currentPhase, setCurrentPhase] = useState<'starting' | 'active' | 'clue_revealed' | 'ended'>('starting')
 
@@ -50,9 +52,7 @@ function Game() {
     }
 
     const handleGuessBroadcast = (data: { nickname: string; guess?: string; correct: boolean }) => {
-      if (!data.correct) {
-        setGuessFeed(prev => [...prev.slice(-4), data])
-      }
+      setGuessFeed(prev => [...prev.slice(-4), data])
     }
 
     const handlePlayerCorrect = () => {
@@ -72,18 +72,19 @@ function Game() {
   }, [on, off])
 
   useEffect(() => {
-    if (!gameState || !gameState.serverStartTime) return
+    if (!gameState || !gameState.serverStartTime || !settings) return
 
     const interval = setInterval(() => {
       const elapsed = Date.now() - gameState.serverStartTime!
+      const startDelay = settings.roundStartDelayMs ?? 3000
 
       if (currentPhase === 'starting') {
-        const remaining = Math.max(0, 3000 - elapsed)
+        const remaining = Math.max(0, startDelay - elapsed)
         setTimeRemaining(remaining)
         if (remaining === 0 && currentPhase === 'starting') {
           setCurrentPhase('active')
         }
-      } else if (settings && (currentPhase === 'active' || currentPhase === 'clue_revealed')) {
+      } else if (currentPhase === 'active' || currentPhase === 'clue_revealed') {
         const remaining = Math.max(0, settings.roundDuration - elapsed)
         setTimeRemaining(remaining)
       }
@@ -91,6 +92,27 @@ function Game() {
 
     return () => clearInterval(interval)
   }, [gameState, settings, currentPhase])
+
+  useEffect(() => {
+    if (gameEndData) {
+      setAutoReturnSeconds(30)
+    } else {
+      setAutoReturnSeconds(null)
+    }
+  }, [gameEndData])
+
+  useEffect(() => {
+    if (autoReturnSeconds === null) return
+    if (autoReturnSeconds <= 0) {
+      setGameEndData(null)
+      navigate('/lobby')
+      return
+    }
+    const id = setTimeout(() => {
+      setAutoReturnSeconds(prev => (prev !== null ? prev - 1 : prev))
+    }, 1000)
+    return () => clearTimeout(id)
+  }, [autoReturnSeconds, navigate])
 
   const handleSubmitGuess = () => {
     if (!guess.trim() || !gameState || gameState.isLocked) return
@@ -148,13 +170,19 @@ function Game() {
           >
             Return to Lobby
           </button>
+          {autoReturnSeconds !== null && (
+            <p className="mt-2 text-xs sm:text-sm text-gray-500 text-center">
+              Returning to lobby in {autoReturnSeconds}s...
+            </p>
+          )}
         </div>
       </div>
     )
   }
 
-  const canGuess = currentPhase === 'active' || currentPhase === 'clue_revealed'
-  const preGuessPhase = currentPhase === 'starting'
+  const isFinalScoresView = gameState.roundNumber === 0
+  const canGuess = !isFinalScoresView && (currentPhase === 'active' || currentPhase === 'clue_revealed')
+  const preGuessPhase = !isFinalScoresView && currentPhase === 'starting'
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100">
@@ -162,8 +190,9 @@ function Game() {
         <div className="bg-white rounded-lg shadow-xl p-4 sm:p-6 md:p-8">
           <div className="text-center mb-4 sm:mb-6">
             <h1 className="text-xl sm:text-2xl font-bold mb-2">
-              Round {gameState.roundNumber}
-              {settings && ` of ${settings.totalRounds}`}
+              {isFinalScoresView
+                ? 'Final Scores'
+                : `Round ${gameState.roundNumber}${settings ? ` of ${settings.totalRounds}` : ''}`}
             </h1>
             {preGuessPhase && timeRemaining > 0 && (
               <div className="text-base sm:text-lg text-gray-600 mb-3 sm:mb-4">
@@ -177,21 +206,24 @@ function Game() {
             )}
           </div>
 
-          <div className="space-y-3 sm:space-y-4 mb-4 sm:mb-6">
-            {gameState.cluesRevealed
-              .sort((a, b) => a.order - b.order)
-              .map((clue) => (
-                <div
-                  key={`clue-${clue.order}`}
-                  className="p-4 sm:p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-200"
-                >
-                  <div className="text-xs sm:text-sm font-medium text-gray-600 mb-1 sm:mb-2">
-                    Clue {clue.order}
+          {!isFinalScoresView && (
+            <div className="space-y-3 sm:space-y-4 mb-4 sm:mb-6">
+              {gameState.cluesRevealed
+                .sort((a, b) => a.order - b.order)
+                .map((clue) => (
+                  <div
+                    key={`clue-${clue.order}`}
+                    className="p-4 sm:p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-200"
+                  >
+                    <div className="text-xs sm:text-sm font-medium text-gray-600 mb-1 sm:mb-2">
+                      Clue {clue.order}
+                    </div>
+                    <div className="text-base sm:text-lg leading-relaxed">{clue.text}</div>
                   </div>
-                  <div className="text-base sm:text-lg leading-relaxed">{clue.text}</div>
-                </div>
-              ))}
-          </div>
+                ))}
+            </div>
+          )
+          }
 
           {!gameState.isLocked && canGuess && (
             <div className="mb-4 sm:mb-6">
@@ -226,7 +258,11 @@ function Game() {
           <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
             <h3 className="font-semibold mb-2 text-sm sm:text-base">Scoreboard</h3>
             <div className="space-y-1.5 sm:space-y-1">
-              {gameState.currentScoreboard
+              {(gameState.currentScoreboard && gameState.currentScoreboard.length > 0
+                ? gameState.currentScoreboard
+                : players.map(p => ({ playerId: p.id, nickname: p.nickname, score: 0 }))
+              )
+                .slice()
                 .sort((a, b) => b.score - a.score)
                 .map((player, index) => (
                   <div key={player.playerId} className="flex justify-between items-center text-sm sm:text-base">
@@ -246,21 +282,29 @@ function Game() {
             </div>
           )}
 
-          {guessFeed.length > 0 && settings?.transparencyMode === 'full' && (
+          {guessFeed.length > 0 && (
             <div className="mt-3 sm:mt-4 bg-gray-50 rounded-lg p-3 sm:p-4">
               <h3 className="font-semibold mb-2 text-xs sm:text-sm">Recent Guesses</h3>
               <div className="space-y-1">
-                {guessFeed
-                  .filter(item => !item.correct)
-                  .slice(-5)
-                  .map((item, index) => (
-                    <div key={index} className="text-xs sm:text-sm">
-                      <span className="font-medium">{item.nickname}</span>
-                      {item.guess && (
-                        <span className="text-gray-600">: {item.guess}</span>
-                      )}
+                {guessFeed.slice(-5).map((item, index) => {
+                  const isFull = settings?.transparencyMode === 'full'
+                  const base = item.nickname
+                  let message: string
+
+                  if (item.correct) {
+                    message = `${base} guessed correctly`
+                  } else if (isFull && item.guess) {
+                    message = `${base}: ${item.guess}`
+                  } else {
+                    message = `${base} guessed`
+                  }
+
+                  return (
+                    <div key={index} className="text-xs sm:text-sm text-gray-700">
+                      {message}
                     </div>
-                  ))}
+                  )
+                })}
               </div>
             </div>
           )}
@@ -273,24 +317,47 @@ function Game() {
             <h2 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Round Over!</h2>
             {roundEndData.answerRevealed && (
               <div className="mb-3 sm:mb-4">
-                <div className="text-base sm:text-lg font-semibold mb-1 sm:mb-2">Answer: {roundEndData.answer}</div>
-                {roundEndData.citations && roundEndData.citations.length > 0 && (
-                  <div className="text-xs sm:text-sm text-gray-600 break-words">
-                    Citations: {roundEndData.citations.join(', ')}
+                <div className="text-base sm:text-lg font-semibold mb-2">Answer: {roundEndData.answer}</div>
+                {roundEndData.clues && roundEndData.clues.length > 0 && (
+                  <div className="space-y-2">
+                    {roundEndData.clues.map((clue: any, index: number) => (
+                      <div key={index} className="text-xs sm:text-sm text-gray-700">
+                        <div className="font-semibold">Clue {index + 1}</div>
+                        <div>{clue.text}</div>
+                        {clue.citations && (
+                          <div className="text-[11px] sm:text-xs text-gray-500 mt-1 break-words">
+                            Citations: {clue.citations}
+                          </div>
+                        )}
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>
             )}
             <div className="space-y-2 mb-3 sm:mb-4">
-              <h3 className="font-semibold text-sm sm:text-base">Round Scoreboard:</h3>
-              {roundEndData.scoreboard.map((entry: any, index: number) => (
-                <div key={index} className="flex justify-between items-center text-xs sm:text-sm">
-                  <span className="truncate pr-2">
-                    {index + 1}. {entry.nickname} ({Math.floor(entry.timeElapsedMs / 1000)}s)
-                  </span>
-                  <span className="font-medium whitespace-nowrap">+{entry.pointsEarned} pts</span>
+              {roundEndData.scoreboard && roundEndData.scoreboard.length > 0 ? (
+                <>
+                  <h3 className="font-semibold text-sm sm:text-base">Scores after this round:</h3>
+                  {roundEndData.scoreboard.map((entry: any, index: number) => (
+                    <div key={index} className="flex justify-between items-center text-xs sm:text-sm">
+                      <span className="truncate pr-2">
+                        {index + 1}. {entry.nickname} ({Math.floor(entry.timeElapsedMs / 1000)}s)
+                      </span>
+                      <span className="font-medium whitespace-nowrap">
+                        {entry.totalScore} pts
+                        {typeof entry.pointsEarned === 'number' && entry.pointsEarned > 0 && (
+                          <span className="ml-1 text-[11px] text-gray-500">(+{entry.pointsEarned})</span>
+                        )}
+                      </span>
+                    </div>
+                  ))}
+                </>
+              ) : (
+                <div className="text-xs sm:text-sm text-gray-600">
+                  No one got it this round.
                 </div>
-              ))}
+              )}
             </div>
           </div>
         </div>

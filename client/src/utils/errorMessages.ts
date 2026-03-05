@@ -46,6 +46,7 @@ export function isFatalError(code: string): boolean {
   return [
     'ROOM_NOT_FOUND',
     'GAME_IN_PROGRESS',
-    'RECONNECTION_FAILED'
+    'RECONNECTION_FAILED',
+    'PLAYER_BANNED'
   ].includes(code)
 }
