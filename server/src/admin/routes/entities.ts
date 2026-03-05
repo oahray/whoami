@@ -92,6 +92,7 @@ router.put('/entities/:id', async (req: AuthRequest, res: Response) => {
     if (name !== undefined) updateData.name = name
     if (type !== undefined) updateData.type = type
     if (difficulty !== undefined) updateData.difficulty = difficulty
+
     if (is_published !== undefined) {
       if (is_published) {
         const { count, error: countError } = await supabase
@@ -101,14 +102,12 @@ router.put('/entities/:id', async (req: AuthRequest, res: Response) => {
 
         if (countError) throw countError
 
-        if ((count || 0) < 3) {
-          return res.status(400).json({
-            error: 'INSUFFICIENT_CLUES',
-            message: 'Entity must have at least 3 clues before publishing'
-          })
-        }
+        // Only allow publishing when there are at least 3 clues.
+        // Otherwise, keep the entity saved but as unpublished.
+        updateData.is_published = (count || 0) >= 3
+      } else {
+        updateData.is_published = false
       }
-      updateData.is_published = is_published
     }
 
     const { data, error } = await supabase
