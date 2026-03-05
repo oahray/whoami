@@ -124,11 +124,11 @@ function Lobby() {
                 {players.filter(p => p.isConnected).map((player) => (
                   <div
                     key={player.id}
-                    className={`p-3 rounded-md ${
+                    className={`p-3 rounded-md flex items-center justify-between ${
                       player.isHost ? 'bg-blue-50 border-2 border-blue-200' : 'bg-gray-50'
                     }`}
                   >
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
                       <span className="font-medium">{player.nickname}</span>
                       {player.isHost && (
                         <span className="text-xs bg-blue-600 text-white px-2 py-1 rounded">
@@ -136,6 +136,14 @@ function Lobby() {
                         </span>
                       )}
                     </div>
+                    {isHost && !player.isHost && (
+                      <button
+                        onClick={() => emit('KICK_PLAYER', { playerId: player.id })}
+                        className="text-xs px-2 py-1 rounded bg-red-100 text-red-700 hover:bg-red-200"
+                      >
+                        Kick
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>

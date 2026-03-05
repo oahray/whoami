@@ -10,7 +10,8 @@ import {
   handleDisconnect,
   handleUpdateSettings,
   handleStartGame,
-  handleSubmitGuess
+  handleSubmitGuess,
+  handleKickPlayer
 } from './sockets/handlers/index.js'
 import adminRoutes from './admin/routes/index.js'
 
@@ -85,6 +86,18 @@ io.on('connection', (socket) => {
       handleLeaveRoom(io, socket)
     } catch (error) {
       console.error(`Unhandled error in LEAVE_ROOM for socket ${socket.id}:`, error)
+    }
+  })
+
+  socket.on('KICK_PLAYER', (payload) => {
+    try {
+      handleKickPlayer(io, socket, payload)
+    } catch (error) {
+      console.error(`Unhandled error in KICK_PLAYER for socket ${socket.id}:`, error)
+      socket.emit('ROOM_ERROR', {
+        code: 'INTERNAL_ERROR',
+        message: 'An error occurred'
+      })
     }
   })
 

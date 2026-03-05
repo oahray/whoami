@@ -14,6 +14,7 @@ export type ErrorCode =
   | 'INTERNAL_ERROR'
   | 'CONNECTION_LOST'
   | 'RECONNECTION_FAILED'
+  | 'PLAYER_BANNED'
 
 const errorMessages: Record<ErrorCode, string> = {
   ROOM_NOT_FOUND: 'This room no longer exists. Please create or join a different room.',
@@ -26,6 +27,7 @@ const errorMessages: Record<ErrorCode, string> = {
   PLAYER_LOCKED: 'You have already guessed correctly this round. Wait for the next round!',
   GUESS_RATE_LIMITED: 'Please wait a moment before guessing again.',
   NICKNAME_TAKEN: 'This nickname is already taken. Please choose a different one.',
+  PLAYER_BANNED: 'You have been removed from this room and cannot rejoin it.',
   ROOM_FULL: 'This room is full (maximum 5 players). Please join a different room.',
   INVALID_SETTINGS: 'Invalid game settings. Please check your values and try again.',
   INTERNAL_ERROR: 'An unexpected error occurred. Please try again or refresh the page.',

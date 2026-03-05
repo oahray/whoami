@@ -47,6 +47,16 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
       return
     }
 
+    // Check if player has been kicked too many times (banned from this room)
+    const kickCount = room.kickedPlayers.get(nickname.toLowerCase()) || 0
+    if (kickCount >= 2) {
+      socket.emit('ROOM_ERROR', {
+        code: 'PLAYER_BANNED',
+        message: 'You have been removed from this room and cannot rejoin'
+      })
+      return
+    }
+
     const returning = findReturningPlayer(room, nickname)
     if (returning) {
       let oldPlayerId: string | null = null
@@ -97,6 +107,52 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
       }
     }
 
+    // If a player with the same nickname already exists, treat this as a reconnection
+    const existingEntry = Array.from(room.players.entries()).find(
+      ([, player]) => player.nickname.toLowerCase() === nickname.toLowerCase()
+    )
+    if (existingEntry) {
+      const [oldPlayerId, existingPlayer] = existingEntry
+
+      existingPlayer.id = socket.id
+      existingPlayer.isConnected = true
+      existingPlayer.disconnectedAt = null
+
+      room.players.delete(oldPlayerId)
+      room.players.set(socket.id, existingPlayer)
+
+      socket.join(roomCode)
+
+      if (room.status === 'in_progress') {
+        socket.emit('RECONNECT_SUCCESS', buildReconnectPayload(room, existingPlayer))
+      } else {
+        socket.emit('ROOM_JOINED', {
+          playerId: socket.id,
+          isHost: existingPlayer.isHost,
+          players: Array.from(room.players.values()).map(p => ({
+            id: p.id,
+            nickname: p.nickname,
+            isHost: p.isHost,
+            isConnected: p.isConnected
+          })),
+          settings: room.settings,
+          roomCode: room.code
+        })
+      }
+
+      socket.to(roomCode).emit('PLAYER_RECONNECTED', {
+        id: socket.id,
+        nickname,
+        players: Array.from(room.players.values()).map(p => ({
+          id: p.id,
+          nickname: p.nickname,
+          isHost: p.isHost,
+          isConnected: p.isConnected
+        }))
+      })
+      return
+    }
+
     if (room.status !== 'waiting') {
       socket.emit('ROOM_ERROR', {
         code: 'GAME_IN_PROGRESS',
@@ -105,15 +161,7 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
       return
     }
 
-    for (const player of room.players.values()) {
-      if (player.nickname.toLowerCase() === nickname.toLowerCase() && player.isConnected) {
-        socket.emit('ROOM_ERROR', {
-          code: 'NICKNAME_TAKEN',
-          message: 'Nickname already taken'
-        })
-        return
-      }
-    }
+    // At this point, no existing player with this nickname is in the room
 
     if (room.players.size >= 5) {
       socket.emit('ROOM_ERROR', {
@@ -245,6 +293,70 @@ export function handleLeaveRoom(io: Server, socket: Socket) {
     })
   } catch (error: any) {
     console.error(`Error in handleLeaveRoom for socket ${socket.id}:`, error)
+  }
+}
+
+export function handleKickPlayer(io: Server, socket: Socket, payload: any) {
+  try {
+    if (!payload || typeof payload !== 'object' || !payload.playerId) {
+      socket.emit('ROOM_ERROR', {
+        code: 'INVALID_PAYLOAD',
+        message: 'Invalid request format'
+      })
+      return
+    }
+
+    const room = getRoomBySocket(socket.id)
+    if (!room) {
+      socket.emit('ROOM_ERROR', {
+        code: 'ROOM_NOT_FOUND',
+        message: 'Room not found'
+      })
+      return
+    }
+
+    const requester = room.players.get(socket.id)
+    if (!requester || !requester.isHost) {
+      socket.emit('ROOM_ERROR', {
+        code: 'NOT_HOST',
+        message: 'Only the host can kick players'
+      })
+      return
+    }
+
+    const target = room.players.get(payload.playerId)
+    if (!target || target.isHost) {
+      return
+    }
+
+    const nickname = target.nickname
+
+    // Update kick count for this nickname (case-insensitive)
+    const key = nickname.toLowerCase()
+    const currentCount = room.kickedPlayers.get(key) || 0
+    const newCount = currentCount + 1
+    room.kickedPlayers.set(key, newCount)
+
+    room.players.delete(payload.playerId)
+
+    // Notify the kicked player
+    io.to(payload.playerId).emit('KICKED', {
+      nickname,
+      banned: newCount >= 2
+    })
+
+    // Notify remaining players
+    io.to(room.code).emit('PLAYER_LEFT', {
+      id: payload.playerId,
+      nickname,
+      newHost: null
+    })
+  } catch (error: any) {
+    console.error(`Error in handleKickPlayer for socket ${socket.id}:`, error)
+    socket.emit('ROOM_ERROR', {
+      code: 'INTERNAL_ERROR',
+      message: 'An error occurred while kicking the player'
+    })
   }
 }
 
