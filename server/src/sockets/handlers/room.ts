@@ -107,9 +107,17 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
       }
     }
 
-    // If a player with the same nickname already exists, treat this as a reconnection
+    if (room.status === 'in_progress') {
+      socket.emit('ROOM_ERROR', {
+        code: 'GAME_IN_PROGRESS',
+        message: 'Cannot join game in progress'
+      })
+      return
+    }
+
+    // If a player with the same nickname exists (connected or not), take over their seat
     const existingEntry = Array.from(room.players.entries()).find(
-      ([, player]) => player.nickname.toLowerCase() === nickname.toLowerCase()
+      ([, p]) => p.nickname.toLowerCase() === nickname.toLowerCase()
     )
     if (existingEntry) {
       const [oldPlayerId, existingPlayer] = existingEntry
@@ -123,22 +131,18 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
 
       socket.join(roomCode)
 
-      if (room.status === 'in_progress') {
-        socket.emit('RECONNECT_SUCCESS', buildReconnectPayload(room, existingPlayer))
-      } else {
-        socket.emit('ROOM_JOINED', {
-          playerId: socket.id,
-          isHost: existingPlayer.isHost,
-          players: Array.from(room.players.values()).map(p => ({
-            id: p.id,
-            nickname: p.nickname,
-            isHost: p.isHost,
-            isConnected: p.isConnected
-          })),
-          settings: room.settings,
-          roomCode: room.code
-        })
-      }
+      socket.emit('ROOM_JOINED', {
+        playerId: socket.id,
+        isHost: existingPlayer.isHost,
+        players: Array.from(room.players.values()).map(p => ({
+          id: p.id,
+          nickname: p.nickname,
+          isHost: p.isHost,
+          isConnected: p.isConnected
+        })),
+        settings: room.settings,
+        roomCode: room.code
+      })
 
       socket.to(roomCode).emit('PLAYER_RECONNECTED', {
         id: socket.id,
@@ -152,16 +156,6 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
       })
       return
     }
-
-    if (room.status !== 'waiting') {
-      socket.emit('ROOM_ERROR', {
-        code: 'GAME_IN_PROGRESS',
-        message: 'Cannot join game in progress'
-      })
-      return
-    }
-
-    // At this point, no existing player with this nickname is in the room
 
     if (room.players.size >= 5) {
       socket.emit('ROOM_ERROR', {

@@ -11,6 +11,7 @@ interface Player {
 
 interface RoomSettings {
   roundDuration: number
+  roundStartDelayMs?: number
   clueRevealTime: number
   totalRounds: number
   difficultyMode: string
@@ -175,6 +176,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
     const handleSettingsUpdated = (newSettings: RoomSettings) => {
       setSettings(newSettings)
+      setError(null)
     }
 
     const handleReconnectSuccess = (data: any) => {
@@ -229,14 +231,21 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
 
     const handleRoundStarted = (data: any) => {
+      const isFirstRound = data.roundNumber === 1
+      const baseScoreboard =
+        isFirstRound
+          ? players.map(p => ({ playerId: p.id, nickname: p.nickname, score: 0 }))
+          : gameState?.currentScoreboard || players.map(p => ({ playerId: p.id, nickname: p.nickname, score: 0 }))
+
       setGameState({
         phase: 'starting',
         roundNumber: data.roundNumber,
         cluesRevealed: [{ order: data.clue.order, text: data.clue.text }],
         isLocked: false,
-        currentScoreboard: gameState?.currentScoreboard || [],
+        currentScoreboard: baseScoreboard,
         serverStartTime: data.serverStartTime
       })
+      setError(null)
     }
 
     const handleClueRevealed = (data: { clue: { order: number; text: string } }) => {
