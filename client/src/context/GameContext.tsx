@@ -216,6 +216,18 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setError(null)
     }
 
+    const handleKicked = (data: { nickname: string; banned: boolean }) => {
+      const message = data.banned
+        ? getErrorMessage('PLAYER_BANNED')
+        : 'You have been removed from the room by the host.'
+      setError(message)
+      localStorage.removeItem('whoami_room')
+      reset()
+      if (typeof window !== 'undefined') {
+        window.location.href = '/'
+      }
+    }
+
     const handleRoundStarted = (data: any) => {
       setGameState({
         phase: 'starting',
@@ -295,6 +307,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     socket.on('PLAYER_RECONNECTED', handlePlayerReconnected)
     socket.on('SETTINGS_UPDATED', handleSettingsUpdated)
     socket.on('RECONNECT_SUCCESS', handleReconnectSuccess)
+    socket.on('KICKED', handleKicked)
     socket.on('ROUND_STARTED', handleRoundStarted)
     socket.on('CLUE_REVEALED', handleClueRevealed)
     socket.on('PLAYER_CORRECT', handlePlayerCorrect)
@@ -311,6 +324,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       socket.off('PLAYER_RECONNECTED', handlePlayerReconnected)
       socket.off('SETTINGS_UPDATED', handleSettingsUpdated)
       socket.off('RECONNECT_SUCCESS', handleReconnectSuccess)
+      socket.off('KICKED', handleKicked)
       socket.off('ROUND_STARTED', handleRoundStarted)
       socket.off('CLUE_REVEALED', handleClueRevealed)
       socket.off('PLAYER_CORRECT', handlePlayerCorrect)

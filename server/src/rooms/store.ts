@@ -57,6 +57,7 @@ export interface RoomState {
   usedEntityIds: Set<string>
   scores: Map<string, number>
   finalScoreboard?: Array<{ playerId: string; nickname: string; score: number }>
+  kickedPlayers: Map<string, number>
 }
 
 const rooms = new Map<string, RoomState>()
@@ -96,7 +97,8 @@ export function createRoom(hostId: string, hostNickname: string): RoomState {
     roundHistory: [],
     entityPool: [],
     usedEntityIds: new Set(),
-    scores: new Map()
+    scores: new Map(),
+    kickedPlayers: new Map()
   }
 
   room.players.set(hostId, {
