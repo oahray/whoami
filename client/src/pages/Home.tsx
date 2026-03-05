@@ -52,16 +52,10 @@ function Home() {
 
   useEffect(() => {
     const storedNickname = localStorage.getItem('whoami_nickname')
-    if (storedNickname && !nickname) {
+    if (storedNickname) {
       setNickname(storedNickname)
     }
-  }, [nickname])
-
-  useEffect(() => {
-    if (nickname.trim()) {
-      localStorage.setItem('whoami_nickname', nickname.trim())
-    }
-  }, [nickname])
+  }, [])
 
   useEffect(() => {
     if (!socket) return
@@ -120,6 +114,7 @@ function Home() {
 
     setLoading(true)
     setError(null)
+    localStorage.setItem('whoami_nickname', nickname.trim())
     console.log('Emitting CREATE_ROOM with nickname:', nickname.trim())
     emit('CREATE_ROOM', { nickname: nickname.trim() })
   }
@@ -138,6 +133,7 @@ function Home() {
 
     setLoading(true)
     setError(null)
+    localStorage.setItem('whoami_nickname', nickname.trim())
     emit('JOIN_ROOM', {
       roomCode: joinCode.trim().toUpperCase(),
       nickname: nickname.trim()

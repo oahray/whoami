@@ -206,7 +206,7 @@ function getCluesForEntity(entityName) {
         citations: '2 Samuel 5:7'
       },
       {
-        text: 'Jesus was crucified outside my walls',
+        text: 'Jesus was nailed near my walls',
         citations: 'John 19:20'
       }
     ],
