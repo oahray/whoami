@@ -45,9 +45,9 @@ router.post('/bulk-import', async (req: AuthRequest, res: Response) => {
 
         const { data: existing } = await supabase
           .from('entities')
-          .select('id')
-          .eq('name', entityData.name)
-          .single()
+          .select('id, name, type, difficulty, is_published')
+          .ilike('name', entityData.name)
+          .maybeSingle()
 
         let entityId: string
         const entityPayload = {
@@ -90,12 +90,19 @@ router.post('/bulk-import', async (req: AuthRequest, res: Response) => {
           results.created++
         }
 
-        const { error: deleteCluesError } = await supabase
+        const { data: existingClues, error: existingCluesError } = await supabase
           .from('clues')
-          .delete()
+          .select('id, text')
           .eq('entity_id', entityId)
 
-        if (deleteCluesError) throw deleteCluesError
+        if (existingCluesError) throw existingCluesError
+
+        const clueMap = new Map<string, string>()
+        ;(existingClues || []).forEach(clue => {
+          if (clue.text) {
+            clueMap.set(clue.text, clue.id)
+          }
+        })
 
         for (const clueData of entityData.clues) {
           if (!clueData.text) {
@@ -103,18 +110,33 @@ router.post('/bulk-import', async (req: AuthRequest, res: Response) => {
             continue
           }
 
-          const { error: clueError } = await supabase
-            .from('clues')
-            .insert({
-              entity_id: entityId,
-              order: clueData.order,
-              text: clueData.text,
-              citations: clueData.citations || null,
-              difficulty: clueData.difficulty || null
-            })
+          const cluePayload = {
+            entity_id: entityId,
+            order: clueData.order,
+            text: clueData.text,
+            citations: clueData.citations || null,
+            difficulty: clueData.difficulty || null
+          }
 
-          if (clueError) {
-            results.errors.push(`Failed to create clue for "${entityData.name}" at order ${clueData.order}: ${clueError.message}`)
+          const existingClueId = clueMap.get(clueData.text)
+
+          if (existingClueId) {
+            const { error: updateError } = await supabase
+              .from('clues')
+              .update(cluePayload)
+              .eq('id', existingClueId)
+
+            if (updateError) {
+              results.errors.push(`Failed to update clue for "${entityData.name}" with text "${clueData.text}": ${updateError.message}`)
+            }
+          } else {
+            const { error: insertError } = await supabase
+              .from('clues')
+              .insert(cluePayload)
+
+            if (insertError) {
+              results.errors.push(`Failed to create clue for "${entityData.name}" with text "${clueData.text}": ${insertError.message}`)
+            }
           }
         }
 

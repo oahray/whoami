@@ -1,16 +1,20 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useGame } from '../hooks/useGame'
 import { useSocket } from '../hooks/useSocket'
 import { getErrorMessage, isFatalError } from '../utils/errorMessages'
 
 function Home() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { socket, emit, connected } = useSocket()
   const { roomCode, error, setError, setRoomCode } = useGame()
   const [nickname, setNickname] = useState('')
   const [joinCode, setJoinCode] = useState('')
   const [loading, setLoading] = useState(false)
+  const params = new URLSearchParams(location.search)
+  const roomParam = params.get('room')
+  const hasRoomParam = !!roomParam
 
   useEffect(() => {
     if (roomCode && !loading) {
@@ -39,6 +43,25 @@ function Home() {
       }
     }
   }, [socket, connected, roomCode, emit])
+
+  useEffect(() => {
+    if (roomParam && !joinCode) {
+      setJoinCode(roomParam.toUpperCase())
+    }
+  }, [roomParam, joinCode])
+
+  useEffect(() => {
+    const storedNickname = localStorage.getItem('whoami_nickname')
+    if (storedNickname && !nickname) {
+      setNickname(storedNickname)
+    }
+  }, [nickname])
+
+  useEffect(() => {
+    if (nickname.trim()) {
+      localStorage.setItem('whoami_nickname', nickname.trim())
+    }
+  }, [nickname])
 
   useEffect(() => {
     if (!socket) return
@@ -144,25 +167,21 @@ function Home() {
             />
           </div>
 
-          <div>
-            <button
-              type="button"
-              onClick={handleCreateRoom}
-              disabled={loading || !nickname.trim() || !connected}
-              className="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-            >
-              {loading ? 'Creating...' : 'Create Room'}
-            </button>
-          </div>
+          {!hasRoomParam && (
+            <>
+              {/* <div>
+                <button
+                  type="button"
+                  onClick={handleCreateRoom}
+                  disabled={loading || !nickname.trim() || !connected}
+                  className="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                >
+                  {loading ? 'Creating...' : 'Create Room'}
+                </button>
+              </div> */}
 
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300"></div>
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">Or</span>
-            </div>
-          </div>
+            </>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -188,6 +207,24 @@ function Home() {
             >
               {loading ? 'Joining...' : 'Join Room'}
             </button>
+
+            <div className="relative  mt-5">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-300"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white text-gray-500">Or</span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleCreateRoom}
+                className="mt-2 w-full text-sm text-blue-600 hover:text-blue-800 underline"
+                disabled={loading || !nickname.trim() || !connected}
+              >
+                Create new room instead
+              </button>
           </div>
 
           {!connected && (

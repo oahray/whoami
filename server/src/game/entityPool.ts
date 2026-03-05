@@ -1,8 +1,10 @@
-import { getPublishedEntities } from '../db/entities.js'
+import { getPublishedEntities, getCluesForEntity } from '../db/entities.js'
+import type { Entity as DbEntity } from '../db/entities.js'
 
 type Difficulty = 'easy' | 'medium' | 'hard' | 'nightmare'
+type DifficultyMode = Difficulty | 'any'
 
-interface Entity {
+interface EntityWithDifficulty {
   id: string
   name: string
   type: string
@@ -20,7 +22,7 @@ function getBackfillOrder(mode: Difficulty): Difficulty[] {
   return backfillMap[mode] || []
 }
 
-function filterByDifficulty(entities: Entity[], difficulty: Difficulty): Entity[] {
+function filterByDifficulty(entities: EntityWithDifficulty[], difficulty: Difficulty): EntityWithDifficulty[] {
   return entities.filter(e => e.difficulty === difficulty)
 }
 
@@ -33,10 +35,52 @@ function shuffle<T>(array: T[]): T[] {
   return shuffled
 }
 
-export async function buildEntityPool(mode: Difficulty, totalRounds: number): Promise<Entity[]> {
-  const allEntities = await getPublishedEntities()
+async function getEntitiesWithEffectiveDifficulty(): Promise<EntityWithDifficulty[]> {
+  const dbEntities: DbEntity[] = await getPublishedEntities()
+  const result: EntityWithDifficulty[] = []
 
-  let primary: Entity[] = []
+  const difficultyOrder: Difficulty[] = ['easy', 'medium', 'hard', 'nightmare']
+
+  for (const entity of dbEntities) {
+    const clues = await getCluesForEntity(entity.id)
+    if (!clues || clues.length < 2) {
+      continue
+    }
+
+    const clueDifficulties = clues
+      .map(c => c.difficulty)
+      .filter((d): d is Difficulty => !!d && difficultyOrder.includes(d as Difficulty))
+
+    let effective: Difficulty = 'medium'
+    if (clueDifficulties.length > 0) {
+      const minIndex = Math.min(
+        ...clueDifficulties
+          .map(d => difficultyOrder.indexOf(d as Difficulty))
+          .filter(idx => idx >= 0)
+      )
+      effective = difficultyOrder[minIndex] ?? 'medium'
+    }
+
+    result.push({
+      id: entity.id,
+      name: entity.name,
+      type: entity.type,
+      difficulty: effective,
+      is_published: entity.is_published
+    })
+  }
+
+  return result
+}
+
+export async function buildEntityPool(mode: DifficultyMode, totalRounds: number): Promise<EntityWithDifficulty[]> {
+  const allEntities = await getEntitiesWithEffectiveDifficulty()
+
+  if (mode === 'any') {
+    return shuffle(allEntities).slice(0, totalRounds)
+  }
+
+  let primary: EntityWithDifficulty[] = []
   if (mode === 'easy') {
     primary = filterByDifficulty(allEntities, 'easy')
   } else if (mode === 'medium') {

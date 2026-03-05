@@ -1,6 +1,8 @@
 import type { Entity } from '../db/entities.js'
+import { ROUND_START_DELAY_MS } from '../game/config.js'
 
 type Difficulty = 'easy' | 'medium' | 'hard' | 'nightmare'
+type DifficultyMode = Difficulty | 'any'
 type RoomStatus = 'waiting' | 'in_progress' | 'finished'
 type RoundPhase = 'starting' | 'active' | 'clue_revealed' | 'ended'
 
@@ -17,9 +19,10 @@ export interface Player {
 
 export interface RoomSettings {
   roundDuration: number
+  roundStartDelayMs: number
   clueRevealTime: number
   totalRounds: number
-  difficultyMode: Difficulty
+  difficultyMode: DifficultyMode
   strictMode: boolean
   transparencyMode: 'full' | 'minimal'
   maxGuessesPerRound: number
@@ -57,6 +60,7 @@ export interface RoomState {
   usedEntityIds: Set<string>
   scores: Map<string, number>
   finalScoreboard?: Array<{ playerId: string; nickname: string; score: number }>
+  kickedPlayers: Map<string, number>
 }
 
 const rooms = new Map<string, RoomState>()
@@ -83,10 +87,11 @@ export function createRoom(hostId: string, hostNickname: string): RoomState {
     hostId,
     players: new Map(),
     settings: {
-      roundDuration: 20000,
+      roundDuration: 30000,
+      roundStartDelayMs: ROUND_START_DELAY_MS,
       clueRevealTime: 10000,
       totalRounds: 5,
-      difficultyMode: 'medium',
+      difficultyMode: 'any',
       strictMode: false,
       transparencyMode: 'full',
       maxGuessesPerRound: 10
@@ -96,7 +101,8 @@ export function createRoom(hostId: string, hostNickname: string): RoomState {
     roundHistory: [],
     entityPool: [],
     usedEntityIds: new Set(),
-    scores: new Map()
+    scores: new Map(),
+    kickedPlayers: new Map()
   }
 
   room.players.set(hostId, {

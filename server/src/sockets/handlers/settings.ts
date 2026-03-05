@@ -1,5 +1,6 @@
 import { Server, Socket } from 'socket.io'
 import { getRoomBySocket } from '../../rooms/store.js'
+import { ROUND_START_DELAY_MS } from '../../game/config.js'
 
 export function handleUpdateSettings(io: Server, socket: Socket, payload: any) {
   try {
@@ -51,10 +52,10 @@ export function handleUpdateSettings(io: Server, socket: Socket, payload: any) {
     }
 
     if (clueRevealTime !== undefined) {
-      if (clueRevealTime < 0 || clueRevealTime >= room.settings.roundDuration) {
+      if (clueRevealTime < 0 || clueRevealTime >= room.settings.roundDuration - ROUND_START_DELAY_MS) {
         socket.emit('ROOM_ERROR', {
           code: 'INVALID_SETTINGS',
-          message: 'Clue reveal time must be less than round duration'
+          message: 'Clue reveal time must be less than round duration minus the start delay'
         })
         return
       }
@@ -73,7 +74,7 @@ export function handleUpdateSettings(io: Server, socket: Socket, payload: any) {
     }
 
     if (difficultyMode !== undefined) {
-      if (!['easy', 'medium', 'hard', 'nightmare'].includes(difficultyMode)) {
+      if (!['any', 'easy', 'medium', 'hard', 'nightmare'].includes(difficultyMode)) {
         socket.emit('ROOM_ERROR', {
           code: 'INVALID_SETTINGS',
           message: 'Invalid difficulty mode'

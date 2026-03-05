@@ -5,6 +5,15 @@ import { validateGuess } from './validation.js'
 import { isRateLimited, hasExceededMaxGuesses } from './rateLimit.js'
 import type { RoomState } from '../rooms/store.js'
 
+function shuffle<T>(array: T[]): T[] {
+  const shuffled = [...array]
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+  }
+  return shuffled
+}
+
 export async function startGame(room: RoomState): Promise<void> {
   room.entityPool = (await buildEntityPool(
     room.settings.difficultyMode,
@@ -53,10 +62,17 @@ export async function startNextRound(room: RoomState): Promise<void> {
     player.lastGuessAt = null
   }
 
+  const shuffledClues = shuffle(clues)
+
   room.currentRound = {
     roundNumber: room.roundHistory.length + 1,
     entity: entity,
-    clues: clues.map(c => ({ id: c.id, order: c.order, text: c.text, citations: c.citations })),
+    clues: shuffledClues.map((c, index) => ({
+      id: c.id,
+      order: index + 1,
+      text: c.text,
+      citations: c.citations
+    })),
     phase: 'starting',
     serverStartTime: Date.now(),
     correctGuesses: [],
@@ -74,7 +90,7 @@ export function activateRound(room: RoomState): void {
 
   room.currentRound.phase = 'active'
 
-  const clueRevealDelay = room.settings.clueRevealTime - 3000
+  const clueRevealDelay = room.settings.clueRevealTime - 2000
   if (clueRevealDelay > 0) {
     room.currentRound.timers.clueReveal = setTimeout(() => {
       revealClue(room)
@@ -205,22 +221,31 @@ export function endRound(room: RoomState): void {
     room.currentRound.timers.roundEnd = null
   }
 
+  const previousPhase = room.currentRound.phase
   room.currentRound.phase = 'ended'
 
-  const scoreboard = room.currentRound.correctGuesses.map(guess => {
+  const correctMap = new Map(
+    room.currentRound.correctGuesses.map(g => [g.playerId, g])
+  )
+
+  const scoreboard = Array.from(room.players.entries()).map(([pid, player]) => {
+    const correct = correctMap.get(pid)
     return {
-      playerId: guess.playerId,
-      nickname: guess.nickname,
-      timeElapsedMs: guess.timeElapsedMs,
-      pointsEarned: guess.pointsEarned,
-      totalScore: room.scores.get(guess.playerId) || 0
+      playerId: pid,
+      nickname: player.nickname,
+      timeElapsedMs: correct?.timeElapsedMs ?? 0,
+      pointsEarned: correct?.pointsEarned ?? 0,
+      totalScore: room.scores.get(pid) || 0
     }
-  }).sort((a, b) => a.timeElapsedMs - b.timeElapsedMs)
+  }).sort((a, b) => b.totalScore - a.totalScore)
+
+  const revealedClueCount = previousPhase === 'clue_revealed' ? 2 : 1
+  const cluesForRound = room.currentRound.clues.slice(0, revealedClueCount)
 
   const roundResult = {
     roundNumber: room.currentRound.roundNumber,
     entity: room.currentRound.entity,
-    clues: room.currentRound.clues,
+    clues: cluesForRound,
     correctGuesses: room.currentRound.correctGuesses,
     scoreboard,
     answerRevealed: room.currentRound.correctGuesses.length > 0

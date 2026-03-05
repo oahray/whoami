@@ -55,6 +55,15 @@ function Lobby() {
     }
   }
 
+  const handleCopyLink = () => {
+    if (roomCode && typeof window !== 'undefined') {
+      const url = `${window.location.origin}/?room=${roomCode}`
+      navigator.clipboard.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
   const handleStartGame = () => {
     if (players.filter(p => p.isConnected).length < 2) {
       setError('Need at least 2 players to start')
@@ -95,19 +104,27 @@ function Lobby() {
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Room Code
             </label>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <input
                 type="text"
                 value={roomCode}
                 readOnly
                 className="flex-1 px-3 sm:px-4 py-2.5 sm:py-2 border border-gray-300 rounded-md bg-gray-50 font-mono text-base sm:text-lg text-center"
               />
-              <button
-                onClick={handleCopyCode}
-                className="px-4 sm:px-6 py-2.5 sm:py-2 text-sm sm:text-base bg-blue-600 text-white rounded-md hover:bg-blue-700 whitespace-nowrap"
-              >
-                {copied ? 'Copied!' : 'Copy'}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={handleCopyCode}
+                  className="flex-1 px-3 sm:px-4 py-2.5 sm:py-2 text-xs sm:text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 whitespace-nowrap"
+                >
+                  {copied ? 'Copied!' : 'Copy Code'}
+                </button>
+                <button
+                  onClick={handleCopyLink}
+                  className="flex-1 px-3 sm:px-4 py-2.5 sm:py-2 text-xs sm:text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 whitespace-nowrap"
+                >
+                  Copy Link
+                </button>
+              </div>
             </div>
           </div>
 
@@ -124,11 +141,11 @@ function Lobby() {
                 {players.filter(p => p.isConnected).map((player) => (
                   <div
                     key={player.id}
-                    className={`p-3 rounded-md ${
+                    className={`p-3 rounded-md flex items-center justify-between ${
                       player.isHost ? 'bg-blue-50 border-2 border-blue-200' : 'bg-gray-50'
                     }`}
                   >
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
                       <span className="font-medium">{player.nickname}</span>
                       {player.isHost && (
                         <span className="text-xs bg-blue-600 text-white px-2 py-1 rounded">
@@ -136,11 +153,19 @@ function Lobby() {
                         </span>
                       )}
                     </div>
+                    {isHost && !player.isHost && (
+                      <button
+                        onClick={() => emit('KICK_PLAYER', { playerId: player.id })}
+                        className="text-xs px-2 py-1 rounded bg-red-100 text-red-700 hover:bg-red-200"
+                      >
+                        Kick
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
 
-              {isHost && (
+              {isHost ? (
                 <button
                   onClick={handleStartGame}
                   disabled={players.filter(p => p.isConnected).length < 2}
@@ -148,6 +173,10 @@ function Lobby() {
                 >
                   Start Game ({players.filter(p => p.isConnected).length} players)
                 </button>
+              ) : (
+                <div className="mt-4 w-full text-center text-sm sm:text-base text-gray-600">
+                  Waiting for host to start the game…
+                </div>
               )}
             </div>
 
@@ -168,6 +197,7 @@ function Lobby() {
                         onChange={(e) => handleUpdateSetting('difficultyMode', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md"
                       >
+                        <option value="any">Any</option>
                         <option value="easy">Easy</option>
                         <option value="medium">Medium</option>
                         <option value="hard">Hard</option>
@@ -234,9 +264,9 @@ function Lobby() {
                     {isHost ? (
                       <input
                         type="range"
-                        min="0"
-                        max={settings.roundDuration - 3000}
-                        step="1000"
+                        min="5000"
+                        max={settings.roundDuration - (settings.roundStartDelayMs ?? 3000)}
+                        step="5000"
                         value={settings.clueRevealTime}
                         onChange={(e) => handleUpdateSetting('clueRevealTime', parseInt(e.target.value))}
                         className="w-full"
@@ -245,38 +275,83 @@ function Lobby() {
                       <div className="w-full h-2 bg-gray-200 rounded-full">
                         <div
                           className="h-2 bg-blue-600 rounded-full"
-                          style={{ width: `${settings.roundDuration > 3000 ? ((settings.clueRevealTime / (settings.roundDuration - 3000)) * 100) : 0}%` }}
+                          style={{
+                            width: `${
+                              settings.roundDuration > (settings.roundStartDelayMs ?? 3000)
+                                ? (settings.clueRevealTime / (settings.roundDuration - (settings.roundStartDelayMs ?? 3000))) * 100
+                                : 0
+                            }%`
+                          }}
                         ></div>
                       </div>
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      {isHost ? (
+                        <>
+                          <input
+                            type="checkbox"
+                            id="strictMode"
+                            checked={settings.strictMode}
+                            onChange={(e) => handleUpdateSetting('strictMode', e.target.checked)}
+                            className="rounded"
+                          />
+                          <label htmlFor="strictMode" className="text-sm font-medium text-gray-700">
+                            Strict Mode
+                          </label>
+                        </>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${settings.strictMode ? 'bg-blue-600 border-blue-600' : 'border-gray-300 bg-white'}`}>
+                            {settings.strictMode && (
+                              <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                            )}
+                          </div>
+                          <label className="text-sm font-medium text-gray-700">
+                            Strict Mode {settings.strictMode ? '(Enabled)' : '(Disabled)'}
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">
+                      When enabled, guesses must more closely match the answer. When disabled, we are more lenient
+                      about small differences (articles, punctuation, spacing).
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Transparency
+                    </label>
                     {isHost ? (
                       <>
-                        <input
-                          type="checkbox"
-                          id="strictMode"
-                          checked={settings.strictMode}
-                          onChange={(e) => handleUpdateSetting('strictMode', e.target.checked)}
-                          className="rounded"
-                        />
-                        <label htmlFor="strictMode" className="text-sm font-medium text-gray-700">
-                          Strict Mode
-                        </label>
+                        <select
+                          value={settings.transparencyMode}
+                          onChange={(e) => handleUpdateSetting('transparencyMode', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                        >
+                          <option value="full">Full (show what people guessed)</option>
+                          <option value="minimal">Minimal (only show that they guessed)</option>
+                        </select>
+                        <p className="mt-1 text-xs text-gray-500">
+                          Full shows recent incorrect guesses with their text (e.g. “John: David”). Minimal only shows that
+                          someone guessed or guessed correctly, without revealing what they typed.
+                        </p>
                       </>
                     ) : (
-                      <div className="flex items-center gap-2">
-                        <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${settings.strictMode ? 'bg-blue-600 border-blue-600' : 'border-gray-300 bg-white'}`}>
-                          {settings.strictMode && (
-                            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                            </svg>
-                          )}
+                      <div>
+                        <div className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 capitalize">
+                          {settings.transparencyMode === 'full' ? 'Full' : 'Minimal'}
                         </div>
-                        <label className="text-sm font-medium text-gray-700">
-                          Strict Mode {settings.strictMode ? '(Enabled)' : '(Disabled)'}
-                        </label>
+                        <p className="mt-1 text-xs text-gray-500">
+                          {settings.transparencyMode === 'full'
+                            ? 'You will see recent incorrect guesses with their text (e.g. “John: David”).'
+                            : 'You will only see that others guessed or guessed correctly, not what they typed.'}
+                        </p>
                       </div>
                     )}
                   </div>

@@ -1,8 +1,9 @@
 import { Server } from 'socket.io'
 import type { RoomState, Player } from '../../rooms/store.js'
 import { startNextRound, activateRound, revealClue, endRound } from '../../game/roundState'
+import { ROUND_START_DELAY_MS } from '../../game/config.js'
 
-const GRACE_PERIOD_MS = 30000
+const GRACE_PERIOD_MS = 60000
 
 export function findReturningPlayer(room: RoomState, nickname: string): Player | null {
   for (const player of room.players.values()) {
@@ -76,7 +77,10 @@ export function broadcastRoundEnd(io: Server, room: RoomState, roundResult: any)
 
   if (roundResult.answerRevealed) {
     payload.answer = roundResult.entity.name
-    payload.citations = roundResult.clues.map((c: any) => c.citations).filter(Boolean)
+    payload.clues = roundResult.clues.map((c: any) => ({
+      text: c.text,
+      citations: c.citations
+    }))
   }
 
   io.to(room.code).emit('ROUND_ENDED', payload)
@@ -103,16 +107,16 @@ export function broadcastRoundEnd(io: Server, room: RoomState, roundResult: any)
 
           setTimeout(() => {
             activateRound(room)
-            const roundEndDelay = room.settings.roundDuration - 3000
+            const roundEndDelay = room.settings.roundDuration - ROUND_START_DELAY_MS
             room.currentRound!.timers.roundEnd = setTimeout(() => {
               endRound(room)
               const roundResult = room.roundHistory[room.roundHistory.length - 1]
               broadcastRoundEnd(io, room, roundResult)
             }, roundEndDelay)
-          }, 3000)
+          }, ROUND_START_DELAY_MS)
 
           const clueRevealDelay = room.settings.clueRevealTime
-          if (clueRevealDelay > 3000) {
+          if (clueRevealDelay > ROUND_START_DELAY_MS) {
             setTimeout(() => {
               if (room.currentRound && room.currentRound.phase !== 'ended') {
                 revealClue(room)
