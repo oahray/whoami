@@ -26,8 +26,6 @@ const actualStore = await vi.importActual<typeof import('../../rooms/store.js')>
 
 import { getRoomBySocket } from '../../rooms/store.js'
 import {
-  activateRound,
-  endRound,
   processGuess,
   resetRoomForNewGame,
   startGame
