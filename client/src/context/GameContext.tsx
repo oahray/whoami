@@ -2,6 +2,8 @@ import { createContext, useState, useEffect, useRef, ReactNode } from 'react'
 import { useSocket } from '../hooks/useSocket'
 import { getErrorMessage, isFatalError } from '../utils/errorMessages'
 
+const RECONNECT_GRACE_MS = 5 * 60 * 1000
+
 interface Player {
   id: string
   nickname: string
@@ -119,7 +121,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
             localStorage.removeItem('whoami_room')
             reset()
           }
-        }, 30000)
+        }, RECONNECT_GRACE_MS)
       }
     }
 
@@ -230,11 +232,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
 
     const handleRoundStarted = (data: any) => {
-      const isFirstRound = data.roundNumber === 1
       const baseScoreboard =
-        isFirstRound
-          ? players.map(p => ({ playerId: p.id, nickname: p.nickname, score: 0 }))
-          : gameState?.currentScoreboard || players.map(p => ({ playerId: p.id, nickname: p.nickname, score: 0 }))
+        data.currentScoreboard
+          || gameState?.currentScoreboard
+          || players.map(p => ({ playerId: p.id, nickname: p.nickname, score: 0 }))
 
       setGameState({
         phase: 'starting',
@@ -340,7 +341,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       socket.off('GAME_ENDED', handleGameEnded)
       socket.off('ROOM_ERROR', handleRoomError)
     }
-  }, [socket, playerId, players])
+  }, [socket, playerId, players, gameState, roomCode])
 
   const navigateToGame = () => {
     if (gameState) {
