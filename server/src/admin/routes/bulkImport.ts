@@ -104,18 +104,23 @@ router.post('/bulk-import', async (req: AuthRequest, res: Response) => {
           }
         })
 
-        for (const clueData of entityData.clues) {
+        for (let index = 0; index < entityData.clues.length; index++) {
+          const clueData = entityData.clues[index]
           if (!clueData.text) {
-            results.errors.push(`Entity "${entityData.name}" has clue with missing text at order ${clueData.order}`)
+            results.errors.push(`Entity "${entityData.name}" has clue with missing text at position ${index + 1}`)
             continue
           }
 
+          const order = typeof clueData.order === 'number' && Number.isInteger(clueData.order)
+            ? clueData.order
+            : index + 1
+
           const cluePayload = {
             entity_id: entityId,
-            order: clueData.order,
+            order,
             text: clueData.text,
-            citations: clueData.citations || null,
-            difficulty: clueData.difficulty || null
+            citations: clueData.citations ?? null,
+            difficulty: clueData.difficulty ?? null
           }
 
           const existingClueId = clueMap.get(clueData.text)

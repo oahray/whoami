@@ -6,9 +6,9 @@ function ReconnectingIndicator() {
   if (!isReconnecting) return null
 
   return (
-    <div className="fixed top-4 right-4 bg-yellow-500 text-white px-4 py-2 rounded-md shadow-lg z-50 flex items-center gap-2">
-      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-      <span>Reconnecting...</span>
+    <div className="fixed top-0 left-0 right-0 w-full bg-yellow-400/90 backdrop-blur-sm px-4 py-2 flex items-center justify-center gap-2 z-50">
+      <span className="material-symbols-outlined text-yellow-900 text-sm animate-pulse">sync</span>
+      <p className="text-yellow-900 text-xs font-semibold uppercase tracking-wider">Reconnecting...</p>
     </div>
   )
 }

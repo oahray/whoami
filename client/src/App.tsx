@@ -6,6 +6,7 @@ import Lobby from './pages/Lobby'
 import Game from './pages/Game'
 import AdminLogin from './pages/AdminLogin'
 import AdminDashboard from './pages/AdminDashboard'
+import AdminEntities from './pages/AdminEntities'
 import AdminEntityEditor from './pages/AdminEntityEditor'
 import AdminPreview from './pages/AdminPreview'
 import AdminBulkImport from './pages/AdminBulkImport'
@@ -32,7 +33,7 @@ function App() {
               }
             />
             <Route
-              path="/admin/entities/:id"
+              path="/admin/entities/new"
               element={
                 <ProtectedRoute>
                   <AdminEntityEditor />
@@ -44,6 +45,22 @@ function App() {
               element={
                 <ProtectedRoute>
                   <AdminPreview />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/entities/:id"
+              element={
+                <ProtectedRoute>
+                  <AdminEntityEditor />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/entities"
+              element={
+                <ProtectedRoute>
+                  <AdminEntities />
                 </ProtectedRoute>
               }
             />
