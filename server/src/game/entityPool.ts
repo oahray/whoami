@@ -1,4 +1,4 @@
-import { getPublishedEntities, getCluesForEntity } from '../db/entities.js'
+import { getPublishedEntities } from '../db/entities.js'
 
 type DifficultyMode = 'easy' | 'medium' | 'hard' | 'nightmare' | 'any'
 
