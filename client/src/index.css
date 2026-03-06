@@ -1,3 +1,21 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+html {
+  min-height: 100%;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  min-height: 100%;
+  min-height: max(100%, 100dvh);
+}
+
+#root {
+  min-height: 100%;
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+}

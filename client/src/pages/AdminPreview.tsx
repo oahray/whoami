@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { AdminLayout } from '../components/AdminLayout'
 import type { Entity, Clue } from '../types'
 
 const API_BASE_URL = import.meta.env.VITE_SOCKET_URL?.replace('ws://', 'http://').replace('wss://', 'https://') || 'http://localhost:3001'
@@ -48,7 +49,7 @@ function AdminPreview() {
       ])
 
       setEntity(entityData)
-      setClues(cluesData.sort((a, b) => a.order - b.order))
+      setClues(cluesData)
     } catch (err) {
       console.error('Error loading entity:', err)
     } finally {
@@ -56,125 +57,123 @@ function AdminPreview() {
     }
   }
 
-  const toggleClue = (clueOrder: number) => {
+  const toggleClue = (clueIndex: number) => {
     const newRevealed = new Set(revealedClues)
-    if (newRevealed.has(clueOrder)) {
-      newRevealed.delete(clueOrder)
+    if (newRevealed.has(clueIndex)) {
+      newRevealed.delete(clueIndex)
     } else {
-      newRevealed.add(clueOrder)
+      newRevealed.add(clueIndex)
     }
     setRevealedClues(newRevealed)
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="text-gray-600">Loading...</div>
-      </div>
+      <AdminLayout title="Preview">
+        <div className="flex items-center justify-center py-24"><div className="text-slate-600">Loading...</div></div>
+      </AdminLayout>
     )
   }
 
   if (!entity) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="text-red-600">Entity not found</div>
-      </div>
+      <AdminLayout title="Preview">
+        <div className="flex items-center justify-center py-24"><div className="text-red-600">Entity not found</div></div>
+      </AdminLayout>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <nav className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => navigate(`/admin/entities/${id}`)}
-                className="text-gray-600 hover:text-gray-900"
-              >
-                ← Back to Editor
-              </button>
-              <h1 className="text-xl font-bold">Preview: {entity.name}</h1>
+    <AdminLayout breadcrumb={`Overview / Entities / ${entity.name} / Preview`} title={`Preview: ${entity.name}`}>
+      <div className="max-w-3xl mx-auto">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+          <button
+            type="button"
+            onClick={() => navigate(`/admin/entities/${id}`)}
+            className="flex items-center gap-2 py-2 px-3 rounded-lg hover:bg-slate-100 text-slate-600 font-medium w-fit"
+          >
+            <span className="material-symbols-outlined">arrow_back</span>
+            Back to Edit
+          </button>
+          <span className="text-slate-500 text-sm">Entity Preview Mode</span>
+        </div>
+
+      <main className="flex-1 overflow-y-auto pb-28 md:pb-8">
+        <div className="px-0 md:px-2">
+          <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+            <div className="p-5">
+              <p className="text-primary text-sm font-semibold mb-1 uppercase tracking-wide">Category: {entity.type}</p>
+              <h2 className="text-2xl font-bold mb-2">Who Am I?</h2>
             </div>
           </div>
         </div>
-      </nav>
 
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white rounded-lg shadow p-8">
-          <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold mb-2">Who Am I?</h2>
-            <p className="text-gray-600">Difficulty: {entity.difficulty}</p>
-          </div>
-
-          <div className="space-y-4 mb-8">
-            {clues.map((clue) => {
-              const isRevealed = revealedClues.has(clue.order)
+        <div className="mt-6 mb-6">
+          <h3 className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-3 px-1">Clues (Admin Simulation)</h3>
+          <div className="space-y-3">
+            {clues.map((clue, clueIndex) => {
+              const isRevealed = revealedClues.has(clueIndex)
               return (
                 <div
                   key={clue.id}
-                  className="border border-gray-200 rounded-lg p-6"
+                  className={`flex items-center gap-4 p-4 rounded-lg border shadow-sm ${
+                    isRevealed ? 'bg-white border-slate-200' : 'bg-slate-50 border-dashed border-slate-300'
+                  }`}
                 >
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="text-sm font-medium text-gray-500">
-                      Clue {clue.order}
-                    </span>
-                    <button
-                      onClick={() => toggleClue(clue.order)}
-                      className="text-sm text-blue-600 hover:text-blue-800"
-                    >
-                      {isRevealed ? 'Hide' : 'Reveal'}
-                    </button>
+                  <div className={`flex items-center justify-center rounded-lg shrink-0 size-12 ${isRevealed ? 'bg-primary/10 text-primary' : 'bg-slate-200 text-slate-400'}`}>
+                    <span className="material-symbols-outlined">{isRevealed ? 'visibility' : 'visibility_off'}</span>
                   </div>
-                  {isRevealed ? (
-                    <p className="text-lg">{clue.text}</p>
-                  ) : (
-                    <p className="text-lg text-gray-400 italic">
-                      [Clue hidden - click Reveal]
-                    </p>
-                  )}
+                  <div className="flex-1">
+                    {isRevealed ? (
+                      <p className="text-slate-900 text-base font-medium leading-snug">{clue.text}</p>
+                    ) : (
+                      <p className="text-slate-400 text-base italic font-medium">[Clue hidden from players]</p>
+                    )}
+                    <p className="text-slate-500 text-xs mt-1">Clue #{clueIndex + 1} • {isRevealed ? 'Revealed' : 'Hidden'}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => toggleClue(clueIndex)}
+                    className={isRevealed ? 'bg-slate-100 text-slate-700 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-slate-200' : 'bg-primary text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary/90'}
+                  >
+                    {isRevealed ? 'Hide' : 'Reveal'}
+                  </button>
                 </div>
               )
             })}
           </div>
+        </div>
 
-          <div className="border-t border-gray-200 pt-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Answer</h3>
-              <button
-                onClick={() => setShowAnswer(!showAnswer)}
-                className="text-sm text-blue-600 hover:text-blue-800"
-              >
-                {showAnswer ? 'Hide Answer' : 'Show Answer'}
-              </button>
-            </div>
+        <div className="mb-8">
+          <div className="bg-slate-900 rounded-lg p-6 text-center border border-slate-800">
+            <h4 className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-4">Solution</h4>
             {showAnswer ? (
-              <div>
-                <p className="text-2xl font-bold mb-2">{entity.name}</p>
+              <div className="mb-6">
+                <h2 className="text-white text-4xl font-black tracking-tight mb-2 uppercase">{entity.name}</h2>
                 {clues.some(c => c.citations) && (
-                  <div className="mt-4">
-                    <h4 className="text-sm font-medium text-gray-600 mb-2">
-                      Citations:
-                    </h4>
-                    <ul className="list-disc list-inside space-y-1">
-                      {clues
-                        .filter(c => c.citations)
-                        .map((clue) => (
-                          <li key={clue.id} className="text-sm text-gray-700">
-                            Clue {clue.order}: {clue.citations}
-                          </li>
-                        ))}
-                    </ul>
-                  </div>
+                  <ul className="list-disc list-inside space-y-1 text-slate-400 text-sm text-left max-w-sm mx-auto">
+                    {clues.filter(c => c.citations).map((clue, i) => (
+                      <li key={clue.id}>Clue {i + 1}: {clue.citations}</li>
+                    ))}
+                  </ul>
                 )}
               </div>
             ) : (
-              <p className="text-gray-400 italic">[Answer hidden - click Show Answer]</p>
+              <p className="text-slate-400 italic mb-4">[Answer hidden]</p>
             )}
+            <button
+              type="button"
+              onClick={() => setShowAnswer(!showAnswer)}
+              className="w-full bg-white text-slate-900 font-bold py-3 px-6 rounded-lg hover:opacity-90 flex items-center justify-center gap-2"
+            >
+              <span className="material-symbols-outlined">check_circle</span>
+              {showAnswer ? 'Hide Answer' : 'Show Answer'}
+            </button>
           </div>
         </div>
+      </main>
       </div>
-    </div>
+    </AdminLayout>
   )
 }
 

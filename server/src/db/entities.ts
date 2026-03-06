@@ -6,7 +6,6 @@ export interface Entity {
   id: string
   name: string
   type: 'character' | 'place'
-  difficulty: Difficulty
   is_published: boolean
   created_at?: string
   updated_at?: string
@@ -15,7 +14,6 @@ export interface Entity {
 export interface Clue {
   id: string
   entity_id: string
-  order: number
   text: string
   citations: string | null
   difficulty: Difficulty | null
@@ -23,17 +21,12 @@ export interface Clue {
   updated_at?: string
 }
 
-export async function getPublishedEntities(difficulties: Difficulty[] = []): Promise<Entity[]> {
-  let query = supabase
+export async function getPublishedEntities(): Promise<Entity[]> {
+  const { data, error } = await supabase
     .from('entities')
     .select('*')
     .eq('is_published', true)
-
-  if (difficulties.length > 0) {
-    query = query.in('difficulty', difficulties)
-  }
-
-  const { data, error } = await query.order('name')
+    .order('name')
 
   if (error) {
     throw new Error(`Failed to fetch entities: ${error.message}`)
@@ -47,7 +40,7 @@ export async function getCluesForEntity(entityId: string): Promise<Clue[]> {
     .from('clues')
     .select('*')
     .eq('entity_id', entityId)
-    .order('order', { ascending: true })
+    .order('created_at', { ascending: true })
 
   if (error) {
     throw new Error(`Failed to fetch clues: ${error.message}`)

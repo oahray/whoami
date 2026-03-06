@@ -157,7 +157,7 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
       return
     }
 
-    if (room.players.size >= 5) {
+    if (room.players.size >= 10) {
       socket.emit('ROOM_ERROR', {
         code: 'ROOM_FULL',
         message: 'Room is full'

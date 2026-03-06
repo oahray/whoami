@@ -1,21 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { AdminLayout } from '../components/AdminLayout'
 
 const API_BASE_URL = import.meta.env.VITE_SOCKET_URL?.replace('ws://', 'http://').replace('wss://', 'https://') || 'http://localhost:3001'
-
-interface BulkEntity {
-  name: string
-  type: 'character' | 'place'
-  difficulty: 'easy' | 'medium' | 'hard' | 'nightmare'
-  is_published?: boolean
-  clues: Array<{
-    order: number
-    text: string
-    citations?: string | null
-    difficulty?: 'easy' | 'medium' | 'hard' | 'nightmare' | null
-  }>
-}
 
 function AdminBulkImport() {
   const { getAccessToken } = useAuth()
@@ -64,8 +52,8 @@ function AdminBulkImport() {
 
       setResult(data)
       setLoading(false)
-    } catch (err: any) {
-      setError(err.message || 'Invalid JSON')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Invalid JSON')
       setLoading(false)
     }
   }
@@ -80,17 +68,14 @@ function AdminBulkImport() {
   {
     "name": "Moses",
     "type": "character",
-    "difficulty": "medium",
     "is_published": true,
     "clues": [
       {
-        "order": 1,
         "text": "Led the Israelites out of Egypt",
         "citations": "Exodus 1:1; 3:1-5",
         "difficulty": "medium"
       },
       {
-        "order": 2,
         "text": "Received the Ten Commandments",
         "citations": "Exodus 20:1",
         "difficulty": "medium"
@@ -100,100 +85,114 @@ function AdminBulkImport() {
 ]`
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-6xl mx-auto px-4">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Bulk Import</h1>
-            <p className="text-gray-600 mt-1">Import multiple entities and clues from JSON</p>
-          </div>
+    <AdminLayout breadcrumb="Overview / Bulk Import" title="Bulk Import">
+      <div className="max-w-4xl mx-auto w-full">
+        <div className="flex items-center justify-between mb-4 md:mb-6">
           <button
+            type="button"
             onClick={() => navigate('/admin')}
-            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+            className="text-primary flex items-center gap-2 py-2 px-3 rounded-lg hover:bg-primary/10 font-medium"
           >
-            Back to Dashboard
+            <span className="material-symbols-outlined">arrow_back</span>
+            <span className="hidden sm:inline">Back to Dashboard</span>
+            <span className="sm:hidden">Back</span>
           </button>
         </div>
 
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-lg font-semibold mb-4">JSON Format</h2>
-          <div className="bg-gray-50 rounded p-4 mb-4">
-            <pre className="text-xs overflow-x-auto">{exampleJson}</pre>
-          </div>
-          <div className="text-sm text-gray-600 space-y-1">
-            <p>• Each entity must have: <code className="bg-gray-100 px-1 rounded">name</code>, <code className="bg-gray-100 px-1 rounded">type</code>, <code className="bg-gray-100 px-1 rounded">difficulty</code></p>
-            <p>• Each entity must have a <code className="bg-gray-100 px-1 rounded">clues</code> array with at least one clue</p>
-            <p>• Each clue must have: <code className="bg-gray-100 px-1 rounded">order</code>, <code className="bg-gray-100 px-1 rounded">text</code></p>
-            <p>• <code className="bg-gray-100 px-1 rounded">citations</code> and <code className="bg-gray-100 px-1 rounded">difficulty</code> are optional for clues</p>
-            <p>• Entities are matched by name (case-sensitive). Existing entities will be updated.</p>
-            <p>• All existing clues for an entity will be replaced with the new clues.</p>
-          </div>
-        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 pb-28 md:pb-8">
+          {/* Format / instructions - responsive: full width on mobile, column on desktop */}
+          <section className="order-2 lg:order-1">
+            <h3 className="text-slate-900 text-lg font-bold mb-3">JSON Format</h3>
+            <div className="bg-primary/5 rounded-lg p-4 md:p-5 border border-primary/10">
+              <div className="flex items-start gap-4 mb-4">
+                <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center shrink-0">
+                  <span className="material-symbols-outlined text-white">code</span>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-slate-900 font-bold text-sm">Format Rules</p>
+                  <p className="text-slate-600 text-xs md:text-sm leading-relaxed mt-1">
+                    JSON must be an array of entities. Each entity: name, type, clues array (text; optional citations, difficulty).
+                  </p>
+                </div>
+              </div>
+              <div className="bg-slate-900 rounded-lg p-3 font-mono text-[11px] md:text-xs text-primary/80 overflow-x-auto">
+                <pre className="whitespace-pre-wrap break-all">{exampleJson}</pre>
+              </div>
+            </div>
+          </section>
 
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-semibold">Paste JSON</h2>
-            <button
-              onClick={handleClear}
-              className="text-sm text-gray-600 hover:text-gray-800"
-            >
-              Clear
-            </button>
-          </div>
-          <textarea
-            value={jsonInput}
-            onChange={(e) => setJsonInput(e.target.value)}
-            placeholder="Paste your JSON array here..."
-            className="w-full h-96 p-4 border border-gray-300 rounded-md font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
+          {/* Paste area + actions */}
+          <section className="order-1 lg:order-2 flex flex-col">
+            <h3 className="text-slate-900 text-lg font-bold mb-3">Paste JSON Data</h3>
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <button
+                type="button"
+                onClick={() => setJsonInput(exampleJson)}
+                className="text-slate-600 text-sm font-medium flex items-center gap-1.5 py-2 px-3 rounded-lg bg-slate-100 hover:bg-slate-200 transition-colors"
+              >
+                <span className="material-symbols-outlined text-lg">data_object</span>
+                Load Example
+              </button>
+              <button
+                type="button"
+                onClick={handleClear}
+                className="text-slate-500 text-sm font-medium flex items-center gap-1 hover:text-red-500 py-2 px-3 rounded-lg hover:bg-red-50"
+              >
+                <span className="material-symbols-outlined text-sm">delete</span>
+                Clear
+              </button>
+            </div>
+            <textarea
+              value={jsonInput}
+              onChange={(e) => setJsonInput(e.target.value)}
+              placeholder='[{"name": "...", "type": "character", "clues": [{"text": "..."}]}]'
+              className="w-full min-h-[240px] md:min-h-[280px] lg:min-h-[320px] flex-1 bg-slate-50 border border-slate-200 rounded-lg p-4 font-mono text-sm focus:ring-2 focus:ring-primary focus:border-primary text-slate-900 placeholder-slate-400 resize-y"
+            />
 
-        <div className="flex gap-4 mb-6">
-          <button
-            onClick={handleImport}
-            disabled={loading || !jsonInput.trim()}
-            className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-          >
-            {loading ? 'Importing...' : 'Import Entities'}
-          </button>
-          <button
-            onClick={() => setJsonInput(exampleJson)}
-            className="px-6 py-3 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 font-medium"
-          >
-            Load Example
-          </button>
+            {/* Desktop: primary action below textarea */}
+            <div className="hidden md:block mt-4">
+              <button
+                type="button"
+                onClick={handleImport}
+                disabled={loading || !jsonInput.trim()}
+                className="w-full bg-primary text-white py-3 px-4 rounded-lg font-bold shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
+              >
+                <span className="material-symbols-outlined">upload_file</span>
+                {loading ? 'Importing...' : 'Import Entities'}
+              </button>
+            </div>
+          </section>
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+          <div className="mt-6 bg-red-50 border border-red-200 rounded-lg p-4">
             <h3 className="text-red-800 font-semibold mb-2">Error</h3>
-            <p className="text-red-700">{error}</p>
+            <p className="text-red-700 text-sm">{error}</p>
           </div>
         )}
 
         {result && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold mb-4">Import Results</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-              <div className="bg-blue-50 rounded p-3">
-                <div className="text-2xl font-bold text-blue-600">{result.summary.total}</div>
-                <div className="text-sm text-gray-600">Total</div>
+          <div className="mt-6 bg-white rounded-lg shadow-sm border border-slate-200 p-5 md:p-6">
+            <h2 className="text-lg font-bold mb-4">Import Results</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-4">
+              <div className="bg-primary/10 rounded-lg p-3">
+                <div className="text-xl md:text-2xl font-bold text-primary">{result.summary?.total ?? 0}</div>
+                <div className="text-sm text-slate-600">Total</div>
               </div>
-              <div className="bg-green-50 rounded p-3">
-                <div className="text-2xl font-bold text-green-600">{result.summary.created}</div>
-                <div className="text-sm text-gray-600">Created</div>
+              <div className="bg-emerald-50 rounded-lg p-3">
+                <div className="text-xl md:text-2xl font-bold text-emerald-600">{result.summary?.created ?? 0}</div>
+                <div className="text-sm text-slate-600">Created</div>
               </div>
-              <div className="bg-yellow-50 rounded p-3">
-                <div className="text-2xl font-bold text-yellow-600">{result.summary.updated}</div>
-                <div className="text-sm text-gray-600">Updated</div>
+              <div className="bg-amber-50 rounded-lg p-3">
+                <div className="text-xl md:text-2xl font-bold text-amber-600">{result.summary?.updated ?? 0}</div>
+                <div className="text-sm text-slate-600">Updated</div>
               </div>
-              <div className="bg-red-50 rounded p-3">
-                <div className="text-2xl font-bold text-red-600">{result.summary.errors}</div>
-                <div className="text-sm text-gray-600">Errors</div>
+              <div className="bg-rose-50 rounded-lg p-3">
+                <div className="text-xl md:text-2xl font-bold text-rose-600">{result.summary?.errors ?? 0}</div>
+                <div className="text-sm text-slate-600">Errors</div>
               </div>
             </div>
-
-            {result.errors && result.errors.length > 0 && (
+            {result.errors?.length > 0 && (
               <div className="mt-4">
                 <h3 className="font-semibold text-red-800 mb-2">Errors:</h3>
                 <ul className="list-disc list-inside space-y-1 text-sm text-red-700">
@@ -203,16 +202,29 @@ function AdminBulkImport() {
                 </ul>
               </div>
             )}
-
-            {result.summary.errors === 0 && (
-              <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded text-green-800">
+            {result.summary?.errors === 0 && (
+              <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm">
                 ✓ Import completed successfully!
               </div>
             )}
           </div>
         )}
       </div>
-    </div>
+
+      {/* Mobile: FAB for Import (above bottom nav) */}
+      <div className="md:hidden fixed right-4 bottom-20 z-20">
+        <button
+          type="button"
+          onClick={handleImport}
+          disabled={loading || !jsonInput.trim()}
+          className="flex items-center justify-center size-14 rounded-full bg-primary text-white font-bold shadow-lg shadow-primary/30 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/90 active:scale-95 transition-transform"
+          title={loading ? 'Importing...' : 'Import Entities'}
+          aria-label={loading ? 'Importing...' : 'Import Entities'}
+        >
+          <span className="material-symbols-outlined text-2xl">upload_file</span>
+        </button>
+      </div>
+    </AdminLayout>
   )
 }
 

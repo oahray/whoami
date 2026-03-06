@@ -57,10 +57,10 @@ router.get('/entities/:id', async (req: AuthRequest, res: Response) => {
 
 router.post('/entities', async (req: AuthRequest, res: Response) => {
   try {
-    const { name, type, difficulty, is_published } = req.body
+    const { name, type, is_published } = req.body
 
-    if (!name || !type || !difficulty) {
-      return res.status(400).json({ error: 'Missing required fields' })
+    if (!name || !type) {
+      return res.status(400).json({ error: 'Missing required fields: name, type' })
     }
 
     const { data, error } = await supabase
@@ -68,7 +68,6 @@ router.post('/entities', async (req: AuthRequest, res: Response) => {
       .insert({
         name,
         type,
-        difficulty,
         is_published: is_published || false
       })
       .select()
@@ -86,12 +85,11 @@ router.post('/entities', async (req: AuthRequest, res: Response) => {
 router.put('/entities/:id', async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params
-    const { name, type, difficulty, is_published } = req.body
+    const { name, type, is_published } = req.body
 
     const updateData: any = {}
     if (name !== undefined) updateData.name = name
     if (type !== undefined) updateData.type = type
-    if (difficulty !== undefined) updateData.difficulty = difficulty
 
     if (is_published !== undefined) {
       if (is_published) {
