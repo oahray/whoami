@@ -14,11 +14,9 @@ function Home() {
   const [loading, setLoading] = useState(false)
   const params = new URLSearchParams(location.search)
   const roomParam = params.get('room')
-  const hasRoomParam = !!roomParam
 
   useEffect(() => {
     if (roomCode && !loading) {
-      console.log('roomCode changed, navigating to lobby:', roomCode)
       const timer = setTimeout(() => {
         navigate('/lobby', { replace: true })
       }, 50)
@@ -32,7 +30,6 @@ function Home() {
       try {
         const roomData = JSON.parse(stored)
         if (roomData.roomCode && roomData.nickname) {
-          console.log('Attempting to reconnect to room:', roomData.roomCode)
           emit('JOIN_ROOM', {
             roomCode: roomData.roomCode,
             nickname: roomData.nickname
@@ -61,7 +58,6 @@ function Home() {
     if (!socket) return
 
     const handleRoomJoined = (data: any) => {
-      console.log('ROOM_JOINED received:', data)
       setLoading(false)
       const finalRoomCode = data.roomCode || joinCode.trim().toUpperCase()
       if (finalRoomCode) {
@@ -82,7 +78,6 @@ function Home() {
     }
 
     const handleRoomError = (data: { code: string; message: string }) => {
-      console.error('ROOM_ERROR:', data)
       const userMessage = getErrorMessage(data.code, data.message)
       setError(userMessage)
       setLoading(false)
@@ -106,16 +101,13 @@ function Home() {
       setError('Please enter a nickname')
       return
     }
-
     if (!socket || !connected) {
       setError('Not connected to server. Please wait...')
       return
     }
-
     setLoading(true)
     setError(null)
     localStorage.setItem('whoami_nickname', nickname.trim())
-    console.log('Emitting CREATE_ROOM with nickname:', nickname.trim())
     emit('CREATE_ROOM', { nickname: nickname.trim() })
   }
 
@@ -125,12 +117,10 @@ function Home() {
       setError('Please enter both nickname and room code')
       return
     }
-
     if (!connected) {
       setError('Not connected to server. Please wait...')
       return
     }
-
     setLoading(true)
     setError(null)
     localStorage.setItem('whoami_nickname', nickname.trim())
@@ -141,101 +131,89 @@ function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4 sm:p-6">
-      <div className="bg-white rounded-lg shadow-xl p-6 sm:p-8 w-full max-w-md">
-        <div className="text-center mb-6 sm:mb-8">
-          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">Who Am I?</h1>
-          <p className="text-sm sm:text-base text-gray-600">Bible Quiz Game</p>
+    <div className="relative flex min-h-screen w-full flex-col bg-gradient-to-br from-primary via-indigo-500 to-indigo-400 overflow-x-hidden font-display antialiased">
+      {!connected && (
+        <div className="w-full bg-yellow-400/90 backdrop-blur-sm px-4 py-2 flex items-center justify-center gap-2">
+          <span className="material-symbols-outlined text-yellow-900 text-sm">sync</span>
+          <p className="text-yellow-900 text-xs font-semibold uppercase tracking-wider">Connecting to server...</p>
+        </div>
+      )}
+
+      <div className="flex flex-1 flex-col items-center justify-center p-6 pb-12">
+        <div className="mb-8 flex flex-col items-center">
+          <div className="w-20 h-20 bg-white rounded-lg shadow-xl flex items-center justify-center mb-4">
+            <span className="material-symbols-outlined text-primary text-5xl">auto_stories</span>
+          </div>
+          <h1 className="text-white text-3xl font-bold tracking-tight text-center">Who Am I?</h1>
+          <p className="text-white/80 text-base font-medium text-center mt-1">The Ultimate Bible Quiz</p>
         </div>
 
-        <div className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Your Nickname
-            </label>
-            <input
-              type="text"
-              value={nickname}
-              onChange={(e) => setNickname(e.target.value)}
-              placeholder="Enter your nickname"
-              className="w-full px-4 py-3 sm:py-2 text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              disabled={loading}
-            />
+        <div className="w-full max-w-md bg-white rounded-lg shadow-2xl border border-slate-200 p-8 flex flex-col gap-6">
+          <div className="flex flex-col gap-2">
+            <label className="text-slate-800 text-sm font-semibold ml-1">Your Nickname</label>
+            <div className="relative">
+              <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-600">person</span>
+              <input
+                type="text"
+                value={nickname}
+                onChange={(e) => setNickname(e.target.value)}
+                placeholder="e.g. Apostle Paul"
+                disabled={loading}
+                className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors text-slate-900 placeholder:text-slate-500 font-medium disabled:opacity-60"
+              />
+            </div>
           </div>
 
-          {!hasRoomParam && (
-            <>
-              {/* <div>
-                <button
-                  type="button"
-                  onClick={handleCreateRoom}
-                  disabled={loading || !nickname.trim() || !connected}
-                  className="w-full bg-blue-600 text-white py-3 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-                >
-                  {loading ? 'Creating...' : 'Create Room'}
-                </button>
-              </div> */}
-
-            </>
-          )}
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Room Code
-            </label>
-            <input
-              type="text"
-              value={joinCode}
-              onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-              placeholder="Enter room code"
-              maxLength={6}
-              className="w-full px-4 py-3 sm:py-2 text-base border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase"
-              disabled={loading}
-            />
+          <div className="flex flex-col gap-2">
+            <label className="text-slate-800 text-sm font-semibold ml-1">Room Code</label>
+            <div className="relative">
+              <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-600">key</span>
+              <input
+                type="text"
+                value={joinCode}
+                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                placeholder="6-character code"
+                maxLength={6}
+                disabled={loading}
+                className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors text-slate-900 placeholder:text-slate-500 font-medium tracking-[0.2em] uppercase disabled:opacity-60"
+              />
+            </div>
           </div>
 
-          <div>
+          <button
+            type="button"
+            onClick={handleJoinRoom}
+            disabled={loading || !nickname.trim() || !joinCode.trim() || !connected}
+            className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-5 rounded-lg shadow-lg shadow-primary/30 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+          >
+            <span>{loading ? 'Joining...' : 'Join Room'}</span>
+            <span className="material-symbols-outlined">login</span>
+          </button>
+
+          <div className="flex flex-col items-center gap-3">
+            <div className="flex items-center w-full gap-3">
+              <div className="flex-1 h-px bg-slate-200" />
+              <span className="text-slate-600 text-sm font-medium">Or</span>
+              <div className="flex-1 h-px bg-slate-200" />
+            </div>
             <button
               type="button"
-              onClick={handleJoinRoom}
-              disabled={loading || !nickname.trim() || !joinCode.trim() || !connected}
-              className="w-full bg-indigo-600 text-white py-3 px-4 rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+              onClick={handleCreateRoom}
+              disabled={loading || !nickname.trim() || !connected}
+              className="w-full py-3.5 px-4 rounded-lg border-2 border-primary bg-primary/10 text-primary font-semibold hover:bg-primary/20 hover:border-primary/80 active:bg-primary/25 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              {loading ? 'Joining...' : 'Join Room'}
+              <span className="material-symbols-outlined text-xl">add_circle</span>
+              Create new room instead
             </button>
-
-            <div className="relative  mt-5">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-300"></div>
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white text-gray-500">Or</span>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleCreateRoom}
-                className="mt-2 w-full text-sm text-blue-600 hover:text-blue-800 underline"
-                disabled={loading || !nickname.trim() || !connected}
-              >
-                Create new room instead
-              </button>
           </div>
-
-          {!connected && (
-            <div className="mt-4 p-3 bg-yellow-100 border border-yellow-400 text-yellow-700 rounded text-sm">
-              Connecting to server...
-            </div>
-          )}
-
-          {error && (
-            <div className="mt-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-              {error}
-            </div>
-          )}
         </div>
       </div>
+
+      {error && (
+        <div className="fixed bottom-4 left-4 right-4 max-w-md mx-auto p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-sm z-50">
+          {error}
+        </div>
+      )}
     </div>
   )
 }

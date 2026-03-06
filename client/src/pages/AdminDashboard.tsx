@@ -1,21 +1,31 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import type { Entity, Stats, Difficulty } from '../types'
+import { AdminLayout } from '../components/AdminLayout'
+import type { Stats, Difficulty } from '../types'
 
 const API_BASE_URL = import.meta.env.VITE_SOCKET_URL?.replace('ws://', 'http://').replace('wss://', 'https://') || 'http://localhost:3001'
 
+function deriveAvgDifficulty(stats: Stats): string {
+  const { publishedCount } = stats
+  const entries = (['easy', 'medium', 'hard', 'nightmare'] as Difficulty[]).map(d => ({ d, n: publishedCount[d] || 0 }))
+  const max = entries.reduce((a, b) => (b.n > a.n ? b : a), { d: 'medium', n: 0 })
+  if (max.n === 0) return '—'
+  return max.d.charAt(0).toUpperCase() + max.d.slice(1)
+}
+
+function getDifficultyDotColor(count: number): string {
+  if (count >= 10) return 'bg-green-500'
+  if (count >= 5) return 'bg-amber-500'
+  return 'bg-red-500'
+}
+
 function AdminDashboard() {
-  const { user, signOut, getAccessToken } = useAuth()
+  const { getAccessToken } = useAuth()
   const navigate = useNavigate()
-  const [entities, setEntities] = useState<Entity[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [filterDifficulty, setFilterDifficulty] = useState<string>('all')
-  const [filterType, setFilterType] = useState<string>('all')
-  const [filterPublished, setFilterPublished] = useState<string>('all')
 
   useEffect(() => {
     loadData()
@@ -29,33 +39,18 @@ function AdminDashboard() {
         navigate('/admin/login')
         return
       }
-
-      const [entitiesData, statsData] = await Promise.all([
-        fetch(`${API_BASE_URL}/admin/entities`, {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-        }).then(res => {
-          if (!res.ok) throw new Error('Request failed')
-          return res.json() as Promise<Entity[]>
-        }),
-        fetch(`${API_BASE_URL}/admin/stats`, {
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-        }).then(res => {
-          if (!res.ok) throw new Error('Request failed')
-          return res.json() as Promise<Stats>
-        }),
-      ])
-
-      setEntities(entitiesData)
-      setStats(statsData)
-    } catch (err: any) {
-      setError(err.message || 'Failed to load data')
-      if (err.message.includes('Unauthorized') || err.message.includes('Forbidden')) {
+      const res = await fetch(`${API_BASE_URL}/admin/stats`, {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      })
+      if (!res.ok) throw new Error('Request failed')
+      const data = (await res.json()) as Stats
+      setStats(data)
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to load stats')
+      if (err instanceof Error && (err.message.includes('Unauthorized') || err.message.includes('Forbidden'))) {
         navigate('/admin/login')
       }
     } finally {
@@ -63,252 +58,108 @@ function AdminDashboard() {
     }
   }
 
-  const handleSignOut = async () => {
-    await signOut()
-    navigate('/admin/login')
-  }
-
-  const getTrafficLightColor = (count: number): string => {
-    return count >= 10 ? 'bg-green-500' : 'bg-red-500'
-  }
-
-  const filteredEntities = entities.filter((entity) => {
-    if (searchQuery && !entity.name.toLowerCase().includes(searchQuery.toLowerCase())) {
-      return false
-    }
-    if (filterType !== 'all' && entity.type !== filterType) {
-      return false
-    }
-    if (filterDifficulty !== 'all' && entity.difficulty !== filterDifficulty) {
-      return false
-    }
-    if (filterPublished === 'published' && !entity.is_published) {
-      return false
-    }
-    if (filterPublished === 'unpublished' && entity.is_published) {
-      return false
-    }
-    return true
-  })
-
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="text-gray-600">Loading...</div>
-      </div>
+      <AdminLayout breadcrumb="Overview / Dashboard" title="Admin Dashboard">
+        <div className="flex items-center justify-center py-24">
+          <div className="text-slate-600">Loading...</div>
+        </div>
+      </AdminLayout>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <nav className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <h1 className="text-xl font-bold">Admin Dashboard</h1>
+    <AdminLayout breadcrumb="Overview / Dashboard" title="Admin Dashboard">
+      {error && (
+        <div className="mb-6 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-sm">
+          {error}
+        </div>
+      )}
+
+      {/* High-Level Statistics */}
+      <section className="mb-8">
+        <h2 className="text-slate-900 text-xl md:text-2xl font-bold mb-4">
+          High-Level Statistics
+        </h2>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white rounded-md p-2 shadow-sm border border-slate-200">
+            <div className="flex items-start justify-between gap-2">
+              <span className="material-symbols-outlined text-primary text-2xl">track_changes</span>
+              <span className="text-green-600 text-xs font-semibold flex items-center gap-0.5">+12% <span className="material-symbols-outlined text-sm">trending_up</span></span>
             </div>
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-gray-600">{user?.email}</span>
-              <button
-                onClick={handleSignOut}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
-              >
-                Sign Out
-              </button>
+            <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider mt-3">Total Entities</p>
+            <p className="text-slate-900 text-2xl font-bold mt-1">{stats?.totalEntities ?? 0}</p>
+          </div>
+          <div className="bg-white rounded-md p-5 shadow-sm border border-slate-200">
+            <div className="flex items-start justify-between gap-2">
+              <span className="material-symbols-outlined text-primary text-2xl">menu_book</span>
+              <span className="text-slate-500 text-xs font-semibold">Total</span>
             </div>
+            <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider mt-3">Total Clues</p>
+            <p className="text-slate-900 text-2xl font-bold mt-1">{stats?.totalClues ?? 0}</p>
+          </div>
+          <div className="bg-white rounded-md p-5 shadow-sm border border-slate-200">
+            <div className="flex items-start justify-between gap-2">
+              <span className="material-symbols-outlined text-primary text-2xl">analytics</span>
+            </div>
+            <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider mt-3">Avg Clues / Entity</p>
+            <p className="text-slate-900 text-2xl font-bold mt-1">{stats?.avgCluesPerEntity ?? 0}</p>
+          </div>
+          <div className="bg-white rounded-md p-5 shadow-sm border border-slate-200">
+            <div className="flex items-start justify-between gap-2">
+              <span className="material-symbols-outlined text-primary text-2xl">draft</span>
+            </div>
+            <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider mt-3">Unpublished</p>
+            <p className="text-slate-900 text-2xl font-bold mt-1">{stats?.unpublishedCount ?? 0}</p>
           </div>
         </div>
-      </nav>
+      </section>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {error && (
-          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-            {error}
-          </div>
-        )}
-
-        {stats && (
-          <div className="mb-8 bg-white rounded-lg shadow p-6">
-            <h2 className="text-lg font-semibold mb-4">Statistics</h2>
+      {/* Published by Difficulty */}
+      {stats && (
+        <section className="mb-8">
+          <h2 className="text-slate-900 text-xl md:text-2xl font-bold mb-4">
+            Published by Difficulty
+          </h2>
+          <div className="bg-white rounded-md p-5 shadow-sm border border-slate-200">
+            <p className="text-slate-600 text-sm font-medium mb-4">Number of published entities per difficulty level.</p>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div>
-                <div className="text-sm text-gray-600">Total Entities</div>
-                <div className="text-2xl font-bold">{stats.totalEntities}</div>
-              </div>
-              <div>
-                <div className="text-sm text-gray-600">Total Clues</div>
-                <div className="text-2xl font-bold">{stats.totalClues}</div>
-              </div>
-              <div>
-                <div className="text-sm text-gray-600">Avg Clues/Entity</div>
-                <div className="text-2xl font-bold">{stats.avgCluesPerEntity}</div>
-              </div>
-              <div>
-                <div className="text-sm text-gray-600">Unpublished</div>
-                <div className="text-2xl font-bold">{stats.unpublishedCount}</div>
-              </div>
-            </div>
-
-            <div className="mt-6">
-              <h3 className="text-sm font-semibold mb-2">Published by Difficulty</h3>
-              <div className="grid grid-cols-4 gap-4">
-                {(['easy', 'medium', 'hard', 'nightmare'] as Difficulty[]).map((difficulty) => {
-                  const count = stats.publishedCount[difficulty] || 0
-                  return (
-                    <div key={difficulty} className="flex items-center gap-2">
-                      <div className={`w-3 h-3 rounded-full ${getTrafficLightColor(count)}`}></div>
-                      <span className="text-sm capitalize">{difficulty}: {count}</span>
+              {(['easy', 'medium', 'hard', 'nightmare'] as Difficulty[]).map((difficulty) => {
+                const count = stats.publishedCount[difficulty] ?? 0
+                const dotColor = getDifficultyDotColor(count)
+                return (
+                  <div key={difficulty} className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 border border-slate-100">
+                    <div className={`size-3 rounded-full shrink-0 ${dotColor}`} title={count >= 10 ? 'Good' : count >= 5 ? 'Moderate' : 'Low'} />
+                    <div>
+                      <p className="text-slate-900 font-semibold capitalize">{difficulty}</p>
+                      <p className="text-slate-600 text-sm">{count} entities</p>
                     </div>
-                  )
-                })}
-              </div>
+                  </div>
+                )
+              })}
             </div>
           </div>
-        )}
+        </section>
+      )}
 
-        <div className="mb-4 bg-white rounded-lg shadow p-4">
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Search by Name</label>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search entities..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+      {/* Link to entity management */}
+      <section>
+        <div className="bg-white rounded-md p-5 shadow-sm border border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h2 className="text-slate-900 text-lg font-bold mb-1">Manage Entities</h2>
+            <p className="text-slate-600 text-sm">Create, edit, and publish entities and clues.</p>
           </div>
-          <div className="flex gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
-              <select
-                value={filterType}
-                onChange={(e) => setFilterType(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md"
-              >
-                <option value="all">All</option>
-                <option value="character">Character</option>
-                <option value="place">Place</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Difficulty</label>
-              <select
-                value={filterDifficulty}
-                onChange={(e) => setFilterDifficulty(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md"
-              >
-                <option value="all">All</option>
-                <option value="easy">Easy</option>
-                <option value="medium">Medium</option>
-                <option value="hard">Hard</option>
-                <option value="nightmare">Nightmare</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Published</label>
-              <select
-                value={filterPublished}
-                onChange={(e) => setFilterPublished(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-md"
-              >
-                <option value="all">All</option>
-                <option value="published">Published</option>
-                <option value="unpublished">Unpublished</option>
-              </select>
-            </div>
-          </div>
+          <button
+            type="button"
+            onClick={() => navigate('/admin/entities')}
+            className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-white font-semibold hover:bg-primary/90 transition-colors shrink-0"
+          >
+            <span className="material-symbols-outlined">database</span>
+            Open Entities
+          </button>
         </div>
-
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-            <h2 className="text-lg font-semibold">Entities ({filteredEntities.length})</h2>
-            <div className="flex gap-2">
-              <button
-                onClick={() => navigate('/admin/bulk-import')}
-                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-              >
-                Bulk Import
-              </button>
-              <button
-                onClick={() => navigate('/admin/entities/new')}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-              >
-                Create New Entity
-              </button>
-            </div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Name
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Type
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Difficulty
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Clues
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredEntities.map((entity) => (
-                  <tr key={entity.id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {entity.name}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 capitalize">
-                      {entity.type}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 capitalize">
-                      {entity.difficulty}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {entity.clueCount}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {entity.is_published ? (
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                          Published
-                        </span>
-                      ) : (
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
-                          Draft
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <button
-                        onClick={() => navigate(`/admin/entities/${entity.id}`)}
-                        className="text-blue-600 hover:text-blue-900 mr-4"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => navigate(`/admin/entities/${entity.id}/preview`)}
-                        className="text-green-600 hover:text-green-900"
-                      >
-                        Preview
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
+      </section>
+    </AdminLayout>
   )
 }
 

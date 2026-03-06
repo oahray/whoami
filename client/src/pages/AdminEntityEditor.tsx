@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { AdminLayout } from '../components/AdminLayout'
 import type { Entity, Clue, Difficulty } from '../types'
 
 const API_BASE_URL = import.meta.env.VITE_SOCKET_URL?.replace('ws://', 'http://').replace('wss://', 'https://') || 'http://localhost:3001'
@@ -220,209 +221,180 @@ function AdminEntityEditor() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="text-gray-600">Loading...</div>
+      <div className="min-h-screen bg-background-light font-display flex items-center justify-center">
+        <div className="text-slate-600">Loading...</div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <nav className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => navigate('/admin')}
-                className="text-gray-600 hover:text-gray-900"
-              >
-                ← Back
-              </button>
-              <h1 className="text-xl font-bold">
-                {isNew ? 'Create Entity' : 'Edit Entity'}
-              </h1>
-            </div>
-          </div>
+    <AdminLayout
+      breadcrumb={isNew ? 'Overview / Entities / New' : `Overview / Entities / ${entity.name || 'Edit'}`}
+      title={isNew ? 'Create Entity' : 'Edit Entity'}
+    >
+      <div className="max-w-2xl mx-auto pb-36 md:pb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <button
+            type="button"
+            onClick={() => navigate('/admin')}
+            className="text-primary flex items-center gap-2 py-2 px-3 rounded-lg hover:bg-primary/10 font-medium w-fit"
+          >
+            <span className="material-symbols-outlined">arrow_back</span>
+            Back to Dashboard
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving || !entity.name}
+            className="flex items-center gap-2 bg-primary text-white font-semibold py-2.5 px-5 rounded-lg hover:bg-primary/90 disabled:opacity-50 shadow-sm"
+          >
+            <span className="material-symbols-outlined">check</span>
+            Save
+          </button>
         </div>
-      </nav>
-
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {error && (
-          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-sm">
             {error}
           </div>
         )}
 
         {publishError && (
-          <div className="mb-4 p-3 bg-yellow-100 border border-yellow-400 text-yellow-700 rounded">
+          <div className="mb-4 p-3 bg-yellow-100 border border-yellow-400 text-yellow-700 rounded-lg text-sm">
             {publishError}
           </div>
         )}
 
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-lg font-semibold mb-4">Entity Details</h2>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Name *
-              </label>
+        <section className="flex flex-col gap-4 mb-6">
+          <h2 className="text-slate-900 text-xl font-bold tracking-tight px-1">Entity Details</h2>
+          <div className="bg-white rounded-lg p-4 shadow-sm border border-slate-200 flex flex-col gap-4">
+            <label className="flex flex-col w-full">
+              <p className="text-slate-600 text-sm font-semibold mb-1.5 ml-1">Name *</p>
               <input
                 type="text"
                 value={entity.name || ''}
                 onChange={(e) => setEntity({ ...entity, name: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                className="w-full rounded-lg border border-slate-200 bg-slate-50 text-slate-900 focus:ring-primary focus:border-primary h-12 px-4 font-medium"
                 required
               />
-            </div>
-
+            </label>
             <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Type *
-                </label>
+              <label className="flex flex-col">
+                <p className="text-slate-600 text-sm font-semibold mb-1.5 ml-1">Type *</p>
                 <select
                   value={entity.type || 'character'}
                   onChange={(e) => setEntity({ ...entity, type: e.target.value as 'character' | 'place' })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  className="w-full rounded-lg border border-slate-200 bg-slate-50 text-slate-900 focus:ring-primary focus:border-primary h-12 px-4 font-medium"
                 >
                   <option value="character">Character</option>
                   <option value="place">Place</option>
                 </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Difficulty *
-                </label>
+              </label>
+              <label className="flex flex-col">
+                <p className="text-slate-600 text-sm font-semibold mb-1.5 ml-1">Difficulty *</p>
                 <select
                   value={entity.difficulty || 'medium'}
                   onChange={(e) => setEntity({ ...entity, difficulty: e.target.value as Difficulty })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  className="w-full rounded-lg border border-slate-200 bg-slate-50 text-slate-900 focus:ring-primary focus:border-primary h-12 px-4 font-medium"
                 >
                   <option value="easy">Easy</option>
                   <option value="medium">Medium</option>
                   <option value="hard">Hard</option>
                   <option value="nightmare">Nightmare</option>
                 </select>
-              </div>
-            </div>
-
-            <div>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={entity.is_published}
-                  onChange={(e) => {
-                    setEntity({ ...entity, is_published: e.target.checked })
-                    setPublishError('')
-                  }}
-                  className="rounded"
-                />
-                <span className="text-sm font-medium text-gray-700">
-                  Published {clues.length < 3 && '(requires at least 3 clues)'}
-                </span>
               </label>
             </div>
+            <label className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200 mt-2">
+              <div className="flex flex-col">
+                <span className="text-slate-900 font-semibold">Published</span>
+                <span className="text-slate-500 text-xs">{clues.length < 3 ? 'Requires at least 3 clues' : 'Visible to players'}</span>
+              </div>
+              <input
+                type="checkbox"
+                checked={entity.is_published}
+                onChange={(e) => {
+                  setEntity({ ...entity, is_published: e.target.checked })
+                  setPublishError('')
+                }}
+                className="rounded accent-primary h-5 w-5"
+              />
+            </label>
           </div>
-        </div>
+        </section>
 
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-semibold">Clues ({clues.length})</h2>
-            <button
-              onClick={handleAddClue}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-            >
-              Add Clue
-            </button>
+        <section className="flex flex-col gap-4 mb-6">
+          <div className="flex items-center justify-between px-1">
+            <h2 className="text-slate-900 text-xl font-bold tracking-tight">Clues</h2>
+            <span className="text-primary text-sm font-bold bg-primary/10 px-3 py-1 rounded-full">{clues.length} Total</span>
           </div>
 
           {clues.length === 0 && (
-            <p className="text-gray-500 text-center py-8">
+            <p className="text-slate-500 text-center py-8 bg-white rounded-lg border border-slate-200">
               No clues yet. Add at least 3 clues before publishing.
             </p>
           )}
 
           <div className="space-y-4">
             {clues.map((clue, index) => (
-              <div key={clue.id || index} className="border border-gray-200 rounded-lg p-4">
-                <div className="flex justify-between items-start mb-2">
-                  <span className="text-sm font-medium text-gray-600">
-                    Clue {clue.order}
-                  </span>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleMoveClue(index, 'up')}
-                      disabled={index === 0}
-                      className="text-gray-600 hover:text-gray-900 disabled:opacity-50"
-                    >
-                      ↑
+              <div key={clue.id || index} className="bg-white rounded-lg p-4 shadow-sm border border-slate-200 flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">Clue #{clue.order}</span>
+                  <div className="flex gap-1">
+                    <button type="button" onClick={() => handleMoveClue(index, 'up')} disabled={index === 0} className="p-1.5 text-slate-400 hover:text-primary disabled:opacity-50">
+                      <span className="material-symbols-outlined text-xl">keyboard_arrow_up</span>
                     </button>
-                    <button
-                      onClick={() => handleMoveClue(index, 'down')}
-                      disabled={index === clues.length - 1}
-                      className="text-gray-600 hover:text-gray-900 disabled:opacity-50"
-                    >
-                      ↓
+                    <button type="button" onClick={() => handleMoveClue(index, 'down')} disabled={index === clues.length - 1} className="p-1.5 text-slate-400 hover:text-primary disabled:opacity-50">
+                      <span className="material-symbols-outlined text-xl">keyboard_arrow_down</span>
                     </button>
-                    <button
-                      onClick={() => handleDeleteClue(clue.id, index)}
-                      className="text-red-600 hover:text-red-900"
-                    >
-                      Delete
+                    <button type="button" onClick={() => handleDeleteClue(clue.id, index)} className="p-1.5 text-slate-400 hover:text-red-500">
+                      <span className="material-symbols-outlined text-xl">delete</span>
                     </button>
                   </div>
                 </div>
-
-                <div className="space-y-2">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Clue Text *
-                    </label>
-                    <textarea
-                      value={clue.text}
-                      onChange={(e) => handleUpdateClue(index, 'text', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                      rows={2}
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Citations
-                    </label>
-                    <input
-                      type="text"
-                      value={clue.citations || ''}
-                      onChange={(e) => handleUpdateClue(index, 'citations', e.target.value)}
-                      placeholder="e.g., Exodus 2: 1; 3: 1 - 5, 21:1, 2."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                    />
-                  </div>
-                </div>
+                <textarea
+                  value={clue.text}
+                  onChange={(e) => handleUpdateClue(index, 'text', e.target.value)}
+                  placeholder="Enter clue text..."
+                  rows={2}
+                  required
+                  className="w-full rounded-lg border border-slate-200 bg-slate-50 text-slate-900 focus:ring-primary focus:border-primary p-3 min-h-[80px] text-sm leading-relaxed"
+                />
+                <input
+                  type="text"
+                  value={clue.citations || ''}
+                  onChange={(e) => handleUpdateClue(index, 'citations', e.target.value)}
+                  placeholder="e.g., Exodus 2:1; 3:1-5"
+                  className="w-full rounded-lg border border-slate-200 bg-slate-50 text-slate-900 focus:ring-primary focus:border-primary p-3 text-sm"
+                />
               </div>
             ))}
           </div>
-        </div>
 
-        <div className="flex justify-end gap-4">
           <button
-            onClick={() => navigate('/admin')}
-            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+            type="button"
+            onClick={handleAddClue}
+            className="flex items-center justify-center gap-2 w-full py-4 rounded-lg border-2 border-dashed border-primary/30 text-primary font-bold hover:bg-primary/5 transition-all mt-2"
           >
-            Cancel
+            <span className="material-symbols-outlined">add_circle</span>
+            Add New Clue
           </button>
-          <button
-            onClick={handleSave}
-            disabled={saving || !entity.name}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {saving ? 'Saving...' : 'Save'}
-          </button>
-        </div>
+        </section>
       </div>
-    </div>
+
+      {/* Fixed bar: above mobile bottom nav (bottom-20), at bottom on desktop */}
+      <div className="fixed left-0 right-0 bottom-20 md:bottom-0 max-w-2xl mx-auto bg-white/95 backdrop-blur-lg border-t border-slate-200 p-4 flex gap-3 z-10">
+        <button type="button" onClick={() => navigate('/admin')} className="flex-1 py-4 px-6 rounded-lg bg-slate-100 text-slate-600 font-bold hover:bg-slate-200">
+          Back to Dashboard
+        </button>
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saving || !entity.name}
+          className="flex-[2] py-4 px-6 rounded-lg bg-primary text-white font-bold shadow-lg shadow-primary/30 hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {saving ? 'Saving...' : 'Save Changes'}
+        </button>
+      </div>
+    </AdminLayout>
   )
 }
 

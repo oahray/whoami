@@ -46,19 +46,19 @@ function AdminLogin() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-      <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
-        <h1 className="text-2xl font-bold mb-6 text-center">Admin Login</h1>
+    <div className="min-h-screen bg-background-light font-display flex items-center justify-center p-4">
+      <div className="bg-white p-8 rounded-lg shadow-lg border border-slate-100 w-full max-w-md">
+        <h1 className="text-2xl font-bold mb-6 text-center text-slate-900">Admin Login</h1>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-sm">
             {error}
           </div>
         )}
 
         <form onSubmit={handleEmailSignIn} className="space-y-4">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="email" className="block text-sm font-semibold text-slate-700 mb-1">
               Email
             </label>
             <input
@@ -67,13 +67,13 @@ function AdminLogin() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-lg focus:border-primary focus:ring-0 transition-colors text-slate-900 disabled:opacity-60"
               disabled={loading}
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="password" className="block text-sm font-semibold text-slate-700 mb-1">
               Password
             </label>
             <input
@@ -82,7 +82,7 @@ function AdminLogin() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-lg focus:border-primary focus:ring-0 transition-colors text-slate-900 disabled:opacity-60"
               disabled={loading}
             />
           </div>
@@ -90,26 +90,27 @@ function AdminLogin() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-primary text-white font-bold py-4 px-4 rounded-lg hover:bg-primary/90 shadow-lg shadow-primary/25 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           >
             {loading ? 'Signing in...' : 'Sign In with Email'}
           </button>
         </form>
 
-        <div className="mt-4">
+        <div className="mt-6">
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300"></div>
+              <div className="w-full border-t border-slate-100" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-white text-gray-500">Or</span>
+              <span className="px-2 bg-white text-slate-500">Or</span>
             </div>
           </div>
 
           <button
+            type="button"
             onClick={handleGoogleSignIn}
             disabled={loading}
-            className="mt-4 w-full bg-white border border-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="mt-4 w-full bg-white border-2 border-slate-200 text-slate-700 py-3 px-4 rounded-lg hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-medium"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path
