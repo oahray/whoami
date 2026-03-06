@@ -1,6 +1,7 @@
 import { Server, Socket } from 'socket.io'
 import { getRoomBySocket } from '../../rooms/store.js'
 import { ROUND_START_DELAY_MS } from '../../game/config.js'
+import { resetRoomForNewGame } from '../../game/roundState.js'
 
 export function handleUpdateSettings(io: Server, socket: Socket, payload: any) {
   try {
@@ -28,6 +29,10 @@ export function handleUpdateSettings(io: Server, socket: Socket, payload: any) {
         message: 'Only the host can update settings'
       })
       return
+    }
+
+    if (room.status === 'finished') {
+      resetRoomForNewGame(room)
     }
 
     if (room.status !== 'waiting') {

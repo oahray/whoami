@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useGame } from '../hooks/useGame'
 import { useSocket } from '../hooks/useSocket'
@@ -12,6 +12,7 @@ function Home() {
   const [nickname, setNickname] = useState('')
   const [joinCode, setJoinCode] = useState('')
   const [loading, setLoading] = useState(false)
+  const lastPrefilledRoomParamRef = useRef<string | null>(null)
   const params = new URLSearchParams(location.search)
   const roomParam = params.get('room')
 
@@ -42,10 +43,16 @@ function Home() {
   }, [socket, connected, roomCode, emit])
 
   useEffect(() => {
-    if (roomParam && !joinCode) {
-      setJoinCode(roomParam.toUpperCase())
+    if (!roomParam) {
+      lastPrefilledRoomParamRef.current = null
+      return
     }
-  }, [roomParam, joinCode])
+
+    if (lastPrefilledRoomParamRef.current !== roomParam) {
+      setJoinCode(roomParam.toUpperCase())
+      lastPrefilledRoomParamRef.current = roomParam
+    }
+  }, [roomParam])
 
   useEffect(() => {
     const storedNickname = localStorage.getItem('whoami_nickname')
