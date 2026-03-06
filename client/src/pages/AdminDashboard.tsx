@@ -2,23 +2,9 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { AdminLayout } from '../components/AdminLayout'
-import type { Stats, Difficulty } from '../types'
+import type { Stats } from '../types'
 
 const API_BASE_URL = import.meta.env.VITE_SOCKET_URL?.replace('ws://', 'http://').replace('wss://', 'https://') || 'http://localhost:3001'
-
-function deriveAvgDifficulty(stats: Stats): string {
-  const { publishedCount } = stats
-  const entries = (['easy', 'medium', 'hard', 'nightmare'] as Difficulty[]).map(d => ({ d, n: publishedCount[d] || 0 }))
-  const max = entries.reduce((a, b) => (b.n > a.n ? b : a), { d: 'medium', n: 0 })
-  if (max.n === 0) return '—'
-  return max.d.charAt(0).toUpperCase() + max.d.slice(1)
-}
-
-function getDifficultyDotColor(count: number): string {
-  if (count >= 10) return 'bg-green-500'
-  if (count >= 5) return 'bg-amber-500'
-  return 'bg-red-500'
-}
 
 function AdminDashboard() {
   const { getAccessToken } = useAuth()
@@ -114,33 +100,6 @@ function AdminDashboard() {
           </div>
         </div>
       </section>
-
-      {/* Published by Difficulty */}
-      {stats && (
-        <section className="mb-8">
-          <h2 className="text-slate-900 text-xl md:text-2xl font-bold mb-4">
-            Published by Difficulty
-          </h2>
-          <div className="bg-white rounded-md p-5 shadow-sm border border-slate-200">
-            <p className="text-slate-600 text-sm font-medium mb-4">Number of published entities per difficulty level.</p>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {(['easy', 'medium', 'hard', 'nightmare'] as Difficulty[]).map((difficulty) => {
-                const count = stats.publishedCount[difficulty] ?? 0
-                const dotColor = getDifficultyDotColor(count)
-                return (
-                  <div key={difficulty} className="flex items-center gap-3 p-3 rounded-lg bg-slate-50 border border-slate-100">
-                    <div className={`size-3 rounded-full shrink-0 ${dotColor}`} title={count >= 10 ? 'Good' : count >= 5 ? 'Moderate' : 'Low'} />
-                    <div>
-                      <p className="text-slate-900 font-semibold capitalize">{difficulty}</p>
-                      <p className="text-slate-600 text-sm">{count} entities</p>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </section>
-      )}
 
       {/* Link to entity management */}
       <section>

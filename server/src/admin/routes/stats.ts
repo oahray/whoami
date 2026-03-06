@@ -6,24 +6,6 @@ const router = Router()
 
 router.get('/stats', async (_req: AuthRequest, res: Response) => {
   try {
-    const { data: publishedByDifficulty, error: publishedError } = await supabase
-      .from('entities')
-      .select('difficulty, is_published')
-      .eq('is_published', true)
-
-    if (publishedError) throw publishedError
-
-    const publishedCount: Record<string, number> = {
-      easy: 0,
-      medium: 0,
-      hard: 0,
-      nightmare: 0
-    }
-
-    publishedByDifficulty?.forEach(entity => {
-      publishedCount[entity.difficulty] = (publishedCount[entity.difficulty] || 0) + 1
-    })
-
     const { count: totalClues, error: cluesError } = await supabase
       .from('clues')
       .select('*', { count: 'exact', head: true })
@@ -51,7 +33,6 @@ router.get('/stats', async (_req: AuthRequest, res: Response) => {
       : 0
 
     res.json({
-      publishedCount,
       totalClues: safeTotalClues,
       totalEntities: safeTotalEntities,
       avgCluesPerEntity,

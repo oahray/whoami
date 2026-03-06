@@ -12,7 +12,7 @@ router.get('/entities/:id/clues', async (req: AuthRequest, res: Response) => {
       .from('clues')
       .select('*')
       .eq('entity_id', id)
-      .order('order', { ascending: true })
+      .order('created_at', { ascending: true })
 
     if (error) throw error
 
@@ -26,21 +26,10 @@ router.get('/entities/:id/clues', async (req: AuthRequest, res: Response) => {
 router.post('/entities/:id/clues', async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params
-    const { text, citations, difficulty, order } = req.body
+    const { text, citations, difficulty } = req.body
 
     if (!text) {
       return res.status(400).json({ error: 'Clue text is required' })
-    }
-
-    let clueOrder = order
-    if (clueOrder === undefined) {
-      const { count, error: countError } = await supabase
-        .from('clues')
-        .select('*', { count: 'exact', head: true })
-        .eq('entity_id', id)
-
-      if (countError) throw countError
-      clueOrder = (count || 0) + 1
     }
 
     const { data, error } = await supabase
@@ -49,8 +38,7 @@ router.post('/entities/:id/clues', async (req: AuthRequest, res: Response) => {
         entity_id: id,
         text,
         citations: citations || null,
-        difficulty: difficulty || null,
-        order: clueOrder
+        difficulty: difficulty || null
       })
       .select()
       .single()
@@ -109,21 +97,6 @@ router.delete('/clues/:id', async (req: AuthRequest, res: Response) => {
       .eq('id', id)
 
     if (deleteError) throw deleteError
-
-    const { data: remainingClues, error: remainingError } = await supabase
-      .from('clues')
-      .select('id, order')
-      .eq('entity_id', clue.entity_id)
-      .order('order', { ascending: true })
-
-    if (remainingError) throw remainingError
-
-    for (let i = 0; i < remainingClues.length; i++) {
-      await supabase
-        .from('clues')
-        .update({ order: i + 1 })
-        .eq('id', remainingClues[i].id)
-    }
 
     res.json({ success: true })
   } catch (error) {

@@ -49,7 +49,7 @@ function AdminPreview() {
       ])
 
       setEntity(entityData)
-      setClues(cluesData.sort((a, b) => a.order - b.order))
+      setClues(cluesData)
     } catch (err) {
       console.error('Error loading entity:', err)
     } finally {
@@ -57,12 +57,12 @@ function AdminPreview() {
     }
   }
 
-  const toggleClue = (clueOrder: number) => {
+  const toggleClue = (clueIndex: number) => {
     const newRevealed = new Set(revealedClues)
-    if (newRevealed.has(clueOrder)) {
-      newRevealed.delete(clueOrder)
+    if (newRevealed.has(clueIndex)) {
+      newRevealed.delete(clueIndex)
     } else {
-      newRevealed.add(clueOrder)
+      newRevealed.add(clueIndex)
     }
     setRevealedClues(newRevealed)
   }
@@ -104,7 +104,6 @@ function AdminPreview() {
             <div className="p-5">
               <p className="text-primary text-sm font-semibold mb-1 uppercase tracking-wide">Category: {entity.type}</p>
               <h2 className="text-2xl font-bold mb-2">Who Am I?</h2>
-              <p className="text-slate-500 text-sm font-medium">Difficulty: {entity.difficulty}</p>
             </div>
           </div>
         </div>
@@ -112,8 +111,8 @@ function AdminPreview() {
         <div className="mt-6 mb-6">
           <h3 className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-3 px-1">Clues (Admin Simulation)</h3>
           <div className="space-y-3">
-            {clues.map((clue) => {
-              const isRevealed = revealedClues.has(clue.order)
+            {clues.map((clue, clueIndex) => {
+              const isRevealed = revealedClues.has(clueIndex)
               return (
                 <div
                   key={clue.id}
@@ -130,11 +129,11 @@ function AdminPreview() {
                     ) : (
                       <p className="text-slate-400 text-base italic font-medium">[Clue hidden from players]</p>
                     )}
-                    <p className="text-slate-500 text-xs mt-1">Clue #{clue.order} • {isRevealed ? 'Revealed' : 'Hidden'}</p>
+                    <p className="text-slate-500 text-xs mt-1">Clue #{clueIndex + 1} • {isRevealed ? 'Revealed' : 'Hidden'}</p>
                   </div>
                   <button
                     type="button"
-                    onClick={() => toggleClue(clue.order)}
+                    onClick={() => toggleClue(clueIndex)}
                     className={isRevealed ? 'bg-slate-100 text-slate-700 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-slate-200' : 'bg-primary text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary/90'}
                   >
                     {isRevealed ? 'Hide' : 'Reveal'}
@@ -153,8 +152,8 @@ function AdminPreview() {
                 <h2 className="text-white text-4xl font-black tracking-tight mb-2 uppercase">{entity.name}</h2>
                 {clues.some(c => c.citations) && (
                   <ul className="list-disc list-inside space-y-1 text-slate-400 text-sm text-left max-w-sm mx-auto">
-                    {clues.filter(c => c.citations).map((clue) => (
-                      <li key={clue.id}>Clue {clue.order}: {clue.citations}</li>
+                    {clues.filter(c => c.citations).map((clue, i) => (
+                      <li key={clue.id}>Clue {i + 1}: {clue.citations}</li>
                     ))}
                   </ul>
                 )}

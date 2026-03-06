@@ -7,10 +7,8 @@ const router = Router()
 interface BulkEntity {
   name: string
   type: 'character' | 'place'
-  difficulty: 'easy' | 'medium' | 'hard' | 'nightmare'
   is_published?: boolean
   clues: Array<{
-    order: number
     text: string
     citations?: string | null
     difficulty?: 'easy' | 'medium' | 'hard' | 'nightmare' | null
@@ -33,8 +31,8 @@ router.post('/bulk-import', async (req: AuthRequest, res: Response) => {
 
     for (const entityData of entities) {
       try {
-        if (!entityData.name || !entityData.type || !entityData.difficulty) {
-          results.errors.push(`Entity missing required fields: ${entityData.name || 'unknown'}`)
+        if (!entityData.name || !entityData.type) {
+          results.errors.push(`Entity missing required fields (name, type): ${entityData.name || 'unknown'}`)
           continue
         }
 
@@ -45,7 +43,7 @@ router.post('/bulk-import', async (req: AuthRequest, res: Response) => {
 
         const { data: existing } = await supabase
           .from('entities')
-          .select('id, name, type, difficulty, is_published')
+          .select('id, name, type, is_published')
           .ilike('name', entityData.name)
           .maybeSingle()
 
@@ -53,7 +51,6 @@ router.post('/bulk-import', async (req: AuthRequest, res: Response) => {
         const entityPayload = {
           name: entityData.name,
           type: entityData.type,
-          difficulty: entityData.difficulty,
           is_published: entityData.is_published || false
         }
 
@@ -111,13 +108,8 @@ router.post('/bulk-import', async (req: AuthRequest, res: Response) => {
             continue
           }
 
-          const order = typeof clueData.order === 'number' && Number.isInteger(clueData.order)
-            ? clueData.order
-            : index + 1
-
           const cluePayload = {
             entity_id: entityId,
-            order,
             text: clueData.text,
             citations: clueData.citations ?? null,
             difficulty: clueData.difficulty ?? null

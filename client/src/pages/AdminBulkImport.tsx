@@ -68,17 +68,14 @@ function AdminBulkImport() {
   {
     "name": "Moses",
     "type": "character",
-    "difficulty": "medium",
     "is_published": true,
     "clues": [
       {
-        "order": 1,
         "text": "Led the Israelites out of Egypt",
         "citations": "Exodus 1:1; 3:1-5",
         "difficulty": "medium"
       },
       {
-        "order": 2,
         "text": "Received the Ten Commandments",
         "citations": "Exodus 20:1",
         "difficulty": "medium"
@@ -114,7 +111,7 @@ function AdminBulkImport() {
                 <div className="min-w-0">
                   <p className="text-slate-900 font-bold text-sm">Format Rules</p>
                   <p className="text-slate-600 text-xs md:text-sm leading-relaxed mt-1">
-                    JSON must be an array of entities. Each entity: name, type, difficulty, clues array (order, text; optional citations/difficulty).
+                    JSON must be an array of entities. Each entity: name, type, clues array (text; optional citations, difficulty).
                   </p>
                 </div>
               </div>
@@ -148,7 +145,7 @@ function AdminBulkImport() {
             <textarea
               value={jsonInput}
               onChange={(e) => setJsonInput(e.target.value)}
-              placeholder='[{"name": "...", "type": "character", "difficulty": "medium", "clues": [...]}]'
+              placeholder='[{"name": "...", "type": "character", "clues": [{"text": "..."}]}]'
               className="w-full min-h-[240px] md:min-h-[280px] lg:min-h-[320px] flex-1 bg-slate-50 border border-slate-200 rounded-lg p-4 font-mono text-sm focus:ring-2 focus:ring-primary focus:border-primary text-slate-900 placeholder-slate-400 resize-y"
             />
 
