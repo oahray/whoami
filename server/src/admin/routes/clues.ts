@@ -83,7 +83,7 @@ router.delete('/clues/:id', async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params
 
-    const { data: clue, error: clueError } = await supabase
+    const { error: clueError } = await supabase
       .from('clues')
       .select('entity_id')
       .eq('id', id)
