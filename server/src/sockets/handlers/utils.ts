@@ -3,7 +3,7 @@ import type { RoomState, Player } from '../../rooms/store.js'
 import { startNextRound, activateRound, revealClue, endRound } from '../../game/roundState'
 import { ROUND_START_DELAY_MS } from '../../game/config.js'
 
-const GRACE_PERIOD_MS = 60000
+const GRACE_PERIOD_MS = 5 * 60 * 1000
 
 export function findReturningPlayer(room: RoomState, nickname: string): Player | null {
   for (const player of room.players.values()) {
@@ -47,14 +47,18 @@ export function buildReconnectPayload(room: RoomState, player: Player) {
   }
 
   if (room.status === 'in_progress' && room.currentRound) {
+    const revealedClueCount =
+      room.currentRound.phase === 'clue_revealed' || room.currentRound.phase === 'ended' ? 2 : 1
+
     payload.gameState = {
       phase: room.currentRound.phase,
       roundNumber: room.currentRound.roundNumber,
-      cluesRevealed: room.currentRound.clues.map(c => ({
+      cluesRevealed: room.currentRound.clues.slice(0, revealedClueCount).map(c => ({
         order: c.order,
         text: c.text
       })),
       isLocked: player.isLocked,
+      serverStartTime: room.currentRound.serverStartTime,
       currentScoreboard: Array.from(room.scores.entries()).map(([id, score]) => {
         const p = room.players.get(id)
         return {
@@ -93,12 +97,24 @@ export function broadcastRoundEnd(io: Server, room: RoomState, roundResult: any)
             finalScoreboard: room.finalScoreboard
           })
         } else {
+          const currentScoreboard = Array.from(room.scores.entries())
+            .map(([playerId, score]) => {
+              const player = room.players.get(playerId)
+              return {
+                playerId,
+                nickname: player?.nickname || 'Unknown',
+                score
+              }
+            })
+            .sort((a, b) => b.score - a.score)
+
           const firstClue = room.currentRound!.clues[0]
           io.to(room.code).emit('ROUND_STARTED', {
             roundNumber: room.currentRound!.roundNumber,
             totalRounds: room.settings.totalRounds,
             serverStartTime: room.currentRound!.serverStartTime,
             roundDuration: room.settings.roundDuration,
+            currentScoreboard,
             clue: {
               order: firstClue.order,
               text: firstClue.text

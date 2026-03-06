@@ -230,7 +230,7 @@ function AdminEntityEditor() {
       breadcrumb={isNew ? 'Overview / Entities / New' : `Overview / Entities / ${entity.name || 'Edit'}`}
       title={isNew ? 'Create Entity' : 'Edit Entity'}
     >
-      <div className="max-w-2xl mx-auto pb-36 md:pb-8">
+      <div className="max-w-3xl mx-auto pb-36 md:pb-8">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <button
             type="button"
@@ -244,7 +244,7 @@ function AdminEntityEditor() {
             type="button"
             onClick={handleSave}
             disabled={saving || !entity.name}
-            className="flex items-center gap-2 bg-primary text-white font-semibold py-2.5 px-5 rounded-lg hover:bg-primary/90 disabled:opacity-50 shadow-sm"
+            className="hidden md:flex items-center gap-2 bg-primary text-white font-semibold py-2.5 px-5 rounded-lg hover:bg-primary/90 disabled:opacity-50 shadow-sm"
           >
             <span className="material-symbols-outlined">check</span>
             Save
@@ -367,10 +367,28 @@ function AdminEntityEditor() {
             Add New Clue
           </button>
         </section>
+
+        <div className="hidden md:flex items-center justify-end gap-3 mt-8 pt-6 border-t border-slate-200">
+          <button
+            type="button"
+            onClick={() => navigate('/admin/entities')}
+            className="py-3 px-5 rounded-lg bg-slate-100 text-slate-700 font-semibold hover:bg-slate-200"
+          >
+            Back to Entities
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={saving || !entity.name}
+            className="py-3 px-6 rounded-lg bg-primary text-white font-semibold shadow-sm hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {saving ? 'Saving...' : 'Save Changes'}
+          </button>
+        </div>
       </div>
 
-      {/* Fixed bar: above mobile bottom nav (bottom-20), at bottom on desktop */}
-      <div className="fixed left-0 right-0 bottom-20 md:bottom-0 max-w-2xl mx-auto bg-white/95 backdrop-blur-lg border-t border-slate-200 p-4 flex gap-3 z-10">
+      {/* Mobile fixed bar above bottom nav */}
+      <div className="fixed left-0 right-0 bottom-20 md:hidden max-w-3xl mx-auto bg-white/95 backdrop-blur-lg border-t border-slate-200 p-4 flex gap-3 z-10">
         <button type="button" onClick={() => navigate('/admin/entities')} className="flex-1 py-4 px-6 rounded-lg bg-slate-100 text-slate-600 font-bold hover:bg-slate-200">
           Back to Entities
         </button>

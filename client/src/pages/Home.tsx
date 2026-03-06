@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useGame } from '../hooks/useGame'
 import { useSocket } from '../hooks/useSocket'
@@ -12,17 +12,9 @@ function Home() {
   const [nickname, setNickname] = useState('')
   const [joinCode, setJoinCode] = useState('')
   const [loading, setLoading] = useState(false)
+  const lastPrefilledRoomParamRef = useRef<string | null>(null)
   const params = new URLSearchParams(location.search)
   const roomParam = params.get('room')
-
-  useEffect(() => {
-    if (roomCode && !loading) {
-      const timer = setTimeout(() => {
-        navigate('/lobby', { replace: true })
-      }, 50)
-      return () => clearTimeout(timer)
-    }
-  }, [roomCode, loading, navigate])
 
   useEffect(() => {
     const stored = localStorage.getItem('whoami_room')
@@ -42,10 +34,16 @@ function Home() {
   }, [socket, connected, roomCode, emit])
 
   useEffect(() => {
-    if (roomParam && !joinCode) {
-      setJoinCode(roomParam.toUpperCase())
+    if (!roomParam) {
+      lastPrefilledRoomParamRef.current = null
+      return
     }
-  }, [roomParam, joinCode])
+
+    if (lastPrefilledRoomParamRef.current !== roomParam) {
+      setJoinCode(roomParam.toUpperCase())
+      lastPrefilledRoomParamRef.current = roomParam
+    }
+  }, [roomParam])
 
   useEffect(() => {
     const storedNickname = localStorage.getItem('whoami_nickname')
@@ -157,7 +155,7 @@ function Home() {
                 type="text"
                 value={nickname}
                 onChange={(e) => setNickname(e.target.value)}
-                placeholder="e.g. Apostle Paul"
+                placeholder="e.g. Samuel"
                 disabled={loading}
                 className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors text-slate-900 placeholder:text-slate-500 font-medium disabled:opacity-60"
               />

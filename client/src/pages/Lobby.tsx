@@ -19,17 +19,19 @@ function Lobby() {
     error,
     setError,
     reset,
-    playerId
+    playerId,
+    isReconnecting
   } = useGame()
+  const hasStoredRoom = typeof window !== 'undefined' && !!localStorage.getItem('whoami_room')
 
   useEffect(() => {
-    if (!roomCode) {
+    if (!roomCode && !isReconnecting && !hasStoredRoom) {
       const timer = setTimeout(() => {
-        if (!roomCode) navigate('/')
+        if (!roomCode && !isReconnecting && !hasStoredRoom) navigate('/')
       }, 500)
       return () => clearTimeout(timer)
     }
-  }, [roomCode, navigate])
+  }, [roomCode, isReconnecting, hasStoredRoom, navigate])
 
   useEffect(() => {
     const handleRoundStarted = () => navigate('/game')

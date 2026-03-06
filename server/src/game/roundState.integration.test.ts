@@ -266,9 +266,10 @@ describe('Round Flow Integration', () => {
       endRound(room)
 
       const scoreboard = room.roundHistory[0].scoreboard
-      expect(scoreboard).toHaveLength(2)
+      expect(scoreboard).toHaveLength(3)
       expect(scoreboard[0].timeElapsedMs).toBeLessThan(scoreboard[1].timeElapsedMs)
       expect(scoreboard[0].totalScore).toBeGreaterThanOrEqual(scoreboard[1].totalScore)
+      expect(scoreboard[2].totalScore).toBe(0)
     })
   })
 })

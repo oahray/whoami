@@ -1,8 +1,22 @@
 import { Server, Socket } from 'socket.io'
 import { getRoomBySocket } from '../../rooms/store.js'
-import { startGame, startNextRound, activateRound, revealClue, processGuess, endRound, resetRoomForNewGame } from '../../game/roundState'
+import type { RoomState } from '../../rooms/store.js'
+import { startGame, activateRound, revealClue, processGuess, endRound, resetRoomForNewGame } from '../../game/roundState'
 import { ROUND_START_DELAY_MS } from '../../game/config.js'
 import { broadcastRoundEnd } from './utils.js'
+
+function buildCurrentScoreboard(room: RoomState) {
+  return Array.from(room.scores.entries() as IterableIterator<[string, number]>)
+    .map(([playerId, score]) => {
+      const player = room.players.get(playerId)
+      return {
+        playerId,
+        nickname: player?.nickname || 'Unknown',
+        score
+      }
+    })
+    .sort((a, b) => b.score - a.score)
+}
 
 export async function handleStartGame(io: Server, socket: Socket, _payload: any) {
   try {
@@ -46,7 +60,6 @@ export async function handleStartGame(io: Server, socket: Socket, _payload: any)
     }
 
     await startGame(room)
-    await startNextRound(room)
 
     const firstClue = room.currentRound!.clues[0]
     io.to(room.code).emit('ROUND_STARTED', {
@@ -54,6 +67,7 @@ export async function handleStartGame(io: Server, socket: Socket, _payload: any)
       totalRounds: room.settings.totalRounds,
       serverStartTime: room.currentRound!.serverStartTime,
       roundDuration: room.settings.roundDuration,
+      currentScoreboard: buildCurrentScoreboard(room),
       clue: {
         order: firstClue.order,
         text: firstClue.text
