@@ -90,11 +90,11 @@ function AdminBulkImport() {
         <div className="flex items-center justify-between mb-4 md:mb-6">
           <button
             type="button"
-            onClick={() => navigate('/admin')}
+            onClick={() => navigate('/admin/entities')}
             className="text-primary flex items-center gap-2 py-2 px-3 rounded-lg hover:bg-primary/10 font-medium"
           >
             <span className="material-symbols-outlined">arrow_back</span>
-            <span className="hidden sm:inline">Back to Dashboard</span>
+            <span className="hidden sm:inline">Back to Entities</span>
             <span className="sm:hidden">Back</span>
           </button>
         </div>
@@ -115,7 +115,7 @@ function AdminBulkImport() {
                   </p>
                 </div>
               </div>
-              <div className="bg-slate-900 rounded-lg p-3 font-mono text-[11px] md:text-xs text-primary/80 overflow-x-auto">
+              <div className="bg-slate-100 rounded-md p-3 font-mono text-[11px] md:text-xs text-primary/80 overflow-x-auto">
                 <pre className="whitespace-pre-wrap break-all">{exampleJson}</pre>
               </div>
             </div>

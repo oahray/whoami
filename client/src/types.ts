@@ -25,4 +25,19 @@ export interface Stats {
   totalClues: number
   avgCluesPerEntity: number
   unpublishedCount: number
+  publishedCount: number
+  difficultyCounts: {
+    easy: number
+    medium: number
+    hard: number
+    nightmare: number
+  }
+  /** Clues with no difficulty set (need tagging) */
+  cluesWithoutDifficulty: number
+  entityCountByType: {
+    character: number
+    place: number
+  }
+  /** Unpublished entities that have 3+ clues and can be published */
+  readyToPublishCount: number
 }
