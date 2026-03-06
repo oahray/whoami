@@ -6,7 +6,6 @@ dotenv.config()
 interface Entity {
   name: string
   type: 'character' | 'place'
-  difficulty: 'easy' | 'medium' | 'hard' | 'nightmare'
   is_published: boolean
 }
 
@@ -21,42 +20,12 @@ async function seed() {
 
   try {
     const entities: Entity[] = [
-      {
-        name: 'Moses',
-        type: 'character',
-        difficulty: 'easy',
-        is_published: true
-      },
-      {
-        name: 'David',
-        type: 'character',
-        difficulty: 'easy',
-        is_published: true
-      },
-      {
-        name: 'Noah',
-        type: 'character',
-        difficulty: 'easy',
-        is_published: true
-      },
-      {
-        name: 'Abraham',
-        type: 'character',
-        difficulty: 'medium',
-        is_published: true
-      },
-      {
-        name: 'Jerusalem',
-        type: 'place',
-        difficulty: 'medium',
-        is_published: true
-      },
-      {
-        name: 'Gethsemane',
-        type: 'place',
-        difficulty: 'hard',
-        is_published: true
-      }
+      { name: 'Moses', type: 'character', is_published: true },
+      { name: 'David', type: 'character', is_published: true },
+      { name: 'Noah', type: 'character', is_published: true },
+      { name: 'Abraham', type: 'character', is_published: true },
+      { name: 'Jerusalem', type: 'place', is_published: true },
+      { name: 'Gethsemane', type: 'place', is_published: true }
     ]
 
     for (const entity of entities) {
@@ -97,8 +66,8 @@ async function seed() {
           .from('clues')
           .select('id')
           .eq('entity_id', entityId)
-          .eq('order', i + 1)
-          .single()
+          .eq('text', clue.text)
+          .maybeSingle()
 
         const citations = clue.citations || null
 
@@ -117,7 +86,6 @@ async function seed() {
             .from('clues')
             .insert({
               entity_id: entityId,
-              order: i + 1,
               text: clue.text,
               citations: citations,
               difficulty: clue.difficulty || null

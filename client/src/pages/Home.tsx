@@ -131,7 +131,7 @@ function Home() {
   }
 
   return (
-    <div className="relative flex min-h-screen w-full flex-col bg-gradient-to-br from-primary via-indigo-500 to-indigo-400 overflow-x-hidden font-display antialiased">
+    <div className="relative flex min-h-screen min-h-full w-full flex-col bg-gradient-to-br from-primary via-indigo-500 to-indigo-400 bg-fixed overflow-x-hidden font-display antialiased">
       {!connected && (
         <div className="w-full bg-yellow-400/90 backdrop-blur-sm px-4 py-2 flex items-center justify-center gap-2">
           <span className="material-symbols-outlined text-yellow-900 text-sm">sync</span>

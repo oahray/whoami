@@ -11,7 +11,6 @@ type ClueForm = Omit<Partial<Clue>, 'id' | 'citations'> & {
   text: string
   citations: string
   difficulty: Difficulty | null
-  order: number
 }
 
 function AdminEntityEditor() {
@@ -23,11 +22,10 @@ function AdminEntityEditor() {
   const [entity, setEntity] = useState<Partial<Entity> & { is_published: boolean }>({
     name: '',
     type: 'character',
-    difficulty: 'medium',
     is_published: false,
   })
   const [clues, setClues] = useState<ClueForm[]>([])
-  const [loading, setLoading] = useState(!isNew)
+  const [loading, setLoading] = useState(!!isNew)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [publishError, setPublishError] = useState('')
@@ -64,7 +62,7 @@ function AdminEntityEditor() {
       ])
 
       setEntity(entityData)
-      setClues(cluesData.sort((a, b) => a.order - b.order).map(c => ({
+      setClues(cluesData.map(c => ({
         ...c,
         id: c.id,
         citations: c.citations || '',
@@ -135,7 +133,6 @@ function AdminEntityEditor() {
               text: clue.text,
               citations: clue.citations || null,
               difficulty: clue.difficulty || null,
-              order: clue.order,
             }),
           })
         } else {
@@ -149,7 +146,6 @@ function AdminEntityEditor() {
               text: clue.text,
               citations: clue.citations || null,
               difficulty: clue.difficulty || null,
-              order: clue.order,
             }),
           })
         }
@@ -171,7 +167,6 @@ function AdminEntityEditor() {
         text: '',
         citations: '',
         difficulty: null,
-        order: clues.length + 1,
       },
     ])
   }
@@ -203,22 +198,6 @@ function AdminEntityEditor() {
     }
   }
 
-  const handleMoveClue = async (index: number, direction: 'up' | 'down') => {
-    if (
-      (direction === 'up' && index === 0) ||
-      (direction === 'down' && index === clues.length - 1)
-    ) {
-      return
-    }
-
-    const newIndex = direction === 'up' ? index - 1 : index + 1
-    const updated = [...clues]
-    const temp = updated[index].order
-    updated[index].order = updated[newIndex].order
-    updated[newIndex].order = temp
-    setClues(updated.sort((a, b) => a.order - b.order))
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen bg-background-light font-display flex items-center justify-center">
@@ -236,11 +215,11 @@ function AdminEntityEditor() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <button
             type="button"
-            onClick={() => navigate('/admin')}
+            onClick={() => navigate('/admin/entities')}
             className="text-primary flex items-center gap-2 py-2 px-3 rounded-lg hover:bg-primary/10 font-medium w-fit"
           >
             <span className="material-symbols-outlined">arrow_back</span>
-            Back to Dashboard
+            Back to Entities
           </button>
           <button
             type="button"
@@ -277,32 +256,17 @@ function AdminEntityEditor() {
                 required
               />
             </label>
-            <div className="grid grid-cols-2 gap-4">
-              <label className="flex flex-col">
-                <p className="text-slate-600 text-sm font-semibold mb-1.5 ml-1">Type *</p>
-                <select
-                  value={entity.type || 'character'}
-                  onChange={(e) => setEntity({ ...entity, type: e.target.value as 'character' | 'place' })}
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 text-slate-900 focus:ring-primary focus:border-primary h-12 px-4 font-medium"
-                >
-                  <option value="character">Character</option>
-                  <option value="place">Place</option>
-                </select>
-              </label>
-              <label className="flex flex-col">
-                <p className="text-slate-600 text-sm font-semibold mb-1.5 ml-1">Difficulty *</p>
-                <select
-                  value={entity.difficulty || 'medium'}
-                  onChange={(e) => setEntity({ ...entity, difficulty: e.target.value as Difficulty })}
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 text-slate-900 focus:ring-primary focus:border-primary h-12 px-4 font-medium"
-                >
-                  <option value="easy">Easy</option>
-                  <option value="medium">Medium</option>
-                  <option value="hard">Hard</option>
-                  <option value="nightmare">Nightmare</option>
-                </select>
-              </label>
-            </div>
+            <label className="flex flex-col">
+              <p className="text-slate-600 text-sm font-semibold mb-1.5 ml-1">Type *</p>
+              <select
+                value={entity.type || 'character'}
+                onChange={(e) => setEntity({ ...entity, type: e.target.value as 'character' | 'place' })}
+                className="w-full rounded-lg border border-slate-200 bg-slate-50 text-slate-900 focus:ring-primary focus:border-primary h-12 px-4 font-medium"
+              >
+                <option value="character">Character</option>
+                <option value="place">Place</option>
+              </select>
+            </label>
             <label className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200 mt-2">
               <div className="flex flex-col">
                 <span className="text-slate-900 font-semibold">Published</span>
@@ -337,18 +301,10 @@ function AdminEntityEditor() {
             {clues.map((clue, index) => (
               <div key={clue.id || index} className="bg-white rounded-lg p-4 shadow-sm border border-slate-200 flex flex-col gap-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">Clue #{clue.order}</span>
-                  <div className="flex gap-1">
-                    <button type="button" onClick={() => handleMoveClue(index, 'up')} disabled={index === 0} className="p-1.5 text-slate-400 hover:text-primary disabled:opacity-50">
-                      <span className="material-symbols-outlined text-xl">keyboard_arrow_up</span>
-                    </button>
-                    <button type="button" onClick={() => handleMoveClue(index, 'down')} disabled={index === clues.length - 1} className="p-1.5 text-slate-400 hover:text-primary disabled:opacity-50">
-                      <span className="material-symbols-outlined text-xl">keyboard_arrow_down</span>
-                    </button>
-                    <button type="button" onClick={() => handleDeleteClue(clue.id, index)} className="p-1.5 text-slate-400 hover:text-red-500">
-                      <span className="material-symbols-outlined text-xl">delete</span>
-                    </button>
-                  </div>
+                  <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">Clue #{index + 1}</span>
+                  <button type="button" onClick={() => handleDeleteClue(clue.id, index)} className="p-1.5 text-slate-400 hover:text-red-500">
+                    <span className="material-symbols-outlined text-xl">delete</span>
+                  </button>
                 </div>
                 <textarea
                   value={clue.text}
@@ -382,8 +338,8 @@ function AdminEntityEditor() {
 
       {/* Fixed bar: above mobile bottom nav (bottom-20), at bottom on desktop */}
       <div className="fixed left-0 right-0 bottom-20 md:bottom-0 max-w-2xl mx-auto bg-white/95 backdrop-blur-lg border-t border-slate-200 p-4 flex gap-3 z-10">
-        <button type="button" onClick={() => navigate('/admin')} className="flex-1 py-4 px-6 rounded-lg bg-slate-100 text-slate-600 font-bold hover:bg-slate-200">
-          Back to Dashboard
+        <button type="button" onClick={() => navigate('/admin/entities')} className="flex-1 py-4 px-6 rounded-lg bg-slate-100 text-slate-600 font-bold hover:bg-slate-200">
+          Back to Entities
         </button>
         <button
           type="button"

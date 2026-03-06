@@ -208,25 +208,6 @@ function Lobby() {
               </div>
               <div className="space-y-6">
               <div>
-                <label className="block text-slate-700 text-sm font-semibold mb-2">Difficulty Level</label>
-                {isHost ? (
-                  <select
-                    value={settings.difficultyMode}
-                    onChange={(e) => handleUpdateSetting('difficultyMode', e.target.value)}
-                    className="w-full bg-slate-50 border-0 rounded-lg text-slate-900 focus:ring-2 focus:ring-primary py-2.5 px-3"
-                  >
-                    <option value="any">Any</option>
-                    <option value="easy">Easy</option>
-                    <option value="medium">Medium</option>
-                    <option value="hard">Hard</option>
-                    <option value="nightmare">Nightmare</option>
-                  </select>
-                ) : (
-                  <div className="w-full py-2.5 px-3 bg-slate-50 rounded-lg text-slate-700 capitalize">{settings.difficultyMode}</div>
-                )}
-              </div>
-
-              <div>
                 <div className="flex justify-between items-center mb-2">
                   <label className="text-slate-700 text-sm font-semibold">Total Rounds</label>
                   <span className="text-primary font-bold">{settings.totalRounds} Rounds</span>

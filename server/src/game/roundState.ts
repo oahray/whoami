@@ -21,7 +21,7 @@ export async function startGame(room: RoomState): Promise<void> {
   )) as any
 
   if (room.entityPool.length === 0) {
-    throw new Error('No entities available for selected difficulty')
+    throw new Error('No entities available')
   }
 
   room.status = 'in_progress'

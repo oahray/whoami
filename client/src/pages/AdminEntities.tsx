@@ -13,7 +13,6 @@ function AdminEntities() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
-  const [filterDifficulty, setFilterDifficulty] = useState<string>('all')
   const [filterType, setFilterType] = useState<string>('all')
   const [filterPublished, setFilterPublished] = useState<string>('all')
 
@@ -51,7 +50,6 @@ function AdminEntities() {
   const filteredEntities = entities.filter((entity) => {
     if (searchQuery && !entity.name.toLowerCase().includes(searchQuery.toLowerCase())) return false
     if (filterType !== 'all' && entity.type !== filterType) return false
-    if (filterDifficulty !== 'all' && entity.difficulty !== filterDifficulty) return false
     if (filterPublished === 'published' && !entity.is_published) return false
     if (filterPublished === 'unpublished' && entity.is_published) return false
     return true
@@ -126,17 +124,6 @@ function AdminEntities() {
               <option value="place">Place</option>
             </select>
             <select
-              value={filterDifficulty}
-              onChange={(e) => setFilterDifficulty(e.target.value)}
-              className="bg-white border border-slate-200 rounded-lg text-sm py-2.5 px-4 text-slate-700 font-medium focus:ring-2 focus:ring-primary/20"
-            >
-              <option value="all">All Difficulty</option>
-              <option value="easy">Easy</option>
-              <option value="medium">Medium</option>
-              <option value="hard">Hard</option>
-              <option value="nightmare">Nightmare</option>
-            </select>
-            <select
               value={filterPublished}
               onChange={(e) => setFilterPublished(e.target.value)}
               className="bg-white border border-slate-200 rounded-lg text-sm py-2.5 px-4 text-slate-700 font-medium focus:ring-2 focus:ring-primary/20"
@@ -177,7 +164,6 @@ function AdminEntities() {
                 <tr className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wider">
                   <th className="px-4 py-3">Name</th>
                   <th className="px-4 py-3">Type</th>
-                  <th className="px-4 py-3">Difficulty</th>
                   <th className="px-4 py-3">Clues</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3 text-right">Actions</th>
@@ -192,7 +178,6 @@ function AdminEntities() {
                         {entity.type}
                       </span>
                     </td>
-                    <td className="px-4 py-4 text-slate-600 capitalize">{entity.difficulty}</td>
                     <td className="px-4 py-4 text-slate-600">{entity.clueCount ?? 0} Clues</td>
                     <td className="px-4 py-4">
                       {entity.is_published ? (
@@ -229,6 +214,19 @@ function AdminEntities() {
           </div>
         </div>
       </section>
+
+      {/* Mobile: FAB for New entity (above bottom nav) */}
+      <div className="md:hidden fixed right-4 bottom-20 z-20">
+        <button
+          type="button"
+          onClick={() => navigate('/admin/entities/new')}
+          className="flex items-center justify-center size-14 rounded-full bg-primary text-white font-bold shadow-lg shadow-primary/30 hover:bg-primary/90 active:scale-95 transition-transform"
+          title="New entity"
+          aria-label="New entity"
+        >
+          <span className="material-symbols-outlined text-2xl">add</span>
+        </button>
+      </div>
     </AdminLayout>
   )
 }

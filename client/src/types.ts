@@ -4,7 +4,6 @@ export interface Entity {
   id: string
   name: string
   type: 'character' | 'place'
-  difficulty: Difficulty
   is_published: boolean
   clueCount?: number
   created_at?: string
@@ -14,7 +13,6 @@ export interface Entity {
 export interface Clue {
   id: string
   entity_id: string
-  order: number
   text: string
   citations: string | null
   difficulty: Difficulty | null
@@ -27,5 +25,4 @@ export interface Stats {
   totalClues: number
   avgCluesPerEntity: number
   unpublishedCount: number
-  publishedCount: Record<Difficulty, number>
 }

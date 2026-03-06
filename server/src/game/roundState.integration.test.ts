@@ -4,8 +4,7 @@ import { startGame, startNextRound, activateRound, revealClue, processGuess, end
 import type { RoomState } from '../rooms/store.js'
 
 vi.mock('../db/entities.js', () => ({
-  getCluesForEntity: vi.fn(),
-  getEntitiesByDifficulty: vi.fn()
+  getCluesForEntity: vi.fn()
 }))
 
 vi.mock('./entityPool.js', () => ({
@@ -21,13 +20,12 @@ describe('Round Flow Integration', () => {
     id: 'entity-1',
     name: 'Moses',
     type: 'character',
-    difficulty: 'medium',
     is_published: true
   }
 
   const mockClues = [
-    { id: 'clue-1', order: 1, text: 'Led the Israelites out of Egypt', citations: 'Exodus 1:1' },
-    { id: 'clue-2', order: 2, text: 'Received the Ten Commandments', citations: 'Exodus 20:1' }
+    { id: 'clue-1', text: 'Led the Israelites out of Egypt', citations: 'Exodus 1:1' },
+    { id: 'clue-2', text: 'Received the Ten Commandments', citations: 'Exodus 20:1' }
   ]
 
   beforeEach(() => {
@@ -212,8 +210,8 @@ describe('Round Flow Integration', () => {
       vi.mocked(getCluesForEntity).mockImplementation((id: string) => {
         if (id === 'entity-2') {
           return Promise.resolve([
-            { id: 'clue-3', order: 1, text: 'Was a shepherd', citations: '1 Samuel 16:1' },
-            { id: 'clue-4', order: 2, text: 'Defeated Goliath', citations: '1 Samuel 17:1' }
+            { id: 'clue-3', text: 'Was a shepherd', citations: '1 Samuel 16:1' },
+            { id: 'clue-4', text: 'Defeated Goliath', citations: '1 Samuel 17:1' }
           ] as any)
         }
         return Promise.resolve(mockClues as any)
