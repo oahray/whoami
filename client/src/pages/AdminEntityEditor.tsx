@@ -15,7 +15,9 @@ type ClueForm = Omit<Partial<Clue>, 'id' | 'citations'> & {
 
 function AdminEntityEditor() {
   const { id } = useParams<{ id: string }>()
-  const isNew = id === 'new'
+  // When creating a new entity we use the `/admin/entities/new` route, which has no `id` param.
+  // Treat the absence of an `id` param as "new", and any defined `id` as "edit".
+  const isNew = !id
   const navigate = useNavigate()
   const { getAccessToken } = useAuth()
 
@@ -25,7 +27,7 @@ function AdminEntityEditor() {
     is_published: false,
   })
   const [clues, setClues] = useState<ClueForm[]>([])
-  const [loading, setLoading] = useState(!!isNew)
+  const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [publishError, setPublishError] = useState('')
@@ -80,44 +82,61 @@ function AdminEntityEditor() {
       setError('')
       const token = await getAccessToken()
 
-      let entityId = id
+      let entityId: string | undefined = id
 
       if (isNew) {
+        const createPayload = {
+          name: entity.name ?? '',
+          type: entity.type ?? 'character',
+          is_published: entity.is_published ?? false,
+        }
         const response = await fetch(`${API_BASE_URL}/admin/entities`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify(entity),
+          body: JSON.stringify(createPayload),
         })
 
+        const data = await response.json()
         if (!response.ok) {
-          const error = await response.json()
-          throw new Error(error.error || 'Failed to create entity')
+          throw new Error((data as { error?: string }).error || 'Failed to create entity')
         }
 
-        const newEntity = await response.json() as Entity
+        const newEntity = data as Entity
+        if (!newEntity?.id) {
+          throw new Error('Server did not return the created entity; please try again.')
+        }
         entityId = newEntity.id
         navigate(`/admin/entities/${entityId}`, { replace: true })
       } else {
+        if (!id || id === 'undefined') {
+          setError('Invalid entity id; please go back to entities and try again.')
+          return
+        }
+        const updatePayload = {
+          name: entity.name,
+          type: entity.type,
+          is_published: entity.is_published,
+        }
         const response = await fetch(`${API_BASE_URL}/admin/entities/${id}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify(entity),
+          body: JSON.stringify(updatePayload),
         })
 
+        const data = await response.json()
         if (!response.ok) {
-          const error = await response.json()
-          if (error.code === 'INSUFFICIENT_CLUES') {
+          if ((data as { code?: string }).code === 'INSUFFICIENT_CLUES') {
             setPublishError('Entity must have at least 3 clues before publishing')
             setSaving(false)
             return
           }
-          throw new Error(error.error || 'Failed to update entity')
+          throw new Error((data as { error?: string }).error || 'Failed to update entity')
         }
       }
 
@@ -151,7 +170,7 @@ function AdminEntityEditor() {
         }
       }
 
-      navigate('/admin')
+      navigate('/admin/entities')
     } catch (err: any) {
       setError(err.message || 'Failed to save')
     } finally {
@@ -314,6 +333,20 @@ function AdminEntityEditor() {
                   required
                   className="w-full rounded-lg border border-slate-200 bg-slate-50 text-slate-900 focus:ring-primary focus:border-primary p-3 min-h-[80px] text-sm leading-relaxed"
                 />
+                <label className="flex flex-col">
+                  <p className="text-slate-600 text-sm font-semibold mb-1.5 ml-1">Difficulty</p>
+                  <select
+                    value={clue.difficulty ?? ''}
+                    onChange={(e) => handleUpdateClue(index, 'difficulty', (e.target.value || null) as Difficulty | null)}
+                    className="w-full rounded-lg border border-slate-200 bg-slate-50 text-slate-900 focus:ring-primary focus:border-primary h-11 px-3 font-medium text-sm"
+                  >
+                    <option value="">Not set</option>
+                    <option value="easy">Easy</option>
+                    <option value="medium">Medium</option>
+                    <option value="hard">Hard</option>
+                    <option value="nightmare">Nightmare</option>
+                  </select>
+                </label>
                 <input
                   type="text"
                   value={clue.citations || ''}
