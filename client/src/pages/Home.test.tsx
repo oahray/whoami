@@ -78,7 +78,7 @@ describe('Home', () => {
       </MemoryRouter>
     )
 
-    fireEvent.change(screen.getByPlaceholderText('e.g. Apostle Paul'), {
+    fireEvent.change(screen.getByPlaceholderText('e.g. Samuel'), {
       target: { value: 'Paul' }
     })
     fireEvent.change(screen.getByPlaceholderText('6-character code'), {
@@ -92,5 +92,39 @@ describe('Home', () => {
       nickname: 'Paul'
     })
     expect(setError).toHaveBeenCalledWith(null)
+  })
+
+  it('does not clear an existing room session just by rendering Home', () => {
+    const emit = vi.fn()
+
+    mockUseGame.mockReturnValue({
+      roomCode: 'ABC123',
+      error: null,
+      setError: vi.fn(),
+      setRoomCode: vi.fn()
+    })
+
+    mockUseSocket.mockReturnValue({
+      socket: {
+        on: vi.fn(),
+        off: vi.fn()
+      },
+      emit,
+      connected: true
+    })
+
+    localStorage.setItem('whoami_room', JSON.stringify({
+      roomCode: 'ABC123',
+      nickname: 'Paul'
+    }))
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <Home />
+      </MemoryRouter>
+    )
+
+    expect(emit).not.toHaveBeenCalledWith('LEAVE_ROOM', {})
+    expect(localStorage.getItem('whoami_room')).not.toBeNull()
   })
 })

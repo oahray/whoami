@@ -63,6 +63,52 @@ describe('room socket handlers', () => {
 
     room.status = 'in_progress'
     room.players.set('old-socket', oldPlayer)
+    room.scores.set('old-socket', 320)
+    room.currentRound = {
+      roundNumber: 1,
+      phase: 'active',
+      serverStartTime: Date.now(),
+      clues: [],
+      correctGuesses: [
+        {
+          playerId: 'old-socket',
+          nickname: 'Paul',
+          timeElapsedMs: 1200,
+          clueIndex: 0,
+          position: 1,
+          pointsEarned: 320
+        }
+      ],
+      timers: {
+        clueReveal: null,
+        roundEnd: null
+      }
+    } as any
+    room.roundHistory = [
+      {
+        scoreboard: [
+          {
+            playerId: 'old-socket',
+            nickname: 'Paul',
+            totalScore: 320
+          }
+        ],
+        correctGuesses: [
+          {
+            playerId: 'old-socket',
+            nickname: 'Paul',
+            pointsEarned: 320
+          }
+        ]
+      }
+    ]
+    room.finalScoreboard = [
+      {
+        playerId: 'old-socket',
+        nickname: 'Paul',
+        score: 320
+      }
+    ]
     vi.mocked(getRoom).mockReturnValue(room)
     vi.mocked(findReturningPlayer).mockReturnValue(oldPlayer as any)
     vi.mocked(buildReconnectPayload).mockReturnValue({ ok: true } as any)
@@ -75,6 +121,12 @@ describe('room socket handlers', () => {
     expect(room.players.has('old-socket')).toBe(false)
     expect(room.players.get('new-socket')?.isConnected).toBe(true)
     expect(room.players.get('new-socket')?.disconnectedAt).toBeNull()
+    expect(room.scores.has('old-socket')).toBe(false)
+    expect(room.scores.get('new-socket')).toBe(320)
+    expect(room.currentRound?.correctGuesses[0]?.playerId).toBe('new-socket')
+    expect(room.roundHistory[0].scoreboard[0].playerId).toBe('new-socket')
+    expect(room.roundHistory[0].correctGuesses[0].playerId).toBe('new-socket')
+    expect(room.finalScoreboard?.[0].playerId).toBe('new-socket')
     expect(socket.join).toHaveBeenCalledWith(room.code)
     expect(socket.emit).toHaveBeenCalledWith('RECONNECT_SUCCESS', { ok: true })
   })
@@ -97,6 +149,37 @@ describe('room socket handlers', () => {
     expect(socket.emit).toHaveBeenCalledWith('ROOM_ERROR', {
       code: 'PLAYER_BANNED',
       message: 'You have been removed from this room and cannot rejoin'
+    })
+  })
+
+  it('rejects joining with a nickname already used by a connected player', () => {
+    const room = actualStore.createRoom('host-1', 'Host')
+    const socket = {
+      id: 'socket-2',
+      emit: vi.fn()
+    } as any
+
+    room.players.set('player-1', {
+      id: 'player-1',
+      nickname: 'Paul',
+      isHost: false,
+      isConnected: true,
+      disconnectedAt: null,
+      guessCount: 0,
+      lastGuessAt: null,
+      isLocked: false
+    })
+    vi.mocked(getRoom).mockReturnValue(room)
+    vi.mocked(findReturningPlayer).mockReturnValue(null)
+
+    handleJoinRoom({} as any, socket, {
+      roomCode: room.code,
+      nickname: 'Paul'
+    })
+
+    expect(socket.emit).toHaveBeenCalledWith('ROOM_ERROR', {
+      code: 'NICKNAME_TAKEN',
+      message: 'Nickname already taken'
     })
   })
 

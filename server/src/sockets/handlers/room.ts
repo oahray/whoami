@@ -2,6 +2,48 @@ import { Server, Socket } from 'socket.io'
 import { getRoom, getRoomBySocket, createRoom, deleteRoom } from '../../rooms/store.js'
 import { findReturningPlayer, transferHost, buildReconnectPayload, GRACE_PERIOD_MS } from './utils.js'
 
+function migratePlayerReferences(room: any, oldPlayerId: string, newPlayerId: string) {
+  if (oldPlayerId === newPlayerId) {
+    return
+  }
+
+  if (room.hostId === oldPlayerId) {
+    room.hostId = newPlayerId
+  }
+
+  if (room.scores.has(oldPlayerId)) {
+    const score = room.scores.get(oldPlayerId) ?? 0
+    room.scores.delete(oldPlayerId)
+    room.scores.set(newPlayerId, score)
+  }
+
+  if (room.currentRound) {
+    room.currentRound.correctGuesses = room.currentRound.correctGuesses.map((guess: any) =>
+      guess.playerId === oldPlayerId ? { ...guess, playerId: newPlayerId } : guess
+    )
+  }
+
+  room.roundHistory = room.roundHistory.map((round: any) => ({
+    ...round,
+    correctGuesses: Array.isArray(round.correctGuesses)
+      ? round.correctGuesses.map((guess: any) =>
+        guess.playerId === oldPlayerId ? { ...guess, playerId: newPlayerId } : guess
+      )
+      : round.correctGuesses,
+    scoreboard: Array.isArray(round.scoreboard)
+      ? round.scoreboard.map((entry: any) =>
+        entry.playerId === oldPlayerId ? { ...entry, playerId: newPlayerId } : entry
+      )
+      : round.scoreboard
+  }))
+
+  if (room.finalScoreboard) {
+    room.finalScoreboard = room.finalScoreboard.map((entry: any) =>
+      entry.playerId === oldPlayerId ? { ...entry, playerId: newPlayerId } : entry
+    )
+  }
+}
+
 export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
   try {
     if (!payload || typeof payload !== 'object') {
@@ -71,6 +113,7 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
         returning.id = socket.id
         returning.isConnected = true
         returning.disconnectedAt = null
+        migratePlayerReferences(room, oldPlayerId, socket.id)
         room.players.delete(oldPlayerId)
         room.players.set(socket.id, returning)
 
@@ -115,16 +158,25 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
       return
     }
 
-    // If a player with the same nickname exists (connected or not), take over their seat
+    // Only reclaim an existing seat when that player is no longer connected.
     const existingEntry = Array.from(room.players.entries()).find(
       ([, p]) => p.nickname.toLowerCase() === nickname.toLowerCase()
     )
     if (existingEntry) {
       const [oldPlayerId, existingPlayer] = existingEntry
 
+      if (existingPlayer.isConnected) {
+        socket.emit('ROOM_ERROR', {
+          code: 'NICKNAME_TAKEN',
+          message: 'Nickname already taken'
+        })
+        return
+      }
+
       existingPlayer.id = socket.id
       existingPlayer.isConnected = true
       existingPlayer.disconnectedAt = null
+      migratePlayerReferences(room, oldPlayerId, socket.id)
 
       room.players.delete(oldPlayerId)
       room.players.set(socket.id, existingPlayer)
