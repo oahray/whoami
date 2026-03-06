@@ -1,11 +1,15 @@
-import { useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useGame } from '../hooks/useGame'
 import { useSocket } from '../hooks/useSocket'
 
+const COPIED_FEEDBACK_MS = 2000
+
 function Lobby() {
   const navigate = useNavigate()
   const { emit, on, off } = useSocket()
+  const [copiedCode, setCopiedCode] = useState(false)
+  const [copiedLink, setCopiedLink] = useState(false)
   const {
     roomCode,
     isHost,
@@ -40,13 +44,19 @@ function Lobby() {
   }, [gameState, navigate])
 
   const handleCopyCode = () => {
-    if (roomCode) navigator.clipboard.writeText(roomCode)
+    if (!roomCode) return
+    navigator.clipboard.writeText(roomCode).then(() => {
+      setCopiedCode(true)
+      setTimeout(() => setCopiedCode(false), COPIED_FEEDBACK_MS)
+    })
   }
 
   const handleCopyLink = () => {
-    if (roomCode && typeof window !== 'undefined') {
-      navigator.clipboard.writeText(`${window.location.origin}/?room=${roomCode}`)
-    }
+    if (!roomCode || typeof window === 'undefined') return
+    navigator.clipboard.writeText(`${window.location.origin}/?room=${roomCode}`).then(() => {
+      setCopiedLink(true)
+      setTimeout(() => setCopiedLink(false), COPIED_FEEDBACK_MS)
+    })
   }
 
   const handleStartGame = () => {
@@ -107,20 +117,29 @@ function Lobby() {
 
       <main className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto flex flex-col gap-6 pb-36 md:pb-8">
         <section className="bg-white rounded-lg p-5 shadow-sm border border-slate-200">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex flex-col">
+          <div className="flex flex-row items-center justify-between gap-4">
+            <div className="flex flex-col min-w-0">
               <span className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Room Code</span>
               <p className="text-slate-900 text-2xl md:text-3xl font-black tracking-widest mt-1 text-primary">{roomCode}</p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 shrink-0">
               <button
                 type="button"
                 onClick={handleCopyCode}
                 title="Copy code"
                 className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors md:size-auto md:px-4 md:py-2 md:rounded-lg md:bg-slate-100 md:font-semibold md:flex md:items-center md:gap-2"
               >
-                <span className="material-symbols-outlined text-xl md:text-lg">content_copy</span>
-                <span className="hidden md:inline text-sm">Copy Code</span>
+                {copiedCode ? (
+                  <>
+                    <span className="material-symbols-outlined text-xl md:text-lg">check</span>
+                    <span className="hidden md:inline text-sm">Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-xl md:text-lg">content_copy</span>
+                    <span className="hidden md:inline text-sm">Copy Code</span>
+                  </>
+                )}
               </button>
               <button
                 type="button"
@@ -128,8 +147,17 @@ function Lobby() {
                 title="Copy link"
                 className="flex size-10 items-center justify-center rounded-full bg-primary text-white hover:bg-primary/90 transition-colors md:size-auto md:px-4 md:py-2 md:rounded-lg md:bg-slate-100 md:text-primary md:font-semibold md:flex md:items-center md:gap-2 md:hover:bg-slate-200"
               >
-                <span className="material-symbols-outlined text-xl md:text-lg">share</span>
-                <span className="hidden md:inline text-sm">Copy Link</span>
+                {copiedLink ? (
+                  <>
+                    <span className="material-symbols-outlined text-xl md:text-lg">check</span>
+                    <span className="hidden md:inline text-sm">Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-xl md:text-lg">share</span>
+                    <span className="hidden md:inline text-sm">Copy Link</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

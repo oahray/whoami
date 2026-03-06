@@ -99,9 +99,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
     const handleConnect = () => {
       setIsReconnecting(false)
-      if (!roomCode) {
-        attemptReconnect()
-      }
+      // Re-join room when socket reconnects (e.g. after tab was backgrounded), so we don't stay disconnected
+      attemptReconnect()
     }
 
     const handleDisconnect = () => {
