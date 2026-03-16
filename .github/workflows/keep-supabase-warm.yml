@@ -1,0 +1,23 @@
+name: Keep Supabase Warm
+
+on:
+  schedule:
+    # Run once a day at 03:00 UTC (adjust as needed)
+    - cron: '0 3 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  ping-backend-health:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call backend health endpoint
+        env:
+          BACKEND_BASE_URL: ${{ secrets.BACKEND_BASE_URL }}
+        run: |
+          if [ -z "$BACKEND_BASE_URL" ]; then
+            echo "BACKEND_BASE_URL is not set; skipping ping."
+            exit 0
+          fi
+
+          echo "Pinging $BACKEND_BASE_URL/internal/warmth"
+          curl -fsS "$BACKEND_BASE_URL/internal/warmth"

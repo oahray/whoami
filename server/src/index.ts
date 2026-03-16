@@ -14,6 +14,7 @@ import {
   handleKickPlayer
 } from './sockets/handlers/index.js'
 import adminRoutes from './admin/routes/index.js'
+import { supabase } from './db/supabase.js'
 
 dotenv.config()
 
@@ -26,6 +27,39 @@ const CLIENT_ORIGINS = process.env.CLIENT_ORIGINS
   : [CLIENT_ORIGIN]
 
 const allowedOrigins = [...CLIENT_ORIGINS, CLIENT_ORIGIN].filter(Boolean)
+
+// Basic in-memory IP throttle for internal warmth endpoint
+type WarmthBucket = {
+  windowStart: number
+  count: number
+}
+
+const WARMTH_WINDOW_MS = 5 * 60 * 1000 // 5 minutes
+const WARMTH_MAX_REQUESTS = 30         // per IP per window
+const warmthBuckets = new Map<string, WarmthBucket>()
+
+function getClientIp(req: express.Request): string {
+  const xfwd = (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim()
+  return xfwd || req.ip || 'unknown'
+}
+
+function isWarmthAllowed(req: express.Request): boolean {
+  const ip = getClientIp(req)
+  const now = Date.now()
+  const bucket = warmthBuckets.get(ip)
+
+  if (!bucket || now - bucket.windowStart > WARMTH_WINDOW_MS) {
+    warmthBuckets.set(ip, { windowStart: now, count: 1 })
+    return true
+  }
+
+  if (bucket.count >= WARMTH_MAX_REQUESTS) {
+    return false
+  }
+
+  bucket.count += 1
+  return true
+}
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -42,6 +76,45 @@ app.use(express.json())
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
+})
+
+// Supabase-specific "warmth" endpoint used by CI to keep the project active
+app.get('/internal/warmth', async (req, res) => {
+  if (!isWarmthAllowed(req)) {
+    return res.status(429).json({
+      status: 'error',
+      source: 'internal',
+      message: 'Too many requests from this IP'
+    })
+  }
+
+  try {
+    const { error } = await supabase
+      .from('entities')
+      .select('id')
+      .limit(1)
+
+    if (error) {
+      console.error('Supabase warmth check error:', error.message)
+      return res.status(500).json({
+        status: 'error',
+        source: 'internal',
+        message: error.message
+      })
+    }
+
+    res.json({
+      status: 'ok',
+      source: 'internal',
+      timestamp: new Date().toISOString()
+    })
+  } catch (err: any) {
+    console.error('Supabase warmth unexpected error:', err)
+    res.status(500).json({
+      status: 'error',
+      message: err?.message ?? 'Unknown error'
+    })
+  }
 })
 
 app.use('/admin', adminRoutes)
