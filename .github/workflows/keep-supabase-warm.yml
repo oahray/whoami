@@ -19,5 +19,11 @@ jobs:
             exit 0
           fi
 
-          echo "Pinging $BACKEND_BASE_URL/internal/warmth"
-          curl -fsS "$BACKEND_BASE_URL/internal/warmth"
+          echo "Pinging $BACKEND_BASE_URL/internal/warmth (5x)"
+          for i in 1 2 3 4 5; do
+            echo "Warmth request $i/5"
+            curl -fsS "$BACKEND_BASE_URL/internal/warmth"
+            if [ "$i" -lt 5 ]; then
+              sleep 60
+            fi
+          done
