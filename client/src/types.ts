@@ -6,6 +6,22 @@ export interface Entity {
   type: 'character' | 'place'
   is_published: boolean
   clueCount?: number
+  /** Owning dataset; required at the DB level. */
+  dataset_id?: string
+  /** Alternate names accepted during guess matching. */
+  aliases?: string[]
+  created_at?: string
+  updated_at?: string
+}
+
+export interface Dataset {
+  id: string
+  name: string
+  source: string | null
+  description: string | null
+  is_official: boolean
+  is_enabled: boolean
+  is_default: boolean
   created_at?: string
   updated_at?: string
 }
@@ -21,6 +37,8 @@ export interface Clue {
 }
 
 export interface Stats {
+  /** Echoed dataset id the stats are scoped to. */
+  datasetId?: string
   totalEntities: number
   totalClues: number
   avgCluesPerEntity: number

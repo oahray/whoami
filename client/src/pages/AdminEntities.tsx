@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useAdminDataset } from '../context/AdminDatasetContext'
 import { AdminLayout } from '../components/AdminLayout'
 import type { Entity } from '../types'
 
@@ -9,6 +10,7 @@ const API_BASE_URL = import.meta.env.VITE_SOCKET_URL?.replace('ws://', 'http://'
 function AdminEntities() {
   const { getAccessToken } = useAuth()
   const navigate = useNavigate()
+  const { selectedDatasetId, selectedDataset } = useAdminDataset()
   const [entities, setEntities] = useState<Entity[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -18,23 +20,32 @@ function AdminEntities() {
 
   useEffect(() => {
     loadData()
-  }, [])
+  }, [selectedDatasetId])
 
   const loadData = async () => {
     try {
       setLoading(true)
+      setError('')
       const token = await getAccessToken()
       if (!token) {
         navigate('/admin/login')
         return
       }
-      const res = await fetch(`${API_BASE_URL}/admin/entities`, {
+      const url = new URL(`${API_BASE_URL}/admin/entities`)
+      if (selectedDatasetId) url.searchParams.set('datasetId', selectedDatasetId)
+      const res = await fetch(url.toString(), {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
       })
-      if (!res.ok) throw new Error('Request failed')
+      if (!res.ok) {
+        if (res.status === 400) {
+          const body = await res.json().catch(() => ({}))
+          throw new Error(body.message || 'No dataset available')
+        }
+        throw new Error('Request failed')
+      }
       const data = (await res.json()) as Entity[]
       setEntities(data)
     } catch (err: unknown) {
@@ -61,16 +72,20 @@ function AdminEntities() {
     return 'bg-slate-100 text-slate-700'
   }
 
+  const breadcrumb = selectedDataset
+    ? `Datasets / ${selectedDataset.name} / Entities`
+    : 'Overview / Entities'
+
   if (loading) {
     return (
-      <AdminLayout breadcrumb="Overview / Entities" title="Entities">
+      <AdminLayout breadcrumb={breadcrumb} title="Entities">
         <div className="flex items-center justify-center py-24"><div className="text-slate-600">Loading...</div></div>
       </AdminLayout>
     )
   }
 
   return (
-    <AdminLayout breadcrumb="Overview / Entities" title="Entities">
+    <AdminLayout breadcrumb={breadcrumb} title="Entities">
       {error && (
         <div className="mb-6 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-sm">
           {error}

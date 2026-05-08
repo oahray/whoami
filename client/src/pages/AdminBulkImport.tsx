@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useAdminDataset } from '../context/AdminDatasetContext'
 import { AdminLayout } from '../components/AdminLayout'
 
 const API_BASE_URL = import.meta.env.VITE_SOCKET_URL?.replace('ws://', 'http://').replace('wss://', 'https://') || 'http://localhost:3001'
@@ -8,6 +9,7 @@ const API_BASE_URL = import.meta.env.VITE_SOCKET_URL?.replace('ws://', 'http://'
 function AdminBulkImport() {
   const { getAccessToken } = useAuth()
   const navigate = useNavigate()
+  const { selectedDatasetId, selectedDataset } = useAdminDataset()
   const [jsonInput, setJsonInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<any>(null)
@@ -33,14 +35,23 @@ function AdminBulkImport() {
         return
       }
 
-      const response = await fetch(`${API_BASE_URL}/admin/bulk-import`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ entities: parsed })
-      })
+      if (!selectedDatasetId) {
+        setError('No dataset selected. Open Datasets and pick one first.')
+        setLoading(false)
+        return
+      }
+
+      const response = await fetch(
+        `${API_BASE_URL}/admin/bulk-import?datasetId=${encodeURIComponent(selectedDatasetId)}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ entities: parsed, datasetId: selectedDatasetId })
+        }
+      )
 
       const data = await response.json()
 
@@ -69,6 +80,7 @@ function AdminBulkImport() {
     "name": "Moses",
     "type": "character",
     "is_published": true,
+    "aliases": [],
     "clues": [
       {
         "text": "Led the Israelites out of Egypt",
@@ -84,8 +96,12 @@ function AdminBulkImport() {
   }
 ]`
 
+  const breadcrumb = selectedDataset
+    ? `Datasets / ${selectedDataset.name} / Bulk Import`
+    : 'Overview / Bulk Import'
+
   return (
-    <AdminLayout breadcrumb="Overview / Bulk Import" title="Bulk Import">
+    <AdminLayout breadcrumb={breadcrumb} title="Bulk Import">
       <div className="max-w-4xl mx-auto w-full">
         <div className="flex items-center justify-between mb-4 md:mb-6">
           <button
