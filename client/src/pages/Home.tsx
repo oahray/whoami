@@ -143,7 +143,7 @@ function Home() {
             <span className="material-symbols-outlined text-primary text-5xl">auto_stories</span>
           </div>
           <h1 className="text-white text-3xl font-bold tracking-tight text-center">Who Am I?</h1>
-          <p className="text-white/80 text-base font-medium text-center mt-1">The Ultimate Bible Quiz</p>
+          <p className="text-white/80 text-base font-medium text-center mt-1">The Ultimate Bible Character Quiz</p>
         </div>
 
         <div className="w-full max-w-md bg-white rounded-lg shadow-2xl border border-slate-200 p-8 flex flex-col gap-6">

@@ -112,6 +112,7 @@ function AdminBulkImport() {
                   <p className="text-slate-900 font-bold text-sm">Format Rules</p>
                   <p className="text-slate-600 text-xs md:text-sm leading-relaxed mt-1">
                     JSON must be an array of entities. Each entity: name, type, clues array (text; optional citations, difficulty).
+                    Re-importing the same data is safe: entities update only when fields differ; clues match by trimmed text and update when citations or difficulty change.
                   </p>
                 </div>
               </div>
@@ -177,15 +178,33 @@ function AdminBulkImport() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-4">
               <div className="bg-primary/10 rounded-lg p-3">
                 <div className="text-xl md:text-2xl font-bold text-primary">{result.summary?.total ?? 0}</div>
-                <div className="text-sm text-slate-600">Total</div>
+                <div className="text-sm text-slate-600">Entities in file</div>
               </div>
               <div className="bg-emerald-50 rounded-lg p-3">
                 <div className="text-xl md:text-2xl font-bold text-emerald-600">{result.summary?.created ?? 0}</div>
-                <div className="text-sm text-slate-600">Created</div>
+                <div className="text-sm text-slate-600">Entities created</div>
               </div>
               <div className="bg-amber-50 rounded-lg p-3">
                 <div className="text-xl md:text-2xl font-bold text-amber-600">{result.summary?.updated ?? 0}</div>
-                <div className="text-sm text-slate-600">Updated</div>
+                <div className="text-sm text-slate-600">Entities updated</div>
+              </div>
+              <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                <div className="text-xl md:text-2xl font-bold text-slate-700">{result.summary?.entitiesUnchanged ?? 0}</div>
+                <div className="text-sm text-slate-600">Entities unchanged</div>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-4">
+              <div className="bg-teal-50 rounded-lg p-3">
+                <div className="text-xl md:text-2xl font-bold text-teal-700">{result.summary?.cluesInserted ?? 0}</div>
+                <div className="text-sm text-slate-600">Clues added</div>
+              </div>
+              <div className="bg-indigo-50 rounded-lg p-3">
+                <div className="text-xl md:text-2xl font-bold text-indigo-700">{result.summary?.cluesUpdated ?? 0}</div>
+                <div className="text-sm text-slate-600">Clues updated</div>
+              </div>
+              <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                <div className="text-xl md:text-2xl font-bold text-slate-600">{result.summary?.cluesUnchanged ?? 0}</div>
+                <div className="text-sm text-slate-600">Clues unchanged</div>
               </div>
               <div className="bg-rose-50 rounded-lg p-3">
                 <div className="text-xl md:text-2xl font-bold text-rose-600">{result.summary?.errors ?? 0}</div>
