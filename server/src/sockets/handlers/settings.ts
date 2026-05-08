@@ -2,8 +2,9 @@ import { Server, Socket } from 'socket.io'
 import { getRoomBySocket } from '../../rooms/store.js'
 import { ROUND_START_DELAY_MS } from '../../game/config.js'
 import { resetRoomForNewGame } from '../../game/roundState.js'
+import { getDataset } from '../../db/entities.js'
 
-export function handleUpdateSettings(io: Server, socket: Socket, payload: any) {
+export async function handleUpdateSettings(io: Server, socket: Socket, payload: any) {
   try {
     if (!payload || typeof payload !== 'object') {
       socket.emit('ROOM_ERROR', {
@@ -43,7 +44,16 @@ export function handleUpdateSettings(io: Server, socket: Socket, payload: any) {
       return
     }
 
-    const { roundDuration, clueRevealTime, totalRounds, difficultyMode, strictMode, transparencyMode, maxGuessesPerRound } = payload
+    const {
+      roundDuration,
+      clueRevealTime,
+      totalRounds,
+      difficultyMode,
+      strictMode,
+      transparencyMode,
+      maxGuessesPerRound,
+      datasetId
+    } = payload
 
     if (roundDuration !== undefined) {
       if (roundDuration < 10000 || roundDuration > 60000) {
@@ -113,6 +123,37 @@ export function handleUpdateSettings(io: Server, socket: Socket, payload: any) {
         return
       }
       room.settings.maxGuessesPerRound = maxGuessesPerRound
+    }
+
+    if (datasetId !== undefined) {
+      if (datasetId !== null && (typeof datasetId !== 'string' || datasetId.trim() === '')) {
+        socket.emit('ROOM_ERROR', {
+          code: 'INVALID_SETTINGS',
+          message: 'Invalid dataset id'
+        })
+        return
+      }
+
+      if (datasetId === null) {
+        room.settings.datasetId = null
+      } else {
+        const dataset = await getDataset(datasetId)
+        if (!dataset) {
+          socket.emit('ROOM_ERROR', {
+            code: 'INVALID_SETTINGS',
+            message: 'Selected dataset does not exist'
+          })
+          return
+        }
+        if (!dataset.is_enabled) {
+          socket.emit('ROOM_ERROR', {
+            code: 'DATASET_DISABLED',
+            message: 'Selected dataset is disabled'
+          })
+          return
+        }
+        room.settings.datasetId = dataset.id
+      }
     }
 
     io.to(room.code).emit('SETTINGS_UPDATED', room.settings)

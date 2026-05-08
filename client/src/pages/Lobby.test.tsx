@@ -40,7 +40,8 @@ describe('Lobby', () => {
         difficultyMode: 'any',
         strictMode: false,
         transparencyMode: 'full',
-        maxGuessesPerRound: 10
+        maxGuessesPerRound: 10,
+        datasetId: null
       },
       gameState: null,
       error: null,

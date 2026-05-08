@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createRoom } from '../rooms/store.js'
 
 vi.mock('../db/entities.js', () => ({
-  getCluesForEntity: vi.fn()
+  getCluesForEntity: vi.fn(),
+  getDataset: vi.fn(),
+  getDefaultEnabledDataset: vi.fn()
 }))
 
 vi.mock('./entityPool.js', () => ({
@@ -22,7 +24,7 @@ vi.mock('./rateLimit.js', () => ({
   hasExceededMaxGuesses: vi.fn()
 }))
 
-import { getCluesForEntity } from '../db/entities.js'
+import { getCluesForEntity, getDataset, getDefaultEnabledDataset } from '../db/entities.js'
 import { buildEntityPool } from './entityPool.js'
 import { calculateScore } from './scoring.js'
 import { validateGuess } from './validation.js'
@@ -30,12 +32,23 @@ import { hasExceededMaxGuesses, isRateLimited } from './rateLimit.js'
 import {
   endGame,
   endRound,
+  GameStartError,
   processGuess,
   resetRoomForNewGame,
   revealClue,
   startGame,
   startNextRound
 } from './roundState.js'
+
+const DEFAULT_DATASET = {
+  id: 'ds-default',
+  name: 'Bible',
+  source: null,
+  description: null,
+  is_official: true,
+  is_enabled: true,
+  is_default: true
+}
 
 describe('roundState unit', () => {
   const mockEntity = {
@@ -54,6 +67,8 @@ describe('roundState unit', () => {
     vi.clearAllMocks()
     vi.mocked(buildEntityPool).mockResolvedValue([mockEntity])
     vi.mocked(getCluesForEntity).mockResolvedValue(mockClues as any)
+    vi.mocked(getDataset).mockResolvedValue(DEFAULT_DATASET as any)
+    vi.mocked(getDefaultEnabledDataset).mockResolvedValue(DEFAULT_DATASET as any)
     vi.mocked(calculateScore).mockReturnValue(321)
     vi.mocked(validateGuess).mockReturnValue(true)
     vi.mocked(isRateLimited).mockReturnValue(false)
@@ -235,6 +250,45 @@ describe('roundState unit', () => {
     expect(room.players.get('player-1')?.isLocked).toBe(false)
     expect(room.players.get('player-1')?.nickname).toBe('Player1')
     expect(room.settings.strictMode).toBe(true)
+  })
+
+  it('startGame falls back to the default-enabled dataset when none is selected', async () => {
+    const room = createTestRoom()
+    expect(room.settings.datasetId).toBeNull()
+
+    await startGame(room)
+
+    expect(getDefaultEnabledDataset).toHaveBeenCalled()
+    expect(room.settings.datasetId).toBe(DEFAULT_DATASET.id)
+    expect(buildEntityPool).toHaveBeenCalledWith(
+      room.settings.difficultyMode,
+      room.settings.totalRounds,
+      DEFAULT_DATASET.id
+    )
+  })
+
+  it('startGame throws GameStartError when the selected dataset is disabled', async () => {
+    const room = createTestRoom()
+    room.settings.datasetId = 'ds-disabled'
+    vi.mocked(getDataset).mockResolvedValueOnce({
+      ...DEFAULT_DATASET,
+      id: 'ds-disabled',
+      is_enabled: false,
+      is_default: false
+    } as any)
+
+    await expect(startGame(room)).rejects.toBeInstanceOf(GameStartError)
+    expect(buildEntityPool).not.toHaveBeenCalled()
+  })
+
+  it('startGame throws NO_DATASET when no enabled dataset can be resolved', async () => {
+    const room = createTestRoom()
+    vi.mocked(getDefaultEnabledDataset).mockResolvedValueOnce(null)
+
+    await expect(startGame(room)).rejects.toMatchObject({
+      name: 'GameStartError',
+      code: 'NO_DATASET'
+    })
   })
 
   it('endGame sorts final scoreboard by score descending', () => {

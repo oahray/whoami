@@ -4,10 +4,12 @@ import entitiesRoutes from './entities.js'
 import cluesRoutes from './clues.js'
 import statsRoutes from './stats.js'
 import bulkImportRoutes from './bulkImport.js'
+import datasetsRoutes from './datasets.js'
 
 const router = express.Router()
 
 router.use(adminAuth)
+router.use(datasetsRoutes)
 router.use(entitiesRoutes)
 router.use(cluesRoutes)
 router.use(statsRoutes)

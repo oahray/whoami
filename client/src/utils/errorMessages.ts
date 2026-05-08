@@ -15,6 +15,9 @@ export type ErrorCode =
   | 'CONNECTION_LOST'
   | 'RECONNECTION_FAILED'
   | 'PLAYER_BANNED'
+  | 'NO_DATASET'
+  | 'DATASET_DISABLED'
+  | 'NO_ENTITIES'
 
 const errorMessages: Record<ErrorCode, string> = {
   ROOM_NOT_FOUND: 'This room no longer exists. Please create or join a different room.',
@@ -32,7 +35,10 @@ const errorMessages: Record<ErrorCode, string> = {
   INVALID_SETTINGS: 'Invalid game settings. Please check your values and try again.',
   INTERNAL_ERROR: 'An unexpected error occurred. Please try again or refresh the page.',
   CONNECTION_LOST: 'Connection lost. Attempting to reconnect...',
-  RECONNECTION_FAILED: 'Failed to reconnect. Please refresh the page and try again.'
+  RECONNECTION_FAILED: 'Failed to reconnect. Please refresh the page and try again.',
+  NO_DATASET: 'No content set is available yet. Ask an admin to enable one.',
+  DATASET_DISABLED: 'The selected content set has been disabled. Pick another to start.',
+  NO_ENTITIES: 'This content set has no playable entities yet. Try a different set.'
 }
 
 export function getErrorMessage(code: string, fallback?: string): string {

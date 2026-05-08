@@ -66,16 +66,37 @@ export async function getPublishedEntities(): Promise<Entity[]> {
 }
 
 /**
- * Published entities that have at least two clues for the given mode
- * (for `any`, all clues count; for a specific tier, only clues with that difficulty count).
+ * Published entities that have at least two clues for the given mode, scoped
+ * to a single dataset. (For `any`, all clues count; for a specific tier, only
+ * clues with that difficulty count.)
  */
 export async function getPublishedEntitiesForGamePool(
   mode: GameDifficultyMode,
-  maxEntities: number
+  maxEntities: number,
+  datasetId: string
 ): Promise<Entity[]> {
+  const { data, error } = await supabase
+    .from('entities')
+    .select('*')
+    .eq('is_published', true)
+    .eq('dataset_id', datasetId)
+    .order('name')
+
+  if (error) {
+    throw new Error(`Failed to fetch entities: ${error.message}`)
+  }
+
+  const datasetEntities = data ?? []
+  if (datasetEntities.length === 0) {
+    return []
+  }
+
+  const datasetEntityIds = datasetEntities.map((e) => e.id)
+
   const { data: clueRows, error: cluesError } = await supabase
     .from('clues')
     .select('entity_id, difficulty')
+    .in('entity_id', datasetEntityIds)
 
   if (cluesError) {
     throw new Error(`Failed to fetch clues for pool: ${cluesError.message}`)
@@ -94,17 +115,7 @@ export async function getPublishedEntitiesForGamePool(
     if (count >= 2) eligibleIds.add(entityId)
   }
 
-  const { data, error } = await supabase
-    .from('entities')
-    .select('*')
-    .eq('is_published', true)
-    .order('name')
-
-  if (error) {
-    throw new Error(`Failed to fetch entities: ${error.message}`)
-  }
-
-  const filtered = (data ?? []).filter(e => eligibleIds.has(e.id))
+  const filtered = datasetEntities.filter((e) => eligibleIds.has(e.id))
   return shuffle(filtered).slice(0, maxEntities)
 }
 
@@ -159,6 +170,149 @@ export async function getDefaultEnabledDataset(): Promise<Dataset | null> {
     .maybeSingle()
 
   return (enabledRow as Dataset) ?? null
+}
+
+export async function countEnabledDatasets(): Promise<number> {
+  const { count, error } = await supabase
+    .from('datasets')
+    .select('*', { count: 'exact', head: true })
+    .eq('is_enabled', true)
+
+  if (error) {
+    throw new Error(`Failed to count enabled datasets: ${error.message}`)
+  }
+
+  return count ?? 0
+}
+
+export interface DatasetCreateInput {
+  name: string
+  source?: string | null
+  description?: string | null
+  is_official?: boolean
+  is_enabled?: boolean
+  is_default?: boolean
+}
+
+export async function createDataset(input: DatasetCreateInput): Promise<Dataset> {
+  const payload = {
+    name: input.name,
+    source: input.source ?? null,
+    description: input.description ?? null,
+    is_official: input.is_official ?? false,
+    is_enabled: input.is_enabled ?? true,
+    is_default: input.is_default ?? false
+  }
+
+  const { data, error } = await supabase
+    .from('datasets')
+    .insert(payload)
+    .select('*')
+    .single()
+
+  if (error) {
+    throw new Error(`Failed to create dataset: ${error.message}`)
+  }
+
+  return data as Dataset
+}
+
+export interface DatasetUpdateInput {
+  name?: string
+  source?: string | null
+  description?: string | null
+  is_official?: boolean
+  is_enabled?: boolean
+  is_default?: boolean
+}
+
+/**
+ * Update dataset flags / metadata with two invariants enforced in app code:
+ *   1. At least one dataset must remain enabled — disabling the last enabled
+ *      dataset is rejected.
+ *   2. At most one dataset may be `is_default` — setting `is_default = true`
+ *      clears the flag on every other dataset in the same transaction.
+ */
+export async function updateDatasetFlags(
+  id: string,
+  patch: DatasetUpdateInput
+): Promise<Dataset> {
+  const current = await getDataset(id)
+  if (!current) {
+    throw new DatasetUpdateError('NOT_FOUND', `Dataset ${id} not found`)
+  }
+
+  if (patch.is_enabled === false && current.is_enabled) {
+    const enabled = await countEnabledDatasets()
+    if (enabled <= 1) {
+      throw new DatasetUpdateError(
+        'CANNOT_DISABLE_LAST_ENABLED',
+        'Cannot disable the last enabled dataset'
+      )
+    }
+  }
+
+  if (patch.is_default === true) {
+    const { error: clearError } = await supabase
+      .from('datasets')
+      .update({ is_default: false })
+      .neq('id', id)
+      .eq('is_default', true)
+
+    if (clearError) {
+      throw new Error(`Failed to clear other default datasets: ${clearError.message}`)
+    }
+  }
+
+  const updateRow: Record<string, unknown> = {}
+  if (patch.name !== undefined) updateRow.name = patch.name
+  if (patch.source !== undefined) updateRow.source = patch.source
+  if (patch.description !== undefined) updateRow.description = patch.description
+  if (patch.is_official !== undefined) updateRow.is_official = patch.is_official
+  if (patch.is_enabled !== undefined) updateRow.is_enabled = patch.is_enabled
+  if (patch.is_default !== undefined) updateRow.is_default = patch.is_default
+
+  if (Object.keys(updateRow).length === 0) {
+    return current
+  }
+
+  const { data, error } = await supabase
+    .from('datasets')
+    .update(updateRow)
+    .eq('id', id)
+    .select('*')
+    .single()
+
+  if (error) {
+    throw new Error(`Failed to update dataset ${id}: ${error.message}`)
+  }
+
+  return data as Dataset
+}
+
+export class DatasetUpdateError extends Error {
+  constructor(public readonly code: 'NOT_FOUND' | 'CANNOT_DISABLE_LAST_ENABLED', message: string) {
+    super(message)
+    this.name = 'DatasetUpdateError'
+  }
+}
+
+/**
+ * Resolve a dataset id from an admin request: prefers an explicit `?datasetId=`
+ * query (or `datasetId` in body), and falls back to the default enabled dataset
+ * for backwards compatibility while the admin UI is migrating to dataset-aware
+ * URLs. Returns null if no dataset can be resolved (e.g. fresh install before
+ * `db:create-default-dataset` has been run).
+ */
+export async function resolveDatasetIdFromRequest(
+  raw: unknown
+): Promise<string | null> {
+  if (typeof raw === 'string' && raw.trim() !== '') {
+    return raw.trim()
+  }
+
+  const fallback = await getDefaultEnabledDataset()
+  return fallback?.id ?? null
 }
 
 export async function getCluesForEntity(

@@ -4,15 +4,27 @@ import { startGame, startNextRound, activateRound, revealClue, processGuess, end
 import type { RoomState } from '../rooms/store.js'
 
 vi.mock('../db/entities.js', () => ({
-  getCluesForEntity: vi.fn()
+  getCluesForEntity: vi.fn(),
+  getDataset: vi.fn(),
+  getDefaultEnabledDataset: vi.fn()
 }))
 
 vi.mock('./entityPool.js', () => ({
   buildEntityPool: vi.fn()
 }))
 
-import { getCluesForEntity } from '../db/entities.js'
+import { getCluesForEntity, getDataset, getDefaultEnabledDataset } from '../db/entities.js'
 import { buildEntityPool } from './entityPool.js'
+
+const DEFAULT_DATASET = {
+  id: 'ds-default',
+  name: 'Bible',
+  source: null,
+  description: null,
+  is_official: true,
+  is_enabled: true,
+  is_default: true
+}
 
 describe('Round Flow Integration', () => {
   let room: RoomState
@@ -60,6 +72,8 @@ describe('Round Flow Integration', () => {
 
     vi.mocked(buildEntityPool).mockResolvedValue([mockEntity])
     vi.mocked(getCluesForEntity).mockResolvedValue(mockClues as any)
+    vi.mocked(getDataset).mockResolvedValue(DEFAULT_DATASET as any)
+    vi.mocked(getDefaultEnabledDataset).mockResolvedValue(DEFAULT_DATASET as any)
   })
 
   describe('full round flow', () => {

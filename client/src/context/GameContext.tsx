@@ -20,6 +20,8 @@ interface RoomSettings {
   strictMode: boolean
   transparencyMode: 'full' | 'minimal'
   maxGuessesPerRound: number
+  /** Dataset (content set) the room is scoped to; null until the host picks one. */
+  datasetId: string | null
 }
 
 interface GameState {

@@ -10,56 +10,34 @@ vi.mock('../../db/supabase.js', () => ({
 
 import { supabase } from '../../db/supabase.js'
 import statsRouter from './stats.js'
+import { createQueryBuilder, findOp, hasEq, hasIs } from '../../test-utils/supabaseQueryBuilder.js'
 
-type QueryState = {
-  table: string
-  operations: Array<{ method: string; args: any[] }>
-}
-
-function createQueryBuilder(
-  table: string,
-  resolver: (state: QueryState) => any
-) {
-  const state: QueryState = { table, operations: [] }
-  const builder: any = {
-    select: (...args: any[]) => {
-      state.operations.push({ method: 'select', args })
-      return builder
-    },
-    eq: (...args: any[]) => {
-      state.operations.push({ method: 'eq', args })
-      return builder
-    },
-    is: (...args: any[]) => {
-      state.operations.push({ method: 'is', args })
-      return builder
-    },
-    then: (resolve: any, reject: any) => Promise.resolve(resolver(state)).then(resolve, reject)
-  }
-  return builder
-}
-
-function hasEq(state: QueryState, column: string, value: unknown) {
-  return state.operations.some(op => op.method === 'eq' && op.args[0] === column && op.args[1] === value)
-}
-
-function hasIs(state: QueryState, column: string, value: unknown) {
-  return state.operations.some(op => op.method === 'is' && op.args[0] === column && op.args[1] === value)
-}
+const DATASET_ID = 'ds-default'
 
 describe('GET /stats', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  it('returns aggregated admin stats', async () => {
+  it('returns stats scoped to the resolved dataset', async () => {
     vi.mocked(supabase.from).mockImplementation((table: string) =>
       createQueryBuilder(table, (state) => {
-        if (state.table === 'entities' && hasEq(state, 'is_published', false)) {
-          const selectArgs = state.operations.find(op => op.method === 'select')?.args
-          if (selectArgs?.[0] === 'id') {
-            return { data: [{ id: 'e1' }, { id: 'e2' }, { id: 'e3' }], error: null }
+        if (state.table === 'datasets') {
+          return {
+            data: {
+              id: DATASET_ID,
+              name: 'Bible',
+              source: null,
+              description: null,
+              is_official: true,
+              is_enabled: true,
+              is_default: true
+            },
+            error: null
           }
+        }
+
+        if (state.table === 'entities' && hasEq(state, 'is_published', false)) {
           return { count: 4, error: null }
         }
 
@@ -72,30 +50,37 @@ describe('GET /stats', () => {
         }
 
         if (state.table === 'entities') {
+          const selectArgs = findOp(state, 'select')?.args
+          if (selectArgs?.[0] === 'id, is_published') {
+            return {
+              data: [
+                { id: 'e1', is_published: false },
+                { id: 'e2', is_published: true },
+                { id: 'e3', is_published: false }
+              ],
+              error: null
+            }
+          }
           return { count: 9, error: null }
         }
 
         if (state.table === 'clues' && hasEq(state, 'difficulty', 'easy')) {
           return { count: 3, error: null }
         }
-
         if (state.table === 'clues' && hasEq(state, 'difficulty', 'medium')) {
           return { count: 2, error: null }
         }
-
         if (state.table === 'clues' && hasEq(state, 'difficulty', 'hard')) {
           return { count: 1, error: null }
         }
-
         if (state.table === 'clues' && hasEq(state, 'difficulty', 'nightmare')) {
           return { count: 0, error: null }
         }
-
         if (state.table === 'clues' && hasIs(state, 'difficulty', null)) {
           return { count: 5, error: null }
         }
 
-        const selectArgs = state.operations.find(op => op.method === 'select')?.args
+        const selectArgs = findOp(state, 'select')?.args
         if (state.table === 'clues' && selectArgs?.[0] === 'entity_id') {
           return {
             data: [
@@ -127,6 +112,7 @@ describe('GET /stats', () => {
 
     expect(response.status).toBe(200)
     expect(response.body).toEqual({
+      datasetId: DATASET_ID,
       totalClues: 27,
       totalEntities: 9,
       avgCluesPerEntity: 3,
@@ -145,5 +131,24 @@ describe('GET /stats', () => {
       },
       readyToPublishCount: 2
     })
+  })
+
+  it('returns NO_DATASET when no dataset can be resolved', async () => {
+    vi.mocked(supabase.from).mockImplementation((table: string) =>
+      createQueryBuilder(table, () => {
+        if (table === 'datasets') {
+          return { data: null, error: null }
+        }
+        return { error: new Error('Unexpected') }
+      })
+    )
+
+    const app = express()
+    app.use(statsRouter)
+
+    const response = await request(app).get('/stats')
+
+    expect(response.status).toBe(400)
+    expect(response.body.error).toBe('NO_DATASET')
   })
 })

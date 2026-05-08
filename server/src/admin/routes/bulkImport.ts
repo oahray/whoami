@@ -1,5 +1,6 @@
 import { Router, Response } from 'express'
 import { supabase } from '../../db/supabase.js'
+import { resolveDatasetIdFromRequest } from '../../db/entities.js'
 import type { AuthRequest } from '../auth.js'
 
 const router = Router()
@@ -8,6 +9,7 @@ interface BulkEntity {
   name: string
   type: 'character' | 'place'
   is_published?: boolean
+  aliases?: string[]
   clues: Array<{
     text: string
     citations?: string | null
@@ -61,6 +63,17 @@ router.post('/bulk-import', async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Entities must be an array' })
     }
 
+    const datasetId = await resolveDatasetIdFromRequest(
+      req.body?.datasetId ?? req.query.datasetId
+    )
+    if (!datasetId) {
+      return res.status(400).json({
+        error: 'NO_DATASET',
+        message:
+          'No dataset is available. Create a dataset to proceed.'
+      })
+    }
+
     const results = {
       entitiesCreated: 0,
       entitiesUpdated: 0,
@@ -88,15 +101,20 @@ router.post('/bulk-import', async (req: AuthRequest, res: Response) => {
         const { data: existing, error: findError } = await supabase
           .from('entities')
           .select('id, name, type, is_published')
+          .eq('dataset_id', datasetId)
           .ilike('name', pattern)
           .maybeSingle()
 
         if (findError) throw findError
 
+        const aliases = Array.isArray(entityData.aliases) ? entityData.aliases : []
+
         let entityPayload = {
           name: rawName,
           type: entityData.type,
-          is_published: entityData.is_published || false
+          is_published: entityData.is_published || false,
+          dataset_id: datasetId,
+          aliases
         }
 
         if (entityPayload.is_published && entityData.clues.length < 3) {
@@ -110,10 +128,16 @@ router.post('/bulk-import', async (req: AuthRequest, res: Response) => {
           entityId = existing.id
           const existingRow = existing as ExistingEntityRow
 
-          const patch: Partial<{ name: string; type: string; is_published: boolean }> = {}
+          const patch: Partial<{
+            name: string
+            type: string
+            is_published: boolean
+            aliases: string[]
+          }> = {}
           if (existingRow.name !== entityPayload.name) patch.name = entityPayload.name
           if (existingRow.type !== entityPayload.type) patch.type = entityPayload.type
           if (existingRow.is_published !== entityPayload.is_published) patch.is_published = entityPayload.is_published
+          if (aliases.length > 0) patch.aliases = aliases
 
           if (Object.keys(patch).length > 0) {
             const { error: updateErr } = await supabase.from('entities').update(patch).eq('id', entityId)

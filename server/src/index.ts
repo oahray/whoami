@@ -179,7 +179,13 @@ io.on('connection', (socket) => {
 
   socket.on('UPDATE_SETTINGS', (payload) => {
     try {
-      handleUpdateSettings(io, socket, payload)
+      handleUpdateSettings(io, socket, payload).catch((error) => {
+        console.error(`Unhandled async error in UPDATE_SETTINGS for socket ${socket.id}:`, error)
+        socket.emit('ROOM_ERROR', {
+          code: 'INTERNAL_ERROR',
+          message: 'An error occurred'
+        })
+      })
     } catch (error) {
       console.error(`Unhandled error in UPDATE_SETTINGS for socket ${socket.id}:`, error)
       socket.emit('ROOM_ERROR', {

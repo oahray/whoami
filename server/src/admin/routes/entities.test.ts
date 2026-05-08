@@ -10,45 +10,16 @@ vi.mock('../../db/supabase.js', () => ({
 
 import { supabase } from '../../db/supabase.js'
 import entitiesRouter from './entities.js'
+import { createQueryBuilder, findOp, hasEq } from '../../test-utils/supabaseQueryBuilder.js'
 
-type QueryState = {
-  table: string
-  operations: Array<{ method: string; args: any[] }>
-}
-
-function createQueryBuilder(
-  table: string,
-  resolver: (state: QueryState) => any
-) {
-  const state: QueryState = { table, operations: [] }
-  const builder: any = {
-    select: (...args: any[]) => {
-      state.operations.push({ method: 'select', args })
-      return builder
-    },
-    insert: (...args: any[]) => {
-      state.operations.push({ method: 'insert', args })
-      return builder
-    },
-    update: (...args: any[]) => {
-      state.operations.push({ method: 'update', args })
-      return builder
-    },
-    eq: (...args: any[]) => {
-      state.operations.push({ method: 'eq', args })
-      return builder
-    },
-    single: (...args: any[]) => {
-      state.operations.push({ method: 'single', args })
-      return builder
-    },
-    then: (resolve: any, reject: any) => Promise.resolve(resolver(state)).then(resolve, reject)
-  }
-  return builder
-}
-
-function hasEq(state: QueryState, column: string, value: unknown) {
-  return state.operations.some(op => op.method === 'eq' && op.args[0] === column && op.args[1] === value)
+const DEFAULT_DATASET = {
+  id: 'ds-default',
+  name: 'Bible',
+  source: null,
+  description: null,
+  is_official: true,
+  is_enabled: true,
+  is_default: true
 }
 
 describe('entities routes', () => {
@@ -69,18 +40,20 @@ describe('entities routes', () => {
     })
   })
 
-  it('POST /entities creates an unpublished entity by default', async () => {
+  it('POST /entities stamps the default dataset and creates an unpublished entity', async () => {
     let insertedPayload: any = null
 
     vi.mocked(supabase.from).mockImplementation((table: string) =>
       createQueryBuilder(table, (state) => {
-        insertedPayload = state.operations.find(op => op.method === 'insert')?.args[0]
+        if (state.table === 'datasets') {
+          return { data: DEFAULT_DATASET, error: null }
+        }
+
+        insertedPayload = findOp(state, 'insert')?.args[0]
         return {
           data: {
             id: 'entity-1',
-            name: insertedPayload.name,
-            type: insertedPayload.type,
-            is_published: insertedPayload.is_published
+            ...(insertedPayload as Record<string, unknown>)
           },
           error: null
         }
@@ -100,9 +73,12 @@ describe('entities routes', () => {
     expect(insertedPayload).toEqual({
       name: 'Moses',
       type: 'character',
-      is_published: false
+      is_published: false,
+      dataset_id: 'ds-default',
+      aliases: []
     })
     expect(response.body.is_published).toBe(false)
+    expect(response.body.dataset_id).toBe('ds-default')
   })
 
   it('PUT /entities/:id keeps entity unpublished when it has fewer than 3 clues', async () => {
@@ -115,13 +91,13 @@ describe('entities routes', () => {
         }
 
         if (table === 'entities') {
-          updatePayload = state.operations.find(op => op.method === 'update')?.args[0]
+          updatePayload = findOp(state, 'update')?.args[0]
           return {
             data: {
               id: 'entity-1',
-              name: updatePayload.name,
-              type: updatePayload.type,
-              is_published: updatePayload.is_published
+              name: (updatePayload as any).name,
+              type: (updatePayload as any).type,
+              is_published: (updatePayload as any).is_published
             },
             error: null
           }
