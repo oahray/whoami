@@ -18,6 +18,25 @@ export interface Entity {
   name: string
   type: 'character' | 'place'
   is_published: boolean
+  /**
+   * Dataset that owns this entity. Required at the DB level (NOT NULL); kept
+   * optional here while we plumb dataset scoping through every code path.
+   */
+  dataset_id?: string
+  /** Optional alternate names accepted during guess matching. */
+  aliases?: string[]
+  created_at?: string
+  updated_at?: string
+}
+
+export interface Dataset {
+  id: string
+  name: string
+  source: string | null
+  description: string | null
+  is_official: boolean
+  is_enabled: boolean
+  is_default: boolean
   created_at?: string
   updated_at?: string
 }
@@ -87,6 +106,59 @@ export async function getPublishedEntitiesForGamePool(
 
   const filtered = (data ?? []).filter(e => eligibleIds.has(e.id))
   return shuffle(filtered).slice(0, maxEntities)
+}
+
+/**
+ * List all datasets, ordered by name. Includes both enabled and disabled datasets;
+ * callers filter as needed.
+ */
+export async function listDatasets(): Promise<Dataset[]> {
+  const { data, error } = await supabase
+    .from('datasets')
+    .select('*')
+    .order('name', { ascending: true })
+
+  if (error) {
+    throw new Error(`Failed to fetch datasets: ${error.message}`)
+  }
+
+  return (data ?? []) as Dataset[]
+}
+
+export async function getDataset(id: string): Promise<Dataset | null> {
+  const { data, error } = await supabase
+    .from('datasets')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(`Failed to fetch dataset ${id}: ${error.message}`)
+  }
+
+  return (data as Dataset) ?? null
+}
+
+/** Returns the dataset flagged as default, or any enabled dataset, else null. */
+export async function getDefaultEnabledDataset(): Promise<Dataset | null> {
+  const { data: defaultRow } = await supabase
+    .from('datasets')
+    .select('*')
+    .eq('is_default', true)
+    .eq('is_enabled', true)
+    .maybeSingle()
+
+  if (defaultRow) return defaultRow as Dataset
+
+  const { data: enabledRow } = await supabase
+    .from('datasets')
+    .select('*')
+    .eq('is_enabled', true)
+    .order('name', { ascending: true })
+    .limit(1)
+    .maybeSingle()
+
+  return (enabledRow as Dataset) ?? null
 }
 
 export async function getCluesForEntity(

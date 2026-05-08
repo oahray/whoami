@@ -9,6 +9,7 @@
     "build": "tsc",
     "test": "vitest",
     "seed": "tsx src/scripts/seed.ts",
+    "db:create-default-dataset": "tsx src/scripts/createDefaultDataset.ts",
     "db:migrate": "supabase db push",
     "db:migrate:up": "supabase migrate up",
     "db:migrate:down": "supabase migrate down",
