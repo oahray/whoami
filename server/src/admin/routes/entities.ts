@@ -2,6 +2,7 @@ import { Router, Response } from 'express'
 import { supabase } from '../../db/supabase.js'
 import { resolveDatasetIdFromRequest } from '../../db/entities.js'
 import type { AuthRequest } from '../auth.js'
+import { logger } from '../../utils/logger.js'
 
 const router = Router()
 
@@ -52,7 +53,7 @@ router.get('/entities', async (req: AuthRequest, res: Response) => {
 
     res.json(entitiesWithClueCount)
   } catch (error) {
-    console.error('Error fetching entities:', error)
+    logger.error('Error fetching entities', error)
     res.status(500).json({ error: 'Failed to fetch entities' })
   }
 })
@@ -71,7 +72,7 @@ router.get('/entities/:id', async (req: AuthRequest, res: Response) => {
 
     res.json(data)
   } catch (error) {
-    console.error('Error fetching entity:', error)
+    logger.error('Error fetching entity', error)
     res.status(500).json({ error: 'Failed to fetch entity' })
   }
 })
@@ -103,7 +104,7 @@ router.post('/entities', async (req: AuthRequest, res: Response) => {
 
     res.status(201).json(data)
   } catch (error) {
-    console.error('Error creating entity:', error)
+    logger.error('Error creating entity', error)
     res.status(500).json({ error: 'Failed to create entity' })
   }
 })
@@ -144,7 +145,7 @@ router.put('/entities/:id', async (req: AuthRequest, res: Response) => {
 
     res.json(data)
   } catch (error) {
-    console.error('Error updating entity:', error)
+    logger.error('Error updating entity', error)
     res.status(500).json({ error: 'Failed to update entity' })
   }
 })
@@ -199,7 +200,7 @@ router.delete('/entities/:id', async (req: AuthRequest, res: Response) => {
 
     res.json({ success: true })
   } catch (error) {
-    console.error('Error deleting entity:', error)
+    logger.error('Error deleting entity', error)
     res.status(500).json({ error: 'Failed to delete entity' })
   }
 })

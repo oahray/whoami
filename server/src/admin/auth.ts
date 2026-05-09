@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import dotenv from 'dotenv'
 import type { Request, Response, NextFunction } from 'express'
 import type { User } from '@supabase/supabase-js'
+import { logger } from '../utils/logger.js'
 
 dotenv.config()
 
@@ -29,7 +30,7 @@ export async function verifyToken(token: string): Promise<User | null> {
 
     return user
   } catch (error) {
-    console.error('Error verifying token:', error)
+    logger.error('Error verifying token', error)
     return null
   }
 }
@@ -43,13 +44,13 @@ export async function isAdmin(userId: string): Promise<boolean> {
       .maybeSingle()
 
     if (error) {
-      console.error('Error checking admin status:', error)
+      logger.error('Error checking admin status', error, { userId })
       return false
     }
 
     return !!data
   } catch (error) {
-    console.error('Error checking admin status:', error)
+    logger.error('Error checking admin status', error, { userId })
     return false
   }
 }
@@ -82,7 +83,7 @@ export async function adminAuth(req: AuthRequest, res: Response, next: NextFunct
     req.user = user
     next()
   } catch (error) {
-    console.error('Error in adminAuth middleware:', error)
+    logger.error('Error in adminAuth middleware', error)
     return res.status(500).json({ error: 'Internal server error' })
   }
 }

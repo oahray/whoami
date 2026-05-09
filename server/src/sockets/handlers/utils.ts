@@ -2,6 +2,8 @@ import { Server } from 'socket.io'
 import type { RoomState, Player } from '../../rooms/store.js'
 import { startNextRound, activateRound, revealClue, endRound } from '../../game/roundState'
 import { ROUND_START_DELAY_MS } from '../../game/config.js'
+import { safeTimer } from '../dispatch.js'
+import { logger } from '../../utils/logger.js'
 
 const GRACE_PERIOD_MS = 5 * 60 * 1000
 
@@ -90,50 +92,59 @@ export function broadcastRoundEnd(io: Server, room: RoomState, roundResult: any)
   io.to(room.code).emit('ROUND_ENDED', payload)
 
   setTimeout(() => {
-    if (room.status === 'in_progress') {
+    safeTimer('broadcastRoundEnd:nextRound', () => {
+      if (room.status !== 'in_progress') return
+
       startNextRound(room).then(() => {
         if (room.status === 'finished') {
           io.to(room.code).emit('GAME_ENDED', {
             finalScoreboard: room.finalScoreboard
           })
-        } else {
-          const currentScoreboard = Array.from(room.scores.entries())
-            .map(([playerId, score]) => {
-              const player = room.players.get(playerId)
-              return {
-                playerId,
-                nickname: player?.nickname || 'Unknown',
-                score
-              }
-            })
-            .sort((a, b) => b.score - a.score)
+          return
+        }
 
-          const firstClue = room.currentRound!.clues[0]
-          io.to(room.code).emit('ROUND_STARTED', {
-            roundNumber: room.currentRound!.roundNumber,
-            totalRounds: room.settings.totalRounds,
-            serverStartTime: room.currentRound!.serverStartTime,
-            roundDuration: room.settings.roundDuration,
-            currentScoreboard,
-            clue: {
-              order: firstClue.order,
-              text: firstClue.text
+        const currentScoreboard = Array.from(room.scores.entries())
+          .map(([playerId, score]) => {
+            const player = room.players.get(playerId)
+            return {
+              playerId,
+              nickname: player?.nickname || 'Unknown',
+              score
             }
           })
+          .sort((a, b) => b.score - a.score)
 
-          setTimeout(() => {
+        const firstClue = room.currentRound!.clues[0]
+        io.to(room.code).emit('ROUND_STARTED', {
+          roundNumber: room.currentRound!.roundNumber,
+          totalRounds: room.settings.totalRounds,
+          serverStartTime: room.currentRound!.serverStartTime,
+          roundDuration: room.settings.roundDuration,
+          currentScoreboard,
+          clue: {
+            order: firstClue.order,
+            text: firstClue.text
+          }
+        })
+
+        setTimeout(() => {
+          safeTimer('broadcastRoundEnd:activate', () => {
             activateRound(room)
             const roundEndDelay = room.settings.roundDuration - ROUND_START_DELAY_MS
             room.currentRound!.timers.roundEnd = setTimeout(() => {
-              endRound(room)
-              const roundResult = room.roundHistory[room.roundHistory.length - 1]
-              broadcastRoundEnd(io, room, roundResult)
+              safeTimer('broadcastRoundEnd:endRound', () => {
+                endRound(room)
+                const roundResult = room.roundHistory[room.roundHistory.length - 1]
+                broadcastRoundEnd(io, room, roundResult)
+              })
             }, roundEndDelay)
-          }, ROUND_START_DELAY_MS)
+          })
+        }, ROUND_START_DELAY_MS)
 
-          const clueRevealDelay = room.settings.clueRevealTime
-          if (clueRevealDelay > ROUND_START_DELAY_MS) {
-            setTimeout(() => {
+        const clueRevealDelay = room.settings.clueRevealTime
+        if (clueRevealDelay > ROUND_START_DELAY_MS) {
+          setTimeout(() => {
+            safeTimer('broadcastRoundEnd:revealClue', () => {
               if (room.currentRound && room.currentRound.phase !== 'ended') {
                 revealClue(room)
                 const secondClue = room.currentRound.clues[1]
@@ -146,17 +157,17 @@ export function broadcastRoundEnd(io: Server, room: RoomState, roundResult: any)
                   })
                 }
               }
-            }, clueRevealDelay)
-          }
+            })
+          }, clueRevealDelay)
         }
       }).catch(error => {
-        console.error('Error starting next round:', error)
+        logger.error('Error starting next round', error, { roomCode: room.code })
         io.to(room.code).emit('ROOM_ERROR', {
           code: 'INTERNAL_ERROR',
           message: 'Failed to start next round'
         })
       })
-    }
+    })
   }, 5000)
 }
 
