@@ -1,6 +1,7 @@
 import { Router, Response } from 'express'
 import { supabase } from '../../db/supabase.js'
 import type { AuthRequest } from '../auth.js'
+import { logger } from '../../utils/logger.js'
 
 const router = Router()
 
@@ -18,7 +19,7 @@ router.get('/entities/:id/clues', async (req: AuthRequest, res: Response) => {
 
     res.json(data || [])
   } catch (error) {
-    console.error('Error fetching clues:', error)
+    logger.error('Error fetching clues', error)
     res.status(500).json({ error: 'Failed to fetch clues' })
   }
 })
@@ -47,7 +48,7 @@ router.post('/entities/:id/clues', async (req: AuthRequest, res: Response) => {
 
     res.status(201).json(data)
   } catch (error) {
-    console.error('Error creating clue:', error)
+    logger.error('Error creating clue', error)
     res.status(500).json({ error: 'Failed to create clue' })
   }
 })
@@ -74,7 +75,7 @@ router.put('/clues/:id', async (req: AuthRequest, res: Response) => {
 
     res.json(data)
   } catch (error) {
-    console.error('Error updating clue:', error)
+    logger.error('Error updating clue', error)
     res.status(500).json({ error: 'Failed to update clue' })
   }
 })
@@ -100,7 +101,7 @@ router.delete('/clues/:id', async (req: AuthRequest, res: Response) => {
 
     res.json({ success: true })
   } catch (error) {
-    console.error('Error deleting clue:', error)
+    logger.error('Error deleting clue', error)
     res.status(500).json({ error: 'Failed to delete clue' })
   }
 })

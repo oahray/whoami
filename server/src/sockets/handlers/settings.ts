@@ -3,6 +3,7 @@ import { getRoomBySocket } from '../../rooms/store.js'
 import { ROUND_START_DELAY_MS } from '../../game/config.js'
 import { resetRoomForNewGame } from '../../game/roundState.js'
 import { getDataset } from '../../db/entities.js'
+import { logger } from '../../utils/logger.js'
 
 export async function handleUpdateSettings(io: Server, socket: Socket, payload: any) {
   try {
@@ -159,7 +160,10 @@ export async function handleUpdateSettings(io: Server, socket: Socket, payload: 
     io.to(room.code).emit('SETTINGS_UPDATED', room.settings)
   } catch (error: any) {
     const room = getRoomBySocket(socket.id)
-    console.error(`Error in handleUpdateSettings for socket ${socket.id}, room: ${room?.code || 'unknown'}:`, error)
+    logger.error('Error in handleUpdateSettings', error, {
+      socketId: socket.id,
+      roomCode: room?.code
+    })
     socket.emit('ROOM_ERROR', {
       code: 'INTERNAL_ERROR',
       message: 'An error occurred while updating settings'

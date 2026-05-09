@@ -13,9 +13,12 @@ import {
   handleSubmitGuess,
   handleKickPlayer
 } from './sockets/handlers/index.js'
+import { wrapSync, wrapAsync } from './sockets/dispatch.js'
 import adminRoutes from './admin/routes/index.js'
 import publicDatasetsRoutes from './routes/datasets.js'
 import { supabase } from './db/supabase.js'
+import { logger } from './utils/logger.js'
+import { errorHandler } from './middleware/errorHandler.js'
 
 dotenv.config()
 
@@ -96,7 +99,7 @@ app.get('/internal/warmth', async (req, res) => {
       .limit(1)
 
     if (error) {
-      console.error('Supabase warmth check error:', error.message)
+      logger.error('Supabase warmth check error', error)
       return res.status(500).json({
         status: 'error',
         source: 'internal',
@@ -109,17 +112,19 @@ app.get('/internal/warmth', async (req, res) => {
       source: 'internal',
       timestamp: new Date().toISOString()
     })
-  } catch (err: any) {
-    console.error('Supabase warmth unexpected error:', err)
+  } catch (err) {
+    logger.error('Supabase warmth unexpected error', err)
     res.status(500).json({
       status: 'error',
-      message: err?.message ?? 'Unknown error'
+      message: err instanceof Error ? err.message : 'Unknown error'
     })
   }
 })
 
 app.use(publicDatasetsRoutes)
 app.use('/admin', adminRoutes)
+
+app.use(errorHandler)
 
 const io = new Server(server, {
   cors: {
@@ -133,110 +138,43 @@ const io = new Server(server, {
 })
 
 io.on('connection', (socket) => {
-  console.log(`Client connected: ${socket.id}`)
+  logger.info('Client connected', { socketId: socket.id })
 
-  socket.on('CREATE_ROOM', (payload) => {
-    try {
-      handleCreateRoom(io, socket, payload)
-    } catch (error) {
-      console.error(`Unhandled error in CREATE_ROOM for socket ${socket.id}:`, error)
-      socket.emit('ROOM_ERROR', {
-        code: 'INTERNAL_ERROR',
-        message: 'An error occurred'
-      })
-    }
-  })
+  const onCreateRoom = wrapSync('CREATE_ROOM', handleCreateRoom)
+  const onJoinRoom = wrapSync('JOIN_ROOM', handleJoinRoom)
+  const onLeaveRoom = wrapSync('LEAVE_ROOM', handleLeaveRoom, { silent: true })
+  const onKickPlayer = wrapSync('KICK_PLAYER', handleKickPlayer)
+  const onSubmitGuess = wrapSync('SUBMIT_GUESS', handleSubmitGuess)
+  const onUpdateSettings = wrapAsync('UPDATE_SETTINGS', handleUpdateSettings)
+  const onStartGame = wrapAsync('START_GAME', handleStartGame)
+  const onDisconnect = wrapSync('disconnect', handleDisconnect, { silent: true })
 
-  socket.on('JOIN_ROOM', (payload) => {
-    try {
-      handleJoinRoom(io, socket, payload)
-    } catch (error) {
-      console.error(`Unhandled error in JOIN_ROOM for socket ${socket.id}:`, error)
-      socket.emit('ROOM_ERROR', {
-        code: 'INTERNAL_ERROR',
-        message: 'An error occurred'
-      })
-    }
-  })
+  socket.on('CREATE_ROOM', (payload) => onCreateRoom(io, socket, payload))
+  socket.on('JOIN_ROOM', (payload) => onJoinRoom(io, socket, payload))
+  socket.on('LEAVE_ROOM', () => onLeaveRoom(io, socket))
+  socket.on('KICK_PLAYER', (payload) => onKickPlayer(io, socket, payload))
+  socket.on('UPDATE_SETTINGS', (payload) => onUpdateSettings(io, socket, payload))
+  socket.on('START_GAME', (payload) => onStartGame(io, socket, payload))
+  socket.on('SUBMIT_GUESS', (payload) => onSubmitGuess(io, socket, payload))
+  socket.on('disconnect', () => onDisconnect(io, socket))
+})
 
-  socket.on('LEAVE_ROOM', () => {
-    try {
-      handleLeaveRoom(io, socket)
-    } catch (error) {
-      console.error(`Unhandled error in LEAVE_ROOM for socket ${socket.id}:`, error)
-    }
-  })
+// Process-level safety nets. We log and stay alive on rejections; on truly
+// unhandled exceptions (very rare with the wrappers in place) we log and
+// exit so the process supervisor (Railway) can restart us cleanly.
+process.on('unhandledRejection', (reason) => {
+  logger.error('Unhandled promise rejection', reason)
+})
 
-  socket.on('KICK_PLAYER', (payload) => {
-    try {
-      handleKickPlayer(io, socket, payload)
-    } catch (error) {
-      console.error(`Unhandled error in KICK_PLAYER for socket ${socket.id}:`, error)
-      socket.emit('ROOM_ERROR', {
-        code: 'INTERNAL_ERROR',
-        message: 'An error occurred'
-      })
-    }
-  })
-
-  socket.on('UPDATE_SETTINGS', (payload) => {
-    try {
-      handleUpdateSettings(io, socket, payload).catch((error) => {
-        console.error(`Unhandled async error in UPDATE_SETTINGS for socket ${socket.id}:`, error)
-        socket.emit('ROOM_ERROR', {
-          code: 'INTERNAL_ERROR',
-          message: 'An error occurred'
-        })
-      })
-    } catch (error) {
-      console.error(`Unhandled error in UPDATE_SETTINGS for socket ${socket.id}:`, error)
-      socket.emit('ROOM_ERROR', {
-        code: 'INTERNAL_ERROR',
-        message: 'An error occurred'
-      })
-    }
-  })
-
-  socket.on('START_GAME', (payload) => {
-    try {
-      handleStartGame(io, socket, payload).catch((error) => {
-        console.error(`Unhandled async error in START_GAME for socket ${socket.id}:`, error)
-        socket.emit('ROOM_ERROR', {
-          code: 'INTERNAL_ERROR',
-          message: 'An error occurred'
-        })
-      })
-    } catch (error) {
-      console.error(`Unhandled error in START_GAME for socket ${socket.id}:`, error)
-      socket.emit('ROOM_ERROR', {
-        code: 'INTERNAL_ERROR',
-        message: 'An error occurred'
-      })
-    }
-  })
-
-  socket.on('SUBMIT_GUESS', (payload) => {
-    try {
-      handleSubmitGuess(io, socket, payload)
-    } catch (error) {
-      console.error(`Unhandled error in SUBMIT_GUESS for socket ${socket.id}:`, error)
-      socket.emit('ROOM_ERROR', {
-        code: 'INTERNAL_ERROR',
-        message: 'An error occurred'
-      })
-    }
-  })
-
-  socket.on('disconnect', () => {
-    try {
-      handleDisconnect(io, socket)
-    } catch (error) {
-      console.error(`Unhandled error in disconnect for socket ${socket.id}:`, error)
-    }
-  })
+process.on('uncaughtException', (err) => {
+  logger.error('Uncaught exception, exiting', err)
+  // Allow the log to flush before exiting.
+  setTimeout(() => process.exit(1), 100)
 })
 
 server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`)
-  console.log(`CORS enabled for: ${allowedOrigins.join(', ')}`)
+  logger.info('Server started', {
+    port: PORT,
+    allowedOrigins
+  })
 })

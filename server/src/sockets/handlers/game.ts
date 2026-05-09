@@ -12,6 +12,8 @@ import {
 } from '../../game/roundState.js'
 import { ROUND_START_DELAY_MS } from '../../game/config.js'
 import { broadcastRoundEnd } from './utils.js'
+import { safeTimer } from '../dispatch.js'
+import { logger } from '../../utils/logger.js'
 
 function buildCurrentScoreboard(room: RoomState) {
   return Array.from(room.scores.entries() as IterableIterator<[string, number]>)
@@ -94,35 +96,44 @@ export async function handleStartGame(io: Server, socket: Socket, _payload: any)
     })
 
     setTimeout(() => {
-      activateRound(room)
-      const roundEndDelay = room.settings.roundDuration - ROUND_START_DELAY_MS
-      room.currentRound!.timers.roundEnd = setTimeout(() => {
-        endRound(room)
-        const roundResult = room.roundHistory[room.roundHistory.length - 1]
-        broadcastRoundEnd(io, room, roundResult)
-      }, roundEndDelay)
+      safeTimer('handleStartGame:activate', () => {
+        activateRound(room)
+        const roundEndDelay = room.settings.roundDuration - ROUND_START_DELAY_MS
+        room.currentRound!.timers.roundEnd = setTimeout(() => {
+          safeTimer('handleStartGame:endRound', () => {
+            endRound(room)
+            const roundResult = room.roundHistory[room.roundHistory.length - 1]
+            broadcastRoundEnd(io, room, roundResult)
+          })
+        }, roundEndDelay)
+      })
     }, ROUND_START_DELAY_MS)
 
     const clueRevealDelay = room.settings.clueRevealTime
     if (clueRevealDelay > ROUND_START_DELAY_MS) {
       setTimeout(() => {
-        if (room.currentRound && room.currentRound.phase !== 'ended') {
-          revealClue(room)
-          const secondClue = room.currentRound.clues[1]
-          if (secondClue) {
-            io.to(room.code).emit('CLUE_REVEALED', {
-              clue: {
-                order: secondClue.order,
-                text: secondClue.text
-              }
-            })
+        safeTimer('handleStartGame:revealClue', () => {
+          if (room.currentRound && room.currentRound.phase !== 'ended') {
+            revealClue(room)
+            const secondClue = room.currentRound.clues[1]
+            if (secondClue) {
+              io.to(room.code).emit('CLUE_REVEALED', {
+                clue: {
+                  order: secondClue.order,
+                  text: secondClue.text
+                }
+              })
+            }
           }
-        }
+        })
       }, clueRevealDelay)
     }
   } catch (error: any) {
     const room = getRoomBySocket(socket.id)
-    console.error(`Error in handleStartGame for socket ${socket.id}, room: ${room?.code || 'unknown'}:`, error)
+    logger.error('Error in handleStartGame', error, {
+      socketId: socket.id,
+      roomCode: room?.code
+    })
     socket.emit('ROOM_ERROR', {
       code: 'INTERNAL_ERROR',
       message: 'An error occurred while starting the game'
@@ -218,7 +229,11 @@ export function handleSubmitGuess(io: Server, socket: Socket, payload: any) {
     }
   } catch (error: any) {
     const room = getRoomBySocket(socket.id)
-    console.error(`Error in handleSubmitGuess for socket ${socket.id}, room: ${room?.code || 'unknown'}, guess: ${payload?.guess?.substring(0, 20) || 'unknown'}:`, error)
+    logger.error('Error in handleSubmitGuess', error, {
+      socketId: socket.id,
+      roomCode: room?.code,
+      guessPreview: typeof payload?.guess === 'string' ? payload.guess.substring(0, 20) : undefined
+    })
     socket.emit('ROOM_ERROR', {
       code: 'INTERNAL_ERROR',
       message: 'An error occurred while processing your guess'

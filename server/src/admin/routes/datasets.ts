@@ -9,6 +9,7 @@ import {
   type DatasetCreateInput,
   type DatasetUpdateInput
 } from '../../db/entities.js'
+import { logger } from '../../utils/logger.js'
 
 const router = Router()
 
@@ -17,7 +18,7 @@ router.get('/datasets', async (_req: AuthRequest, res: Response) => {
     const datasets = await listDatasets()
     res.json(datasets)
   } catch (error) {
-    console.error('Error fetching datasets:', error)
+    logger.error('Error fetching datasets', error)
     res.status(500).json({ error: 'Failed to fetch datasets' })
   }
 })
@@ -30,7 +31,7 @@ router.get('/datasets/:id', async (req: AuthRequest, res: Response) => {
     }
     res.json(dataset)
   } catch (error) {
-    console.error('Error fetching dataset:', error)
+    logger.error('Error fetching dataset', error)
     res.status(500).json({ error: 'Failed to fetch dataset' })
   }
 })
@@ -55,10 +56,10 @@ router.post('/datasets', async (req: AuthRequest, res: Response) => {
 
     res.status(201).json(dataset)
   } catch (error: any) {
-    console.error('Error creating dataset:', error)
     if (error?.message?.includes('duplicate key')) {
       return res.status(409).json({ error: 'A dataset with this name already exists' })
     }
+    logger.error('Error creating dataset', error)
     res.status(500).json({ error: 'Failed to create dataset' })
   }
 })
@@ -89,7 +90,7 @@ router.patch('/datasets/:id', async (req: AuthRequest, res: Response) => {
       const status = error.code === 'NOT_FOUND' ? 404 : 400
       return res.status(status).json({ error: error.code, message: error.message })
     }
-    console.error('Error updating dataset:', error)
+    logger.error('Error updating dataset', error)
     res.status(500).json({ error: 'Failed to update dataset' })
   }
 })

@@ -15,6 +15,7 @@ import AdminPreview from './pages/AdminPreview'
 import AdminBulkImport from './pages/AdminBulkImport'
 import ProtectedRoute from './components/ProtectedRoute'
 import ReconnectingIndicator from './components/ReconnectingIndicator'
+import UpdatePrompt from './pwa/UpdatePrompt'
 
 function AdminRoute({ children }: { children: ReactNode }) {
   return (
@@ -29,6 +30,7 @@ function App() {
     <AuthProvider>
       <GameProvider>
         <ReconnectingIndicator />
+        <UpdatePrompt />
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Home />} />

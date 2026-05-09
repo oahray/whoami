@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { listDatasets } from '../db/entities.js'
+import { logger } from '../utils/logger.js'
 
 /**
  * Public dataset metadata for the lobby. Returns only the fields the lobby
@@ -23,7 +24,7 @@ router.get('/datasets', async (_req, res) => {
 
     res.json(enabled)
   } catch (error) {
-    console.error('Error fetching public datasets:', error)
+    logger.error('Error fetching public datasets', error)
     res.status(500).json({ error: 'Failed to fetch datasets' })
   }
 })

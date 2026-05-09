@@ -2,6 +2,7 @@ import { Router, Response } from 'express'
 import { supabase } from '../../db/supabase.js'
 import { resolveDatasetIdFromRequest } from '../../db/entities.js'
 import type { AuthRequest } from '../auth.js'
+import { logger } from '../../utils/logger.js'
 
 const router = Router()
 
@@ -120,7 +121,7 @@ router.get('/stats', async (req: AuthRequest, res: Response) => {
       readyToPublishCount
     })
   } catch (error) {
-    console.error('Error fetching stats:', error)
+    logger.error('Error fetching stats', error)
     res.status(500).json({ error: 'Failed to fetch stats' })
   }
 })

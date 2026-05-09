@@ -1,6 +1,8 @@
 import { Server, Socket } from 'socket.io'
 import { getRoom, getRoomBySocket, createRoom, deleteRoom } from '../../rooms/store.js'
 import { findReturningPlayer, transferHost, buildReconnectPayload, GRACE_PERIOD_MS } from './utils.js'
+import { safeTimer } from '../dispatch.js'
+import { logger } from '../../utils/logger.js'
 
 function migratePlayerReferences(room: any, oldPlayerId: string, newPlayerId: string) {
   if (oldPlayerId === newPlayerId) {
@@ -248,7 +250,10 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
       nickname
     })
   } catch (error: any) {
-    console.error(`Error in handleJoinRoom for socket ${socket.id}, roomCode: ${payload?.roomCode || 'unknown'}:`, error)
+    logger.error('Error in handleJoinRoom', error, {
+      socketId: socket.id,
+      roomCode: payload?.roomCode
+    })
     socket.emit('ROOM_ERROR', {
       code: 'INTERNAL_ERROR',
       message: 'An error occurred while joining the room'
@@ -300,7 +305,10 @@ export function handleCreateRoom(_io: Server, socket: Socket, payload: any) {
       roomCode: room.code
     })
   } catch (error: any) {
-    console.error(`Error in handleCreateRoom for socket ${socket.id}, nickname: ${payload?.nickname || 'unknown'}:`, error)
+    logger.error('Error in handleCreateRoom', error, {
+      socketId: socket.id,
+      nickname: payload?.nickname
+    })
     socket.emit('ROOM_ERROR', {
       code: 'INTERNAL_ERROR',
       message: 'An error occurred while creating the room'
@@ -338,7 +346,7 @@ export function handleLeaveRoom(io: Server, socket: Socket) {
       newHost: newHostId ? room.players.get(newHostId)?.nickname : null
     })
   } catch (error: any) {
-    console.error(`Error in handleLeaveRoom for socket ${socket.id}:`, error)
+    logger.error('Error in handleLeaveRoom', error, { socketId: socket.id })
   }
 }
 
@@ -398,7 +406,7 @@ export function handleKickPlayer(io: Server, socket: Socket, payload: any) {
       newHost: null
     })
   } catch (error: any) {
-    console.error(`Error in handleKickPlayer for socket ${socket.id}:`, error)
+    logger.error('Error in handleKickPlayer', error, { socketId: socket.id })
     socket.emit('ROOM_ERROR', {
       code: 'INTERNAL_ERROR',
       message: 'An error occurred while kicking the player'
@@ -418,31 +426,33 @@ export function handleDisconnect(io: Server, socket: Socket) {
     player.disconnectedAt = Date.now()
 
     setTimeout(() => {
-      const roomAfterDelay = getRoomBySocket(socket.id)
-      if (!roomAfterDelay) return
+      safeTimer('handleDisconnect:gracePeriod', () => {
+        const roomAfterDelay = getRoomBySocket(socket.id)
+        if (!roomAfterDelay) return
 
-      const playerAfterDelay = roomAfterDelay.players.get(socket.id)
-      if (!playerAfterDelay || playerAfterDelay.isConnected) return
+        const playerAfterDelay = roomAfterDelay.players.get(socket.id)
+        if (!playerAfterDelay || playerAfterDelay.isConnected) return
 
-      const nickname = playerAfterDelay.nickname
-      const wasHost = playerAfterDelay.isHost
+        const nickname = playerAfterDelay.nickname
+        const wasHost = playerAfterDelay.isHost
 
-      roomAfterDelay.players.delete(socket.id)
+        roomAfterDelay.players.delete(socket.id)
 
-      let newHostId = null
-      if (wasHost) {
-        newHostId = transferHost(roomAfterDelay)
-      }
+        let newHostId = null
+        if (wasHost) {
+          newHostId = transferHost(roomAfterDelay)
+        }
 
-      if (roomAfterDelay.players.size === 0) {
-        deleteRoom(roomAfterDelay.code)
-        return
-      }
+        if (roomAfterDelay.players.size === 0) {
+          deleteRoom(roomAfterDelay.code)
+          return
+        }
 
-      io.to(roomAfterDelay.code).emit('PLAYER_LEFT', {
-        id: socket.id,
-        nickname,
-        newHost: newHostId ? roomAfterDelay.players.get(newHostId)?.nickname : null
+        io.to(roomAfterDelay.code).emit('PLAYER_LEFT', {
+          id: socket.id,
+          nickname,
+          newHost: newHostId ? roomAfterDelay.players.get(newHostId)?.nickname : null
+        })
       })
     }, GRACE_PERIOD_MS)
 
@@ -453,6 +463,6 @@ export function handleDisconnect(io: Server, socket: Socket) {
       })
     }
   } catch (error: any) {
-    console.error(`Error in handleDisconnect for socket ${socket.id}:`, error)
+    logger.error('Error in handleDisconnect', error, { socketId: socket.id })
   }
 }
