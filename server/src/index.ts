@@ -14,6 +14,7 @@ import {
   handleKickPlayer
 } from './sockets/handlers/index.js'
 import adminRoutes from './admin/routes/index.js'
+import publicDatasetsRoutes from './routes/datasets.js'
 import { supabase } from './db/supabase.js'
 
 dotenv.config()
@@ -117,6 +118,7 @@ app.get('/internal/warmth', async (req, res) => {
   }
 })
 
+app.use(publicDatasetsRoutes)
 app.use('/admin', adminRoutes)
 
 const io = new Server(server, {

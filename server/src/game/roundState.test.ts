@@ -127,7 +127,7 @@ describe('roundState unit', () => {
 
     const result = processGuess(room, 'player-1', 'Moses')
 
-    expect(validateGuess).toHaveBeenCalledWith('Moses', 'Moses', room.settings.strictMode)
+    expect(validateGuess).toHaveBeenCalledWith('Moses', 'Moses', room.settings.strictMode, [])
     expect(calculateScore).toHaveBeenCalled()
     expect(result).toEqual({
       correct: true,

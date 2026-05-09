@@ -26,6 +26,19 @@ export interface Dataset {
   updated_at?: string
 }
 
+/**
+ * Public dataset metadata returned by the unauthenticated GET /datasets endpoint.
+ * Used by the lobby picker; intentionally narrower than Dataset to avoid leaking
+ * internal flags (is_official, is_enabled) to anonymous players.
+ */
+export interface PublicDataset {
+  id: string
+  name: string
+  source: string | null
+  description: string | null
+  is_default: boolean
+}
+
 export interface Clue {
   id: string
   entity_id: string

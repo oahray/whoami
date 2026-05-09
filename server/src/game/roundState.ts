@@ -199,7 +199,8 @@ export function processGuess(room: RoomState, playerId: string, guess: string): 
   const isCorrect = validateGuess(
     guess,
     room.currentRound.entity.name,
-    room.settings.strictMode
+    room.settings.strictMode,
+    room.currentRound.entity.aliases ?? []
   )
 
   if (isCorrect) {
