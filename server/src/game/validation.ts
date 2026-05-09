@@ -16,12 +16,34 @@ function normalizeStringLenient(str: string): string {
   return filteredWords.join(' ')
 }
 
-export function validateGuess(input: string, answer: string, strictMode = false): boolean {
+function matchesAnswer(input: string, answer: string, strictMode: boolean): boolean {
   if (!input || !answer) return false
 
   if (strictMode) {
     return normalizeString(input) === normalizeString(answer)
-  } else {
-    return normalizeStringLenient(input) === normalizeStringLenient(answer)
   }
+  return normalizeStringLenient(input) === normalizeStringLenient(answer)
+}
+
+/**
+ * Validate a guess against the canonical entity name and any aliases.
+ * Aliases are matched with the same normalization rules as the canonical
+ * answer (case-insensitive in both modes; lenient mode also strips quotes,
+ * hyphens, and "the/a/an").
+ */
+export function validateGuess(
+  input: string,
+  answer: string,
+  strictMode = false,
+  aliases: string[] = []
+): boolean {
+  if (!input) return false
+  if (matchesAnswer(input, answer, strictMode)) return true
+
+  for (const alias of aliases) {
+    if (typeof alias === 'string' && alias.trim() !== '' && matchesAnswer(input, alias, strictMode)) {
+      return true
+    }
+  }
+  return false
 }

@@ -1,9 +1,20 @@
-import { getCluesForEntity } from '../db/entities.js'
+import { getCluesForEntity, getDataset, getDefaultEnabledDataset } from '../db/entities.js'
+import type { GameDifficultyMode } from '../db/entities.js'
 import { buildEntityPool } from './entityPool.js'
 import { calculateScore } from './scoring.js'
 import { validateGuess } from './validation.js'
 import { isRateLimited, hasExceededMaxGuesses } from './rateLimit.js'
 import type { RoomState } from '../rooms/store.js'
+
+export class GameStartError extends Error {
+  constructor(
+    public readonly code: 'NO_DATASET' | 'DATASET_DISABLED' | 'NO_ENTITIES',
+    message: string
+  ) {
+    super(message)
+    this.name = 'GameStartError'
+  }
+}
 
 function shuffle<T>(array: T[]): T[] {
   const shuffled = [...array]
@@ -15,13 +26,41 @@ function shuffle<T>(array: T[]): T[] {
 }
 
 export async function startGame(room: RoomState): Promise<void> {
+  let datasetId = room.settings.datasetId
+  if (datasetId) {
+    const dataset = await getDataset(datasetId)
+    if (!dataset) {
+      throw new GameStartError('NO_DATASET', 'Selected dataset no longer exists')
+    }
+    if (!dataset.is_enabled) {
+      throw new GameStartError(
+        'DATASET_DISABLED',
+        'Selected dataset is disabled. Pick another dataset to start.'
+      )
+    }
+  } else {
+    const fallback = await getDefaultEnabledDataset()
+    if (!fallback) {
+      throw new GameStartError(
+        'NO_DATASET',
+        'No enabled dataset is available. An admin must enable one before starting a game.'
+      )
+    }
+    datasetId = fallback.id
+    room.settings.datasetId = datasetId
+  }
+
   room.entityPool = (await buildEntityPool(
     room.settings.difficultyMode,
-    room.settings.totalRounds
+    room.settings.totalRounds,
+    datasetId
   )) as any
 
   if (room.entityPool.length === 0) {
-    throw new Error('No entities available')
+    throw new GameStartError(
+      'NO_ENTITIES',
+      'This dataset has no playable entities. Add at least two clue-tagged entities first.'
+    )
   }
 
   room.status = 'in_progress'
@@ -51,7 +90,9 @@ export async function startNextRound(room: RoomState): Promise<void> {
     return
   }
 
-  const clues = await getCluesForEntity(entity.id)
+  const clues = await getCluesForEntity(entity.id, {
+    difficultyMode: room.settings.difficultyMode as GameDifficultyMode
+  })
   if (clues.length < 2) {
     throw new Error(`Entity ${entity.name} has insufficient clues`)
   }
@@ -158,7 +199,8 @@ export function processGuess(room: RoomState, playerId: string, guess: string): 
   const isCorrect = validateGuess(
     guess,
     room.currentRound.entity.name,
-    room.settings.strictMode
+    room.settings.strictMode,
+    room.currentRound.entity.aliases ?? []
   )
 
   if (isCorrect) {

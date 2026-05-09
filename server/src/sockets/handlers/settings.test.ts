@@ -1,7 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createRoom } from '../../rooms/store.js'
-import { handleUpdateSettings } from './settings.js'
-import { getRoomBySocket } from '../../rooms/store.js'
 
 vi.mock('../../rooms/store.js', async () => {
   const actual = await vi.importActual<typeof import('../../rooms/store.js')>('../../rooms/store.js')
@@ -11,12 +8,20 @@ vi.mock('../../rooms/store.js', async () => {
   }
 })
 
+vi.mock('../../db/entities.js', () => ({
+  getDataset: vi.fn()
+}))
+
+import { createRoom, getRoomBySocket } from '../../rooms/store.js'
+import { handleUpdateSettings } from './settings.js'
+import { getDataset } from '../../db/entities.js'
+
 describe('handleUpdateSettings', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  it('resets a finished room and applies new settings for the host', () => {
+  it('resets a finished room and applies new settings for the host', async () => {
     const room = createRoom('host-socket', 'Host')
     const emitToRoom = vi.fn()
     const io = {
@@ -58,7 +63,7 @@ describe('handleUpdateSettings', () => {
 
     vi.mocked(getRoomBySocket).mockReturnValue(room)
 
-    handleUpdateSettings(io, socket, {
+    await handleUpdateSettings(io, socket, {
       strictMode: true,
       totalRounds: 6
     })
@@ -83,7 +88,7 @@ describe('handleUpdateSettings', () => {
     )
   })
 
-  it('rejects updates while a game is still in progress', () => {
+  it('rejects updates while a game is still in progress', async () => {
     const room = createRoom('host-socket', 'Host')
     const io = {
       to: vi.fn(() => ({ emit: vi.fn() }))
@@ -96,13 +101,62 @@ describe('handleUpdateSettings', () => {
     room.status = 'in_progress'
     vi.mocked(getRoomBySocket).mockReturnValue(room)
 
-    handleUpdateSettings(io, socket, {
+    await handleUpdateSettings(io, socket, {
       strictMode: true
     })
 
     expect(socket.emit).toHaveBeenCalledWith('ROOM_ERROR', {
       code: 'GAME_IN_PROGRESS',
       message: 'Cannot update settings during game'
+    })
+  })
+
+  it('applies datasetId when the dataset exists and is enabled', async () => {
+    const room = createRoom('host-socket', 'Host')
+    const emitToRoom = vi.fn()
+    const io = { to: vi.fn(() => ({ emit: emitToRoom })) } as any
+    const socket = { id: 'host-socket', emit: vi.fn() } as any
+
+    vi.mocked(getRoomBySocket).mockReturnValue(room)
+    vi.mocked(getDataset).mockResolvedValue({
+      id: 'ds-bible',
+      name: 'Bible',
+      source: null,
+      description: null,
+      is_official: true,
+      is_enabled: true,
+      is_default: true
+    } as any)
+
+    await handleUpdateSettings(io, socket, { datasetId: 'ds-bible' })
+
+    expect(room.settings.datasetId).toBe('ds-bible')
+    expect(emitToRoom).toHaveBeenCalledWith('SETTINGS_UPDATED', room.settings)
+    expect(socket.emit).not.toHaveBeenCalledWith('ROOM_ERROR', expect.anything())
+  })
+
+  it('rejects datasetId when the dataset is disabled', async () => {
+    const room = createRoom('host-socket', 'Host')
+    const io = { to: vi.fn(() => ({ emit: vi.fn() })) } as any
+    const socket = { id: 'host-socket', emit: vi.fn() } as any
+
+    vi.mocked(getRoomBySocket).mockReturnValue(room)
+    vi.mocked(getDataset).mockResolvedValue({
+      id: 'ds-disabled',
+      name: 'Old',
+      source: null,
+      description: null,
+      is_official: false,
+      is_enabled: false,
+      is_default: false
+    } as any)
+
+    await handleUpdateSettings(io, socket, { datasetId: 'ds-disabled' })
+
+    expect(room.settings.datasetId).toBeNull()
+    expect(socket.emit).toHaveBeenCalledWith('ROOM_ERROR', {
+      code: 'DATASET_DISABLED',
+      message: 'Selected dataset is disabled'
     })
   })
 })

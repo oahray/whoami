@@ -26,6 +26,12 @@ export interface RoomSettings {
   strictMode: boolean
   transparencyMode: 'full' | 'minimal'
   maxGuessesPerRound: number
+  /**
+   * Dataset that the room draws entities from. `null` until the host picks one
+   * (or the lobby picks the default-enabled dataset on their behalf when only
+   * one is enabled). Validated again at game start.
+   */
+  datasetId: string | null
 }
 
 export interface RoundState {
@@ -94,7 +100,8 @@ export function createRoom(hostId: string, hostNickname: string): RoomState {
       difficultyMode: 'any',
       strictMode: false,
       transparencyMode: 'full',
-      maxGuessesPerRound: 10
+      maxGuessesPerRound: 10,
+      datasetId: null
     },
     status: 'waiting',
     currentRound: null,

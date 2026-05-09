@@ -14,6 +14,7 @@ import {
   handleKickPlayer
 } from './sockets/handlers/index.js'
 import adminRoutes from './admin/routes/index.js'
+import publicDatasetsRoutes from './routes/datasets.js'
 import { supabase } from './db/supabase.js'
 
 dotenv.config()
@@ -117,6 +118,7 @@ app.get('/internal/warmth', async (req, res) => {
   }
 })
 
+app.use(publicDatasetsRoutes)
 app.use('/admin', adminRoutes)
 
 const io = new Server(server, {
@@ -179,7 +181,13 @@ io.on('connection', (socket) => {
 
   socket.on('UPDATE_SETTINGS', (payload) => {
     try {
-      handleUpdateSettings(io, socket, payload)
+      handleUpdateSettings(io, socket, payload).catch((error) => {
+        console.error(`Unhandled async error in UPDATE_SETTINGS for socket ${socket.id}:`, error)
+        socket.emit('ROOM_ERROR', {
+          code: 'INTERNAL_ERROR',
+          message: 'An error occurred'
+        })
+      })
     } catch (error) {
       console.error(`Unhandled error in UPDATE_SETTINGS for socket ${socket.id}:`, error)
       socket.emit('ROOM_ERROR', {

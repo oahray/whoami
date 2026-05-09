@@ -20,6 +20,8 @@ interface RoomSettings {
   strictMode: boolean
   transparencyMode: 'full' | 'minimal'
   maxGuessesPerRound: number
+  /** Dataset (content set) the room is scoped to; null until the host picks one. */
+  datasetId: string | null
 }
 
 interface GameState {
@@ -103,6 +105,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setIsReconnecting(false)
       // Re-join room when socket reconnects (e.g. after tab was backgrounded), so we don't stay disconnected
       attemptReconnect()
+    }
+
+    const handleConnectError = (err: unknown) => {
+      // socket.io will retry up to `reconnectionAttempts` times. Surface a
+      // friendly message so the user isn't staring at a silent UI.
+      console.warn('Socket connect_error:', err)
+      setError(getErrorMessage('CONNECTION_FAILED'))
     }
 
     const handleDisconnect = () => {
@@ -309,6 +318,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
 
     socket.on('connect', handleConnect)
+    socket.on('connect_error', handleConnectError)
     socket.on('disconnect', handleDisconnect)
     socket.on('ROOM_JOINED', handleRoomJoined)
     socket.on('PLAYER_JOINED', handlePlayerJoined)
@@ -326,6 +336,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
     return () => {
       socket.off('connect', handleConnect)
+      socket.off('connect_error', handleConnectError)
       socket.off('disconnect', handleDisconnect)
       socket.off('ROOM_JOINED', handleRoomJoined)
       socket.off('PLAYER_JOINED', handlePlayerJoined)

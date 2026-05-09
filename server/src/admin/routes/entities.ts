@@ -1,20 +1,41 @@
 import { Router, Response } from 'express'
 import { supabase } from '../../db/supabase.js'
+import { resolveDatasetIdFromRequest } from '../../db/entities.js'
 import type { AuthRequest } from '../auth.js'
 
 const router = Router()
 
-router.get('/entities', async (_req: AuthRequest, res: Response) => {
+async function requireDatasetId(
+  res: Response,
+  raw: unknown
+): Promise<string | null> {
+  const datasetId = await resolveDatasetIdFromRequest(raw)
+  if (!datasetId) {
+    res.status(400).json({
+      error: 'NO_DATASET',
+      message:
+        'No dataset is available. Run `npm run db:create-default-dataset` or pass datasetId.'
+    })
+    return null
+  }
+  return datasetId
+}
+
+router.get('/entities', async (req: AuthRequest, res: Response) => {
   try {
+    const datasetId = await requireDatasetId(res, req.query.datasetId)
+    if (!datasetId) return
+
     const { data: entities, error: entitiesError } = await supabase
       .from('entities')
       .select('*')
+      .eq('dataset_id', datasetId)
       .order('name')
 
     if (entitiesError) throw entitiesError
 
     const entitiesWithClueCount = await Promise.all(
-      entities.map(async (entity) => {
+      (entities ?? []).map(async (entity) => {
         const { count, error: countError } = await supabase
           .from('clues')
           .select('*', { count: 'exact', head: true })
@@ -57,18 +78,23 @@ router.get('/entities/:id', async (req: AuthRequest, res: Response) => {
 
 router.post('/entities', async (req: AuthRequest, res: Response) => {
   try {
-    const { name, type, is_published } = req.body
+    const { name, type, is_published, aliases } = req.body
 
     if (!name || !type) {
       return res.status(400).json({ error: 'Missing required fields: name, type' })
     }
+
+    const datasetId = await requireDatasetId(res, req.body?.datasetId ?? req.query.datasetId)
+    if (!datasetId) return
 
     const { data, error } = await supabase
       .from('entities')
       .insert({
         name,
         type,
-        is_published: is_published || false
+        is_published: is_published || false,
+        dataset_id: datasetId,
+        aliases: Array.isArray(aliases) ? aliases : []
       })
       .select()
       .single()
@@ -85,11 +111,12 @@ router.post('/entities', async (req: AuthRequest, res: Response) => {
 router.put('/entities/:id', async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params
-    const { name, type, is_published } = req.body
+    const { name, type, is_published, aliases } = req.body
 
-    const updateData: any = {}
+    const updateData: Record<string, unknown> = {}
     if (name !== undefined) updateData.name = name
     if (type !== undefined) updateData.type = type
+    if (Array.isArray(aliases)) updateData.aliases = aliases
 
     if (is_published !== undefined) {
       if (is_published) {
@@ -100,8 +127,6 @@ router.put('/entities/:id', async (req: AuthRequest, res: Response) => {
 
         if (countError) throw countError
 
-        // Only allow publishing when there are at least 3 clues.
-        // Otherwise, keep the entity saved but as unpublished.
         updateData.is_published = (count || 0) >= 3
       } else {
         updateData.is_published = false
@@ -130,7 +155,7 @@ router.delete('/entities/:id', async (req: AuthRequest, res: Response) => {
 
     const { data: entity, error: entityError } = await supabase
       .from('entities')
-      .select('is_published')
+      .select('is_published, dataset_id')
       .eq('id', id)
       .single()
 
@@ -145,17 +170,23 @@ router.delete('/entities/:id', async (req: AuthRequest, res: Response) => {
       if (unpublishError) throw unpublishError
     }
 
-    const { count: publishedCount, error: countError } = await supabase
+    let publishedCountQuery = supabase
       .from('entities')
       .select('*', { count: 'exact', head: true })
       .eq('is_published', true)
+
+    if (entity.dataset_id) {
+      publishedCountQuery = publishedCountQuery.eq('dataset_id', entity.dataset_id)
+    }
+
+    const { count: publishedCount, error: countError } = await publishedCountQuery
 
     if (countError) throw countError
 
     if (publishedCount === 0) {
       return res.status(400).json({
         error: 'CANNOT_DELETE_LAST_PUBLISHED',
-        message: 'Cannot delete the last published entity'
+        message: 'Cannot delete the last published entity in this dataset'
       })
     }
 

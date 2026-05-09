@@ -8,15 +8,21 @@ vi.mock('../../rooms/store.js', async () => {
   }
 })
 
-vi.mock('../../game/roundState.js', () => ({
-  startGame: vi.fn(),
-  startNextRound: vi.fn(),
-  activateRound: vi.fn(),
-  revealClue: vi.fn(),
-  processGuess: vi.fn(),
-  endRound: vi.fn(),
-  resetRoomForNewGame: vi.fn()
-}))
+vi.mock('../../game/roundState.js', async () => {
+  const actual = await vi.importActual<typeof import('../../game/roundState.js')>(
+    '../../game/roundState.js'
+  )
+  return {
+    ...actual,
+    startGame: vi.fn(),
+    startNextRound: vi.fn(),
+    activateRound: vi.fn(),
+    revealClue: vi.fn(),
+    processGuess: vi.fn(),
+    endRound: vi.fn(),
+    resetRoomForNewGame: vi.fn()
+  }
+})
 
 vi.mock('./utils.js', () => ({
   broadcastRoundEnd: vi.fn()
@@ -26,6 +32,7 @@ const actualStore = await vi.importActual<typeof import('../../rooms/store.js')>
 
 import { getRoomBySocket } from '../../rooms/store.js'
 import {
+  GameStartError,
   processGuess,
   resetRoomForNewGame,
   startGame
@@ -138,6 +145,35 @@ describe('game socket handlers', () => {
       timeElapsedMs: 1200
     })
     expect(broadcastRoundEnd).toHaveBeenCalledWith(io, room, room.roundHistory[0])
+  })
+
+  it('emits DATASET_DISABLED when startGame rejects a disabled dataset', async () => {
+    const room = actualStore.createRoom('host-socket', 'Host')
+    const socket = { id: 'host-socket', emit: vi.fn() } as any
+    const io = { to: vi.fn(() => ({ emit: vi.fn() })) } as any
+
+    room.players.set('p2', {
+      id: 'p2',
+      nickname: 'Paul',
+      isHost: false,
+      isConnected: true,
+      disconnectedAt: null,
+      guessCount: 0,
+      lastGuessAt: null,
+      isLocked: false
+    })
+
+    vi.mocked(getRoomBySocket).mockReturnValue(room)
+    vi.mocked(startGame).mockImplementationOnce(async () => {
+      throw new GameStartError('DATASET_DISABLED', 'Selected dataset is disabled')
+    })
+
+    await handleStartGame(io, socket, {})
+
+    expect(socket.emit).toHaveBeenCalledWith('ROOM_ERROR', {
+      code: 'DATASET_DISABLED',
+      message: 'Selected dataset is disabled'
+    })
   })
 
   it('emits PLAYER_LOCKED when a locked player guesses again', () => {

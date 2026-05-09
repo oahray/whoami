@@ -14,10 +14,22 @@ vi.mock('../hooks/useSocket', () => ({
   useSocket: () => mockUseSocket()
 }))
 
+function mockDatasetsFetch(rows: Array<Record<string, unknown>>) {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => rows
+    } as unknown as Response)
+  )
+}
+
 describe('Lobby', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.useFakeTimers()
+    mockDatasetsFetch([])
 
     Object.defineProperty(navigator, 'clipboard', {
       value: {
@@ -40,7 +52,8 @@ describe('Lobby', () => {
         difficultyMode: 'any',
         strictMode: false,
         transparencyMode: 'full',
-        maxGuessesPerRound: 10
+        maxGuessesPerRound: 10,
+        datasetId: null
       },
       gameState: null,
       error: null,
@@ -96,5 +109,71 @@ describe('Lobby', () => {
 
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(`${window.location.origin}/?room=ABC123`)
     expect(screen.getByText('Copied!')).toBeInTheDocument()
+  })
+
+  it('hides the dataset picker when there is at most one enabled dataset', async () => {
+    mockDatasetsFetch([
+      { id: 'ds-1', name: 'Bible', source: 'NWT', description: null, is_default: true }
+    ])
+
+    render(
+      <MemoryRouter>
+        <Lobby />
+      </MemoryRouter>
+    )
+
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(screen.queryByLabelText('Content')).not.toBeInTheDocument()
+  })
+
+  it('shows a dataset picker when there are 2+ enabled datasets', async () => {
+    mockDatasetsFetch([
+      { id: 'ds-1', name: 'Bible', source: 'NWT', description: null, is_default: true },
+      { id: 'ds-2', name: 'Org History', source: 'JW.org', description: null, is_default: false }
+    ])
+
+    render(
+      <MemoryRouter>
+        <Lobby />
+      </MemoryRouter>
+    )
+
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(screen.getByLabelText('Content')).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /Org History — JW\.org/ })).toBeInTheDocument()
+  })
+
+  it('emits UPDATE_SETTINGS with datasetId when host changes the picker', async () => {
+    mockDatasetsFetch([
+      { id: 'ds-1', name: 'Bible', source: 'NWT', description: null, is_default: true },
+      { id: 'ds-2', name: 'Org History', source: 'JW.org', description: null, is_default: false }
+    ])
+
+    const emit = vi.fn()
+    mockUseSocket.mockReturnValue({ emit, on: vi.fn(), off: vi.fn() })
+
+    render(
+      <MemoryRouter>
+        <Lobby />
+      </MemoryRouter>
+    )
+
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    const select = screen.getByLabelText('Content') as HTMLSelectElement
+    fireEvent.change(select, { target: { value: 'ds-2' } })
+
+    expect(emit).toHaveBeenCalledWith('UPDATE_SETTINGS', { datasetId: 'ds-2' })
   })
 })

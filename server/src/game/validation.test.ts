@@ -179,4 +179,41 @@ describe('validateGuess', () => {
       expect(validateGuess('John Baptist', 'John the Baptist', true)).toBe(false)
     })
   })
+
+  describe('aliases', () => {
+    it('matches the canonical answer when aliases are present', () => {
+      expect(validateGuess('Peter', 'Peter', false, ['Simon', 'Cephas'])).toBe(true)
+      expect(validateGuess('peter', 'Peter', true, ['Simon'])).toBe(true)
+    })
+
+    it('matches against an alias (lenient)', () => {
+      expect(validateGuess('Simon', 'Peter', false, ['Simon', 'Cephas'])).toBe(true)
+      expect(validateGuess('cephas', 'Peter', false, ['Simon', 'Cephas'])).toBe(true)
+    })
+
+    it('matches against an alias (strict)', () => {
+      expect(validateGuess('Simon', 'Peter', true, ['Simon'])).toBe(true)
+      expect(validateGuess('SIMON', 'Peter', true, ['Simon'])).toBe(true)
+    })
+
+    it('applies normalization rules to aliases too', () => {
+      expect(validateGuess('Mary Magdalene', 'Mary', false, ['Mary-Magdalene'])).toBe(true)
+      expect(validateGuess('Mary Magdalene', 'Mary', true, ['Mary-Magdalene'])).toBe(false)
+    })
+
+    it('rejects guesses that do not match any alias', () => {
+      expect(validateGuess('Andrew', 'Peter', false, ['Simon', 'Cephas'])).toBe(false)
+      expect(validateGuess('Andrew', 'Peter', true, ['Simon'])).toBe(false)
+    })
+
+    it('ignores empty / whitespace aliases', () => {
+      expect(validateGuess('', 'Peter', false, ['', '   '])).toBe(false)
+      expect(validateGuess('   ', 'Peter', false, ['', '   '])).toBe(false)
+    })
+
+    it('defaults aliases to an empty array', () => {
+      expect(validateGuess('Peter', 'Peter')).toBe(true)
+      expect(validateGuess('Simon', 'Peter')).toBe(false)
+    })
+  })
 })

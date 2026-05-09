@@ -1,6 +1,7 @@
 import { ReactNode } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useAdminDataset } from '../context/AdminDatasetContext'
 
 interface AdminLayoutProps {
   children: ReactNode
@@ -12,20 +13,23 @@ interface AdminLayoutProps {
 
 const navItems = [
   { path: '/admin', label: 'Dashboard', icon: 'dashboard', exact: true },
+  { path: '/admin/datasets', label: 'Datasets', icon: 'collections_bookmark', exact: false },
   { path: '/admin/entities', label: 'Entities', icon: 'database', exact: false },
   { path: '/admin/bulk-import', label: 'Bulk Import', icon: 'upload_file', exact: false },
 ]
 
 const bottomNavItems = [
   { path: '/admin', label: 'Home', icon: 'home' },
+  { path: '/admin/datasets', label: 'Sets', icon: 'collections_bookmark' },
   { path: '/admin/entities', label: 'Entities', icon: 'database' },
-  { path: '/admin/bulk-import', label: 'Bulk Import', icon: 'upload_file' },
+  { path: '/admin/bulk-import', label: 'Import', icon: 'upload_file' },
 ]
 
 export function AdminLayout({ children, breadcrumb, title = 'Admin' }: AdminLayoutProps) {
   const navigate = useNavigate()
   const location = useLocation()
   const { user, signOut } = useAuth()
+  const { enabledDatasets, selectedDatasetId, selectedDataset, setSelectedDatasetId } = useAdminDataset()
 
   const handleSignOut = async () => {
     await signOut()
@@ -36,6 +40,9 @@ export function AdminLayout({ children, breadcrumb, title = 'Admin' }: AdminLayo
     if (item.exact) return location.pathname === item.path
     return location.pathname === item.path || location.pathname.startsWith(item.path + '/')
   }
+
+  const showSwitcher = enabledDatasets.length > 1
+  void title
 
   return (
     <div className="min-h-screen bg-slate-100 font-display text-slate-900 flex flex-col md:flex-row">
@@ -83,9 +90,17 @@ export function AdminLayout({ children, breadcrumb, title = 'Admin' }: AdminLayo
       {/* Main content - offset when sidebar is fixed */}
       <div className="flex-1 flex flex-col min-w-0 pb-20 md:pb-0 md:ml-64">
         {/* Top bar: breadcrumb (desktop) / email + sign out icon (mobile) */}
-        <header className="sticky top-0 z-40 bg-white border-b border-slate-200 px-4 md:px-6 py-3 flex items-center justify-between">
+        <header className="sticky top-0 z-40 bg-white border-b border-slate-200 px-4 md:px-6 py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0 flex-1">
-            <div className="hidden md:block text-sm text-slate-500">{breadcrumb}</div>
+            <div className="hidden md:flex text-sm text-slate-500 min-w-0 items-center gap-2">
+              <span className="truncate">{breadcrumb}</span>
+              {selectedDataset && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 text-primary px-2 py-0.5 text-xs font-semibold">
+                  <span className="material-symbols-outlined text-sm leading-none">collections_bookmark</span>
+                  {selectedDataset.name}
+                </span>
+              )}
+            </div>
             <div className="md:hidden flex items-center gap-2">
               <span className="material-symbols-outlined">menu_book</span>
               <span className="font-bold text-lg tracking-tight text-slate-900">WhoAmI Admin</span>
@@ -95,6 +110,20 @@ export function AdminLayout({ children, breadcrumb, title = 'Admin' }: AdminLayo
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
+            {showSwitcher && (
+              <select
+                value={selectedDatasetId ?? ''}
+                onChange={(e) => setSelectedDatasetId(e.target.value || null)}
+                className="hidden md:block bg-white border border-slate-200 rounded-lg text-sm py-2 px-3 text-slate-700 font-medium focus:ring-2 focus:ring-primary/20"
+                title="Active dataset"
+              >
+                {enabledDatasets.map((dataset) => (
+                  <option key={dataset.id} value={dataset.id}>
+                    {dataset.name}
+                  </option>
+                ))}
+              </select>
+            )}
             <button
               type="button"
               onClick={handleSignOut}

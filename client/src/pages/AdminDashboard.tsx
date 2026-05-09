@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useAdminDataset } from '../context/AdminDatasetContext'
 import { AdminLayout } from '../components/AdminLayout'
 import type { Stats } from '../types'
 
@@ -9,29 +10,50 @@ const API_BASE_URL = import.meta.env.VITE_SOCKET_URL?.replace('ws://', 'http://'
 function AdminDashboard() {
   const { getAccessToken } = useAuth()
   const navigate = useNavigate()
+  const { datasetId: datasetIdParam } = useParams<{ datasetId?: string }>()
+  const { selectedDatasetId, setSelectedDatasetId, selectedDataset } = useAdminDataset()
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
+    if (datasetIdParam && datasetIdParam !== selectedDatasetId) {
+      setSelectedDatasetId(datasetIdParam)
+    }
+  }, [datasetIdParam, selectedDatasetId, setSelectedDatasetId])
+
+  const activeDatasetId = datasetIdParam ?? selectedDatasetId
+
+  useEffect(() => {
     loadData()
-  }, [])
+  }, [activeDatasetId])
 
   const loadData = async () => {
     try {
       setLoading(true)
+      setError('')
       const token = await getAccessToken()
       if (!token) {
         navigate('/admin/login')
         return
       }
-      const res = await fetch(`${API_BASE_URL}/admin/stats`, {
+
+      const url = new URL(`${API_BASE_URL}/admin/stats`)
+      if (activeDatasetId) url.searchParams.set('datasetId', activeDatasetId)
+
+      const res = await fetch(url.toString(), {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
       })
-      if (!res.ok) throw new Error('Request failed')
+      if (!res.ok) {
+        if (res.status === 400) {
+          const body = await res.json().catch(() => ({}))
+          throw new Error(body.message || 'No dataset available')
+        }
+        throw new Error('Request failed')
+      }
       const data = (await res.json()) as Stats
       setStats(data)
     } catch (err: unknown) {
@@ -44,9 +66,13 @@ function AdminDashboard() {
     }
   }
 
+  const breadcrumb = selectedDataset
+    ? `Datasets / ${selectedDataset.name} / Overview`
+    : 'Overview / Dashboard'
+
   if (loading) {
     return (
-      <AdminLayout breadcrumb="Overview / Dashboard" title="Admin Dashboard">
+      <AdminLayout breadcrumb={breadcrumb} title="Admin Dashboard">
         <div className="flex items-center justify-center py-24">
           <div className="text-slate-600">Loading...</div>
         </div>
@@ -55,7 +81,7 @@ function AdminDashboard() {
   }
 
   return (
-    <AdminLayout breadcrumb="Overview / Dashboard" title="Admin Dashboard">
+    <AdminLayout breadcrumb={breadcrumb} title="Admin Dashboard">
       {error && (
         <div className="mb-6 p-3 bg-red-100 border border-red-400 text-red-700 rounded-md text-sm">
           {error}
@@ -64,9 +90,11 @@ function AdminDashboard() {
 
       <section className="mb-6">
         <h2 className="text-slate-900 text-lg font-bold mb-1">Statistics</h2>
-        <p className="text-slate-500 text-sm mb-4">Overview of entities, clues, and content readiness.</p>
+        <p className="text-slate-500 text-sm mb-4">
+          Overview of entities, clues, and content readiness. Game difficulty uses clue-level tags when the lobby mode is not “any”.
+        </p>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
           <div className="bg-white rounded-md border border-slate-200 shadow-sm p-4 min-w-0 flex items-center gap-4">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
               <span className="material-symbols-outlined text-xl">track_changes</span>
@@ -102,6 +130,15 @@ function AdminDashboard() {
               <p className="text-slate-700 text-sm font-medium leading-tight">Unpublished</p>
             </div>
             <p className="text-slate-900 text-2xl font-bold shrink-0">{stats?.unpublishedCount ?? 0}</p>
+          </div>
+          <div className="bg-white rounded-md border border-slate-200 shadow-sm p-4 min-w-0 flex items-center gap-4">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-700">
+              <span className="material-symbols-outlined text-xl">check_circle</span>
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-slate-700 text-sm font-medium leading-tight">Published</p>
+            </div>
+            <p className="text-slate-900 text-2xl font-bold shrink-0">{stats?.publishedCount ?? 0}</p>
           </div>
         </div>
 
@@ -162,19 +199,39 @@ function AdminDashboard() {
       </section>
 
       <section>
-        <div className="bg-white rounded-md border border-slate-200 shadow-sm p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
-            <h2 className="text-slate-900 text-lg font-bold mb-0.5">Manage Entities</h2>
-            <p className="text-slate-600 text-sm">Create, edit, and publish entities and clues.</p>
+        <div className="bg-white rounded-md border border-slate-200 shadow-sm p-4 flex flex-col gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <h2 className="text-slate-900 text-lg font-bold mb-0.5">Manage content</h2>
+              <p className="text-slate-600 text-sm">Create, edit, publish, or import entities and clues.</p>
+            </div>
+            <div className="flex flex-col xs:flex-row gap-2 sm:gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => navigate('/admin/entities')}
+                className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-white font-semibold hover:bg-primary/90 transition-colors"
+              >
+                <span className="material-symbols-outlined">database</span>
+                Entities
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/admin/bulk-import')}
+                className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg border-2 border-primary text-primary font-semibold hover:bg-primary/10 transition-colors"
+              >
+                <span className="material-symbols-outlined">upload_file</span>
+                Bulk import
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/admin/datasets')}
+                className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg border-2 border-slate-200 text-slate-700 font-semibold hover:bg-slate-100 transition-colors"
+              >
+                <span className="material-symbols-outlined">collections_bookmark</span>
+                Datasets
+              </button>
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={() => navigate('/admin/entities')}
-            className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-white font-semibold hover:bg-primary/90 transition-colors shrink-0"
-          >
-            <span className="material-symbols-outlined">database</span>
-            Open Entities
-          </button>
         </div>
       </section>
     </AdminLayout>

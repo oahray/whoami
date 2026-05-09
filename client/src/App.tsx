@@ -1,17 +1,28 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { ReactNode } from 'react'
 import { AuthProvider } from './context/AuthContext'
 import { GameProvider } from './context/GameContext'
+import { AdminDatasetProvider } from './context/AdminDatasetContext'
 import Home from './pages/Home'
 import Lobby from './pages/Lobby'
 import Game from './pages/Game'
 import AdminLogin from './pages/AdminLogin'
 import AdminDashboard from './pages/AdminDashboard'
+import AdminDatasets from './pages/AdminDatasets'
 import AdminEntities from './pages/AdminEntities'
 import AdminEntityEditor from './pages/AdminEntityEditor'
 import AdminPreview from './pages/AdminPreview'
 import AdminBulkImport from './pages/AdminBulkImport'
 import ProtectedRoute from './components/ProtectedRoute'
 import ReconnectingIndicator from './components/ReconnectingIndicator'
+
+function AdminRoute({ children }: { children: ReactNode }) {
+  return (
+    <ProtectedRoute>
+      <AdminDatasetProvider>{children}</AdminDatasetProvider>
+    </ProtectedRoute>
+  )
+}
 
 function App() {
   return (
@@ -27,49 +38,65 @@ function App() {
             <Route
               path="/admin"
               element={
-                <ProtectedRoute>
+                <AdminRoute>
                   <AdminDashboard />
-                </ProtectedRoute>
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/datasets"
+              element={
+                <AdminRoute>
+                  <AdminDatasets />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/datasets/:datasetId"
+              element={
+                <AdminRoute>
+                  <AdminDashboard />
+                </AdminRoute>
               }
             />
             <Route
               path="/admin/entities/new"
               element={
-                <ProtectedRoute>
+                <AdminRoute>
                   <AdminEntityEditor />
-                </ProtectedRoute>
+                </AdminRoute>
               }
             />
             <Route
               path="/admin/entities/:id/preview"
               element={
-                <ProtectedRoute>
+                <AdminRoute>
                   <AdminPreview />
-                </ProtectedRoute>
+                </AdminRoute>
               }
             />
             <Route
               path="/admin/entities/:id"
               element={
-                <ProtectedRoute>
+                <AdminRoute>
                   <AdminEntityEditor />
-                </ProtectedRoute>
+                </AdminRoute>
               }
             />
             <Route
               path="/admin/entities"
               element={
-                <ProtectedRoute>
+                <AdminRoute>
                   <AdminEntities />
-                </ProtectedRoute>
+                </AdminRoute>
               }
             />
             <Route
               path="/admin/bulk-import"
               element={
-                <ProtectedRoute>
+                <AdminRoute>
                   <AdminBulkImport />
-                </ProtectedRoute>
+                </AdminRoute>
               }
             />
           </Routes>

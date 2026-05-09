@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useAdminDataset } from '../context/AdminDatasetContext'
 import { AdminLayout } from '../components/AdminLayout'
 import type { Entity, Clue, Difficulty } from '../types'
 
@@ -20,12 +21,15 @@ function AdminEntityEditor() {
   const isNew = !id
   const navigate = useNavigate()
   const { getAccessToken } = useAuth()
+  const { selectedDatasetId, selectedDataset } = useAdminDataset()
 
-  const [entity, setEntity] = useState<Partial<Entity> & { is_published: boolean }>({
+  const [entity, setEntity] = useState<Partial<Entity> & { is_published: boolean; aliases: string[] }>({
     name: '',
     type: 'character',
     is_published: false,
+    aliases: []
   })
+  const [aliasesText, setAliasesText] = useState('')
   const [clues, setClues] = useState<ClueForm[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -63,7 +67,12 @@ function AdminEntityEditor() {
         }),
       ])
 
-      setEntity(entityData)
+      setEntity({
+        ...entityData,
+        is_published: entityData.is_published ?? false,
+        aliases: Array.isArray(entityData.aliases) ? entityData.aliases : []
+      })
+      setAliasesText(Array.isArray(entityData.aliases) ? entityData.aliases.join(', ') : '')
       setClues(cluesData.map(c => ({
         ...c,
         id: c.id,
@@ -84,13 +93,25 @@ function AdminEntityEditor() {
 
       let entityId: string | undefined = id
 
+      const aliases = aliasesText
+        .split(',')
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0)
+
       if (isNew) {
+        if (!selectedDatasetId) {
+          setError('No dataset selected. Open Datasets and pick one first.')
+          setSaving(false)
+          return
+        }
         const createPayload = {
           name: entity.name ?? '',
           type: entity.type ?? 'character',
           is_published: entity.is_published ?? false,
+          aliases,
+          datasetId: selectedDatasetId,
         }
-        const response = await fetch(`${API_BASE_URL}/admin/entities`, {
+        const response = await fetch(`${API_BASE_URL}/admin/entities?datasetId=${encodeURIComponent(selectedDatasetId)}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -119,6 +140,7 @@ function AdminEntityEditor() {
           name: entity.name,
           type: entity.type,
           is_published: entity.is_published,
+          aliases,
         }
         const response = await fetch(`${API_BASE_URL}/admin/entities/${id}`, {
           method: 'PUT',
@@ -225,9 +247,14 @@ function AdminEntityEditor() {
     )
   }
 
+  const datasetCrumb = selectedDataset ? `Datasets / ${selectedDataset.name} / Entities` : 'Overview / Entities'
+  const breadcrumb = isNew
+    ? `${datasetCrumb} / New`
+    : `${datasetCrumb} / ${entity.name || 'Edit'}`
+
   return (
     <AdminLayout
-      breadcrumb={isNew ? 'Overview / Entities / New' : `Overview / Entities / ${entity.name || 'Edit'}`}
+      breadcrumb={breadcrumb}
       title={isNew ? 'Create Entity' : 'Edit Entity'}
     >
       <div className="max-w-3xl mx-auto pb-36 md:pb-8">
@@ -285,6 +312,21 @@ function AdminEntityEditor() {
                 <option value="character">Character</option>
                 <option value="place">Place</option>
               </select>
+            </label>
+            <label className="flex flex-col">
+              <p className="text-slate-600 text-sm font-semibold mb-1.5 ml-1">
+                Aliases <span className="text-slate-400 font-normal">(comma-separated)</span>
+              </p>
+              <input
+                type="text"
+                value={aliasesText}
+                onChange={(e) => setAliasesText(e.target.value)}
+                placeholder="e.g. King David, Abram"
+                className="w-full rounded-lg border border-slate-200 bg-slate-50 text-slate-900 focus:ring-primary focus:border-primary h-12 px-4 font-medium"
+              />
+              <span className="text-slate-500 text-xs mt-1 ml-1">
+                Alternate names accepted as correct guesses.
+              </span>
             </label>
             <label className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200 mt-2">
               <div className="flex flex-col">

@@ -1,7 +1,15 @@
 import { Server, Socket } from 'socket.io'
 import { getRoomBySocket } from '../../rooms/store.js'
 import type { RoomState } from '../../rooms/store.js'
-import { startGame, activateRound, revealClue, processGuess, endRound, resetRoomForNewGame } from '../../game/roundState'
+import {
+  startGame,
+  activateRound,
+  revealClue,
+  processGuess,
+  endRound,
+  resetRoomForNewGame,
+  GameStartError
+} from '../../game/roundState.js'
 import { ROUND_START_DELAY_MS } from '../../game/config.js'
 import { broadcastRoundEnd } from './utils.js'
 
@@ -59,7 +67,18 @@ export async function handleStartGame(io: Server, socket: Socket, _payload: any)
       return
     }
 
-    await startGame(room)
+    try {
+      await startGame(room)
+    } catch (error) {
+      if (error instanceof GameStartError) {
+        socket.emit('ROOM_ERROR', {
+          code: error.code,
+          message: error.message
+        })
+        return
+      }
+      throw error
+    }
 
     const firstClue = room.currentRound!.clues[0]
     io.to(room.code).emit('ROUND_STARTED', {

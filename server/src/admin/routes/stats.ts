@@ -1,32 +1,46 @@
 import { Router, Response } from 'express'
 import { supabase } from '../../db/supabase.js'
+import { resolveDatasetIdFromRequest } from '../../db/entities.js'
 import type { AuthRequest } from '../auth.js'
 
 const router = Router()
 
-router.get('/stats', async (_req: AuthRequest, res: Response) => {
+router.get('/stats', async (req: AuthRequest, res: Response) => {
   try {
-    const { count: totalEntities, error: entitiesError } = await supabase
-      .from('entities')
-      .select('*', { count: 'exact', head: true })
+    const datasetId = await resolveDatasetIdFromRequest(req.query.datasetId)
+    if (!datasetId) {
+      return res.status(400).json({
+        error: 'NO_DATASET',
+        message:
+          'No dataset is available. Run `npm run db:create-default-dataset` or pass ?datasetId=.'
+      })
+    }
 
+    const scopedEntities = () =>
+      supabase.from('entities').select('*', { count: 'exact', head: true }).eq('dataset_id', datasetId)
+
+    const { count: totalEntities, error: entitiesError } = await scopedEntities()
     if (entitiesError) throw entitiesError
 
-    const { count: unpublishedCount, error: unpublishedError } = await supabase
-      .from('entities')
-      .select('*', { count: 'exact', head: true })
-      .eq('is_published', false)
-
+    const { count: unpublishedCount, error: unpublishedError } = await scopedEntities().eq(
+      'is_published',
+      false
+    )
     if (unpublishedError) throw unpublishedError
 
-    // Overall clue count
-    const { count: totalClues, error: cluesError } = await supabase
-      .from('clues')
-      .select('*', { count: 'exact', head: true })
+    const { data: datasetEntityIdsRaw, error: idsError } = await supabase
+      .from('entities')
+      .select('id, is_published')
+      .eq('dataset_id', datasetId)
+    if (idsError) throw idsError
 
-    if (cluesError) throw cluesError
+    const datasetEntityIds = (datasetEntityIdsRaw ?? []).map((row) => row.id as string)
+    const unpublishedIdsForDataset = (datasetEntityIdsRaw ?? [])
+      .filter((row) => row.is_published === false)
+      .map((row) => row.id as string)
 
-    // Clue counts by difficulty for dashboard difficulty stats
+    let totalClues = 0
+    let cluesWithoutDifficulty = 0
     const difficulties = ['easy', 'medium', 'hard', 'nightmare'] as const
     const difficultyCounts: Record<(typeof difficulties)[number], number> = {
       easy: 0,
@@ -34,73 +48,71 @@ router.get('/stats', async (_req: AuthRequest, res: Response) => {
       hard: 0,
       nightmare: 0
     }
+    let allClueRows: Array<{ entity_id: string }> = []
 
-    for (const difficulty of difficulties) {
+    if (datasetEntityIds.length > 0) {
       const { count, error } = await supabase
         .from('clues')
         .select('*', { count: 'exact', head: true })
-        .eq('difficulty', difficulty)
-
+        .in('entity_id', datasetEntityIds)
       if (error) throw error
-      difficultyCounts[difficulty] = count || 0
+      totalClues = count ?? 0
+
+      for (const difficulty of difficulties) {
+        const { count: diffCount, error: diffError } = await supabase
+          .from('clues')
+          .select('*', { count: 'exact', head: true })
+          .in('entity_id', datasetEntityIds)
+          .eq('difficulty', difficulty)
+        if (diffError) throw diffError
+        difficultyCounts[difficulty] = diffCount ?? 0
+      }
+
+      const { count: noDiffCount, error: noDiffError } = await supabase
+        .from('clues')
+        .select('*', { count: 'exact', head: true })
+        .in('entity_id', datasetEntityIds)
+        .is('difficulty', null)
+      if (noDiffError) throw noDiffError
+      cluesWithoutDifficulty = noDiffCount ?? 0
+
+      const { data: clueRows, error: clueRowsError } = await supabase
+        .from('clues')
+        .select('entity_id')
+        .in('entity_id', datasetEntityIds)
+      if (clueRowsError) throw clueRowsError
+      allClueRows = (clueRows ?? []) as Array<{ entity_id: string }>
     }
 
-    // Clues without difficulty set (need tagging)
-    const { count: cluesWithoutDifficulty, error: noDiffError } = await supabase
-      .from('clues')
-      .select('*', { count: 'exact', head: true })
-      .is('difficulty', null)
-
-    if (noDiffError) throw noDiffError
-
-    // Entities by type
-    const { count: characterCount, error: charError } = await supabase
-      .from('entities')
-      .select('*', { count: 'exact', head: true })
-      .eq('type', 'character')
+    const { count: characterCount, error: charError } = await scopedEntities().eq('type', 'character')
     if (charError) throw charError
 
-    const { count: placeCount, error: placeError } = await supabase
-      .from('entities')
-      .select('*', { count: 'exact', head: true })
-      .eq('type', 'place')
+    const { count: placeCount, error: placeError } = await scopedEntities().eq('type', 'place')
     if (placeError) throw placeError
 
-    // Unpublished entities that have 3+ clues (ready to publish)
-    const { data: unpublishedIds } = await supabase
-      .from('entities')
-      .select('id')
-      .eq('is_published', false)
-    const { data: clueRows } = await supabase
-      .from('clues')
-      .select('entity_id')
-
     const clueCountByEntity = new Map<string, number>()
-    for (const row of clueRows || []) {
-      const id = (row as { entity_id: string }).entity_id
-      clueCountByEntity.set(id, (clueCountByEntity.get(id) || 0) + 1)
+    for (const row of allClueRows) {
+      clueCountByEntity.set(row.entity_id, (clueCountByEntity.get(row.entity_id) || 0) + 1)
     }
-    const readyToPublishCount = (unpublishedIds || []).filter(
-      (e) => (clueCountByEntity.get(e.id) || 0) >= 3
+    const readyToPublishCount = unpublishedIdsForDataset.filter(
+      (id) => (clueCountByEntity.get(id) || 0) >= 3
     ).length
 
     const safeTotalEntities = totalEntities ?? 0
-    const safeTotalClues = totalClues ?? 0
-
-    const avgCluesPerEntity = safeTotalEntities > 0
-      ? Math.round((safeTotalClues / safeTotalEntities) * 100) / 100
-      : 0
+    const avgCluesPerEntity =
+      safeTotalEntities > 0 ? Math.round((totalClues / safeTotalEntities) * 100) / 100 : 0
 
     const publishedCount = safeTotalEntities - (unpublishedCount || 0)
 
     res.json({
-      totalClues: safeTotalClues,
+      datasetId,
+      totalClues,
       totalEntities: safeTotalEntities,
       avgCluesPerEntity,
       unpublishedCount: unpublishedCount || 0,
       publishedCount,
       difficultyCounts,
-      cluesWithoutDifficulty: cluesWithoutDifficulty ?? 0,
+      cluesWithoutDifficulty,
       entityCountByType: {
         character: characterCount ?? 0,
         place: placeCount ?? 0

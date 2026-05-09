@@ -2,14 +2,19 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useGame } from '../hooks/useGame'
 import { useSocket } from '../hooks/useSocket'
+import type { PublicDataset } from '../types'
 
 const COPIED_FEEDBACK_MS = 2000
+const API_BASE_URL =
+  import.meta.env.VITE_SOCKET_URL?.replace('ws://', 'http://').replace('wss://', 'https://') ||
+  'http://localhost:3001'
 
 function Lobby() {
   const navigate = useNavigate()
   const { emit, on, off } = useSocket()
   const [copiedCode, setCopiedCode] = useState(false)
   const [copiedLink, setCopiedLink] = useState(false)
+  const [datasets, setDatasets] = useState<PublicDataset[]>([])
   const {
     roomCode,
     isHost,
@@ -38,6 +43,27 @@ function Lobby() {
     on('ROUND_STARTED', handleRoundStarted)
     return () => off('ROUND_STARTED', handleRoundStarted)
   }, [on, off, navigate])
+
+  useEffect(() => {
+    let cancelled = false
+    fetch(`${API_BASE_URL}/datasets`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`Failed to load datasets (${res.status})`)
+        return (await res.json()) as PublicDataset[]
+      })
+      .then((rows) => {
+        if (cancelled) return
+        setDatasets(rows)
+      })
+      .catch((err) => {
+        if (cancelled) return
+        console.error('Failed to load datasets for lobby:', err)
+        setDatasets([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     if (gameState && gameState.phase !== 'ended' && gameState.phase !== 'starting') {
@@ -237,6 +263,60 @@ function Lobby() {
                 </h2>
               </div>
               <div className="space-y-6">
+              {datasets.length > 1 && (
+                <div>
+                  <label htmlFor="datasetPicker" className="block text-slate-700 text-sm font-semibold mb-2">Content</label>
+                  {isHost ? (
+                    <select
+                      id="datasetPicker"
+                      value={settings.datasetId ?? ''}
+                      onChange={(e) =>
+                        handleUpdateSetting('datasetId', e.target.value === '' ? null : e.target.value)
+                      }
+                      className="w-full bg-slate-50 border-0 rounded-lg text-slate-900 focus:ring-2 focus:ring-primary py-2.5 px-3"
+                    >
+                      <option value="">
+                        Default ({datasets.find((d) => d.is_default)?.name ?? datasets[0]?.name ?? '—'})
+                      </option>
+                      {datasets.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.name}
+                          {d.source ? ` — ${d.source}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <div className="py-2.5 px-3 bg-slate-50 rounded-lg text-slate-700">
+                      {datasets.find((d) => d.id === settings.datasetId)?.name ??
+                        datasets.find((d) => d.is_default)?.name ??
+                        datasets[0]?.name ??
+                        '—'}
+                    </div>
+                  )}
+                  {(() => {
+                    const active =
+                      datasets.find((d) => d.id === settings.datasetId) ??
+                      datasets.find((d) => d.is_default) ??
+                      datasets[0]
+                    if (!active) return null
+                    const bits = [active.description, active.source].filter(Boolean)
+                    if (bits.length === 0) return null
+                    return (
+                      <p className="text-xs text-slate-500 mt-1">
+                        {bits.join(' · ')}
+                      </p>
+                    )
+                  })()}
+                </div>
+              )}
+
+              {datasets.length === 1 && (datasets[0].source || datasets[0].description) && (
+                <div className="text-xs text-slate-500">
+                  Content: <span className="font-medium text-slate-600">{datasets[0].name}</span>
+                  {datasets[0].source ? ` · ${datasets[0].source}` : ''}
+                </div>
+              )}
+
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <label className="text-slate-700 text-sm font-semibold">Total Rounds</label>

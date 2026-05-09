@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useAdminDataset } from '../context/AdminDatasetContext'
 import { AdminLayout } from '../components/AdminLayout'
 import type { Entity, Clue } from '../types'
 
@@ -10,6 +11,7 @@ function AdminPreview() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { getAccessToken } = useAuth()
+  const { selectedDataset } = useAdminDataset()
 
   const [entity, setEntity] = useState<Entity | null>(null)
   const [clues, setClues] = useState<Clue[]>([])
@@ -84,7 +86,14 @@ function AdminPreview() {
   }
 
   return (
-    <AdminLayout breadcrumb={`Overview / Entities / ${entity.name} / Preview`} title={`Preview: ${entity.name}`}>
+    <AdminLayout
+      breadcrumb={
+        selectedDataset
+          ? `Datasets / ${selectedDataset.name} / Entities / ${entity.name} / Preview`
+          : `Overview / Entities / ${entity.name} / Preview`
+      }
+      title={`Preview: ${entity.name}`}
+    >
       <div className="max-w-3xl mx-auto">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
           <button

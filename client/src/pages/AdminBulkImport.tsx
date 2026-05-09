@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useAdminDataset } from '../context/AdminDatasetContext'
 import { AdminLayout } from '../components/AdminLayout'
 
 const API_BASE_URL = import.meta.env.VITE_SOCKET_URL?.replace('ws://', 'http://').replace('wss://', 'https://') || 'http://localhost:3001'
@@ -8,6 +9,7 @@ const API_BASE_URL = import.meta.env.VITE_SOCKET_URL?.replace('ws://', 'http://'
 function AdminBulkImport() {
   const { getAccessToken } = useAuth()
   const navigate = useNavigate()
+  const { selectedDatasetId, selectedDataset } = useAdminDataset()
   const [jsonInput, setJsonInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<any>(null)
@@ -33,14 +35,23 @@ function AdminBulkImport() {
         return
       }
 
-      const response = await fetch(`${API_BASE_URL}/admin/bulk-import`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ entities: parsed })
-      })
+      if (!selectedDatasetId) {
+        setError('No dataset selected. Open Datasets and pick one first.')
+        setLoading(false)
+        return
+      }
+
+      const response = await fetch(
+        `${API_BASE_URL}/admin/bulk-import?datasetId=${encodeURIComponent(selectedDatasetId)}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ entities: parsed, datasetId: selectedDatasetId })
+        }
+      )
 
       const data = await response.json()
 
@@ -69,6 +80,7 @@ function AdminBulkImport() {
     "name": "Moses",
     "type": "character",
     "is_published": true,
+    "aliases": [],
     "clues": [
       {
         "text": "Led the Israelites out of Egypt",
@@ -84,8 +96,12 @@ function AdminBulkImport() {
   }
 ]`
 
+  const breadcrumb = selectedDataset
+    ? `Datasets / ${selectedDataset.name} / Bulk Import`
+    : 'Overview / Bulk Import'
+
   return (
-    <AdminLayout breadcrumb="Overview / Bulk Import" title="Bulk Import">
+    <AdminLayout breadcrumb={breadcrumb} title="Bulk Import">
       <div className="max-w-4xl mx-auto w-full">
         <div className="flex items-center justify-between mb-4 md:mb-6">
           <button
@@ -112,6 +128,7 @@ function AdminBulkImport() {
                   <p className="text-slate-900 font-bold text-sm">Format Rules</p>
                   <p className="text-slate-600 text-xs md:text-sm leading-relaxed mt-1">
                     JSON must be an array of entities. Each entity: name, type, clues array (text; optional citations, difficulty).
+                    Re-importing the same data is safe: entities update only when fields differ; clues match by trimmed text and update when citations or difficulty change.
                   </p>
                 </div>
               </div>
@@ -177,15 +194,33 @@ function AdminBulkImport() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-4">
               <div className="bg-primary/10 rounded-lg p-3">
                 <div className="text-xl md:text-2xl font-bold text-primary">{result.summary?.total ?? 0}</div>
-                <div className="text-sm text-slate-600">Total</div>
+                <div className="text-sm text-slate-600">Entities in file</div>
               </div>
               <div className="bg-emerald-50 rounded-lg p-3">
                 <div className="text-xl md:text-2xl font-bold text-emerald-600">{result.summary?.created ?? 0}</div>
-                <div className="text-sm text-slate-600">Created</div>
+                <div className="text-sm text-slate-600">Entities created</div>
               </div>
               <div className="bg-amber-50 rounded-lg p-3">
                 <div className="text-xl md:text-2xl font-bold text-amber-600">{result.summary?.updated ?? 0}</div>
-                <div className="text-sm text-slate-600">Updated</div>
+                <div className="text-sm text-slate-600">Entities updated</div>
+              </div>
+              <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                <div className="text-xl md:text-2xl font-bold text-slate-700">{result.summary?.entitiesUnchanged ?? 0}</div>
+                <div className="text-sm text-slate-600">Entities unchanged</div>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-4">
+              <div className="bg-teal-50 rounded-lg p-3">
+                <div className="text-xl md:text-2xl font-bold text-teal-700">{result.summary?.cluesInserted ?? 0}</div>
+                <div className="text-sm text-slate-600">Clues added</div>
+              </div>
+              <div className="bg-indigo-50 rounded-lg p-3">
+                <div className="text-xl md:text-2xl font-bold text-indigo-700">{result.summary?.cluesUpdated ?? 0}</div>
+                <div className="text-sm text-slate-600">Clues updated</div>
+              </div>
+              <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                <div className="text-xl md:text-2xl font-bold text-slate-600">{result.summary?.cluesUnchanged ?? 0}</div>
+                <div className="text-sm text-slate-600">Clues unchanged</div>
               </div>
               <div className="bg-rose-50 rounded-lg p-3">
                 <div className="text-xl md:text-2xl font-bold text-rose-600">{result.summary?.errors ?? 0}</div>

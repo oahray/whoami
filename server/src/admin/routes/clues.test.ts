@@ -10,42 +10,7 @@ vi.mock('../../db/supabase.js', () => ({
 
 import { supabase } from '../../db/supabase.js'
 import cluesRouter from './clues.js'
-
-type QueryState = {
-  table: string
-  operations: Array<{ method: string; args: any[] }>
-}
-
-function createQueryBuilder(
-  table: string,
-  resolver: (state: QueryState) => any
-) {
-  const state: QueryState = { table, operations: [] }
-  const builder: any = {
-    select: (...args: any[]) => {
-      state.operations.push({ method: 'select', args })
-      return builder
-    },
-    insert: (...args: any[]) => {
-      state.operations.push({ method: 'insert', args })
-      return builder
-    },
-    eq: (...args: any[]) => {
-      state.operations.push({ method: 'eq', args })
-      return builder
-    },
-    order: (...args: any[]) => {
-      state.operations.push({ method: 'order', args })
-      return builder
-    },
-    single: (...args: any[]) => {
-      state.operations.push({ method: 'single', args })
-      return builder
-    },
-    then: (resolve: any, reject: any) => Promise.resolve(resolver(state)).then(resolve, reject)
-  }
-  return builder
-}
+import { createQueryBuilder, findOp } from '../../test-utils/supabaseQueryBuilder.js'
 
 describe('clues routes', () => {
   beforeEach(() => {
@@ -72,11 +37,11 @@ describe('clues routes', () => {
 
     vi.mocked(supabase.from).mockImplementation((table: string) =>
       createQueryBuilder(table, (state) => {
-        insertPayload = state.operations.find(op => op.method === 'insert')?.args[0]
+        insertPayload = findOp(state, 'insert')?.args[0]
         return {
           data: {
             id: 'clue-1',
-            ...insertPayload
+            ...(insertPayload as Record<string, unknown>)
           },
           error: null
         }

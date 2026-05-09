@@ -12,6 +12,7 @@ build/
 coverage/
 *.swp
 *.swo
+.vite/
 *~
 
 # Supabase
