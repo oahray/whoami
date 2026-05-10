@@ -232,7 +232,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
       const message = data.banned
         ? getErrorMessage('PLAYER_BANNED')
         : 'You have been removed from the room by the host.'
-      setError(message)
+      if (typeof window !== 'undefined') {
+        try {
+          window.sessionStorage.setItem('whoami_kick_message', message)
+        } catch {
+          // sessionStorage may be unavailable in private mode; safe to ignore
+        }
+      }
       localStorage.removeItem('whoami_room')
       reset()
       if (typeof window !== 'undefined') {

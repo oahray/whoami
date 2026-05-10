@@ -1,6 +1,5 @@
 import { Server, Socket } from 'socket.io'
 import { getRoomBySocket } from '../../rooms/store.js'
-import { ROUND_START_DELAY_MS } from '../../game/config.js'
 import { resetRoomForNewGame } from '../../game/roundState.js'
 import { getDataset } from '../../db/entities.js'
 import { logger } from '../../utils/logger.js'
@@ -68,10 +67,10 @@ export async function handleUpdateSettings(io: Server, socket: Socket, payload: 
     }
 
     if (clueRevealTime !== undefined) {
-      if (clueRevealTime < 0 || clueRevealTime >= room.settings.roundDuration - ROUND_START_DELAY_MS) {
+      if (clueRevealTime < 2000 || clueRevealTime > room.settings.roundDuration - 1500) {
         socket.emit('ROOM_ERROR', {
           code: 'INVALID_SETTINGS',
-          message: 'Clue reveal time must be less than round duration minus the start delay'
+          message: 'Clue reveal time must be at least 2s and at most ~1.5s less than the round duration'
         })
         return
       }

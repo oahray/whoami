@@ -29,6 +29,7 @@ describe('Lobby', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.useFakeTimers()
+    window.sessionStorage.clear()
     mockDatasetsFetch([])
 
     Object.defineProperty(navigator, 'clipboard', {
@@ -175,5 +176,23 @@ describe('Lobby', () => {
     fireEvent.change(select, { target: { value: 'ds-2' } })
 
     expect(emit).toHaveBeenCalledWith('UPDATE_SETTINGS', { datasetId: 'ds-2' })
+  })
+
+  it('renders a difficulty picker and emits UPDATE_SETTINGS when the host changes it', () => {
+    const emit = vi.fn()
+    mockUseSocket.mockReturnValue({ emit, on: vi.fn(), off: vi.fn() })
+
+    render(
+      <MemoryRouter>
+        <Lobby />
+      </MemoryRouter>
+    )
+
+    const difficultySelect = screen.getByLabelText('Difficulty') as HTMLSelectElement
+    expect(difficultySelect.value).toBe('any')
+
+    fireEvent.change(difficultySelect, { target: { value: 'hard' } })
+
+    expect(emit).toHaveBeenCalledWith('UPDATE_SETTINGS', { difficultyMode: 'hard' })
   })
 })

@@ -3,6 +3,34 @@ import { useNavigate } from 'react-router-dom'
 import { useGame } from '../hooks/useGame'
 import { useSocket } from '../hooks/useSocket'
 
+/**
+ * Sort a scoreboard descending and assign competition rankings (1, 1, 3, ...)
+ * so tied scores share a rank and the next non-tied player gets the gap.
+ * Each returned entry also gets `tied` = true if at least one other player
+ * shares its rank, so callers can render "Tied for 1st" instead of falsely
+ * picking a champion.
+ */
+function rankScoreboard<T extends Record<string, any>>(items: T[], getScore: (t: T) => number): Array<T & { rank: number; tied: boolean }> {
+  const sorted = [...items].sort((a, b) => getScore(b) - getScore(a))
+  const tieCount = new Map<number, number>()
+  let currentRank = 0
+  let lastScore: number | undefined
+  const staged = sorted.map((item, idx) => {
+    const score = getScore(item)
+    if (score !== lastScore) {
+      currentRank = idx + 1
+      lastScore = score
+    }
+    tieCount.set(currentRank, (tieCount.get(currentRank) ?? 0) + 1)
+    return { item, rank: currentRank }
+  })
+  return staged.map(({ item, rank }) => ({
+    ...item,
+    rank,
+    tied: (tieCount.get(rank) ?? 1) > 1
+  }))
+}
+
 function Game() {
   const navigate = useNavigate()
   const { emit, on, off } = useSocket()
@@ -21,6 +49,26 @@ function Game() {
   const canGuess = !!gameState && !isFinalScoresView && (currentPhase === 'active' || currentPhase === 'clue_revealed')
   const preGuessPhase = !!gameState && !isFinalScoresView && currentPhase === 'starting'
   const hasStoredRoom = typeof window !== 'undefined' && !!localStorage.getItem('whoami_room')
+
+  /**
+   * Track the visual viewport so the layout shrinks when the on-screen keyboard
+   * appears (iOS Safari does not resize the layout viewport on focus, so the
+   * usual `100vh` / `100dvh` trick pushes the sticky input bar off-screen).
+   */
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.visualViewport) return
+    const vv = window.visualViewport
+    const update = () => {
+      document.documentElement.style.setProperty('--vvh', `${vv.height}px`)
+    }
+    update()
+    vv.addEventListener('resize', update)
+    vv.addEventListener('scroll', update)
+    return () => {
+      vv.removeEventListener('resize', update)
+      vv.removeEventListener('scroll', update)
+    }
+  }, [])
 
   useEffect(() => {
     if (!roomCode && !isReconnecting && !hasStoredRoom) {
@@ -71,7 +119,11 @@ function Game() {
         setTimeRemaining(remaining)
         if (remaining === 0) setCurrentPhase('active')
       } else if (currentPhase === 'active' || currentPhase === 'clue_revealed') {
-        setTimeRemaining(Math.max(0, settings.roundDuration - elapsed))
+        // Active timer counts down the full `roundDuration` starting from the
+        // moment guessing opens (i.e. after the pre-round countdown), so the
+        // host's selected duration is what players actually get to guess in.
+        const activeElapsed = Math.max(0, elapsed - startDelay)
+        setTimeRemaining(Math.max(0, settings.roundDuration - activeElapsed))
       }
     }, 100)
     return () => clearInterval(interval)
@@ -125,144 +177,180 @@ function Game() {
     )
   }
 
-  const scoreboard = (gameState.currentScoreboard?.length ? gameState.currentScoreboard : players.map(p => ({ playerId: p.id, nickname: p.nickname, score: 0 })))
-    .slice()
-    .sort((a, b) => b.score - a.score)
+  const scoreboard = rankScoreboard<{ playerId: string; nickname: string; score: number }>(
+    gameState?.currentScoreboard?.length
+      ? gameState.currentScoreboard
+      : players.map(p => ({ playerId: p.id, nickname: p.nickname, score: 0 })),
+    p => p.score
+  )
 
   if (gameEndData) {
-    const sorted = [...(gameEndData.finalScoreboard || [])].sort((a: any, b: any) => b.score - a.score)
+    const ranked = rankScoreboard<any>(gameEndData.finalScoreboard || [], p => p.score)
+    const labelFor = (rank: number, tied: boolean, score: number): string | null => {
+      if (score <= 0) return null
+      if (rank === 1) return tied ? 'Tied for 1st' : 'Champion'
+      if (rank === 2) return tied ? 'Tied for 2nd' : 'Runner up'
+      if (rank === 3) return tied ? 'Tied for 3rd' : '3rd Place'
+      return null
+    }
     return (
-      <div className="min-h-screen bg-background-light font-display text-slate-900 flex flex-col max-w-[430px] mx-auto">
-        <div className="flex flex-col items-center pt-12 pb-6 px-6 bg-gradient-to-b from-primary/10 to-transparent">
-          <span className="material-symbols-outlined text-primary text-6xl mb-2">auto_awesome</span>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Game Over!</h1>
-          <p className="text-slate-500 mt-1 font-medium">Final Rankings</p>
-        </div>
-        <div className="flex-1 overflow-y-auto px-4 space-y-3 pb-4">
-          {sorted.map((player: any, index: number) => (
-            <div
-              key={player.playerId}
-              className={`flex items-center gap-4 p-4 rounded-lg border ${
-                index === 0
-                  ? 'bg-white border-2 border-amber-400 shadow-lg shadow-amber-400/10'
-                  : index < 3
-                    ? 'bg-white border border-slate-200'
-                    : 'bg-white/50 border border-dashed border-slate-200'
-              }`}
-            >
-              <div className="relative">
-                <div className="size-14 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-bold shrink-0">
-                  {player.nickname?.slice(0, 2).toUpperCase() || '?'}
-                </div>
-                {index === 0 && (
-                  <div className="absolute -top-2 -right-1 bg-amber-400 text-white rounded-full p-1 border-2 border-white">
-                    <span className="material-symbols-outlined text-sm block">military_tech</span>
+      <div className="min-h-screen bg-background-light font-display text-slate-900 flex justify-center">
+        <div className="w-full max-w-[430px] flex flex-col bg-white">
+          <div className="flex flex-col items-center pt-12 pb-6 px-6 bg-gradient-to-b from-primary/10 to-transparent">
+            <span className="material-symbols-outlined text-primary text-6xl mb-2">auto_awesome</span>
+            <h1 className="text-3xl font-bold tracking-tight text-slate-900">Game Over!</h1>
+            <p className="text-slate-500 mt-1 font-medium">Final Rankings</p>
+          </div>
+          <div className="flex-1 overflow-y-auto px-4 space-y-3 pb-4">
+            {ranked.map(player => {
+              const isWinner = player.rank === 1 && player.score > 0
+              const isPodium = player.rank <= 3 && player.score > 0
+              const label = labelFor(player.rank, player.tied, player.score)
+              return (
+                <div
+                  key={player.playerId}
+                  className={`flex items-center gap-4 p-4 rounded-lg border ${
+                    isWinner
+                      ? 'bg-white border-2 border-amber-400 shadow-lg shadow-amber-400/10'
+                      : isPodium
+                        ? 'bg-white border border-slate-200'
+                        : 'bg-white/50 border border-dashed border-slate-200'
+                  }`}
+                >
+                  <div className="relative">
+                    <div className="size-14 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-bold shrink-0">
+                      {player.nickname?.slice(0, 2).toUpperCase() || '?'}
+                    </div>
+                    {isWinner && (
+                      <div className="absolute -top-2 -right-1 bg-amber-400 text-white rounded-full p-1 border-2 border-white">
+                        <span className="material-symbols-outlined text-sm block">military_tech</span>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className={index === 0 ? 'text-amber-600 font-bold' : 'text-slate-400 font-bold'}>#{index + 1}</span>
-                  <p className="text-slate-900 font-bold truncate">{player.nickname}</p>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className={isWinner ? 'text-amber-600 font-bold' : 'text-slate-400 font-bold'}>#{player.rank}</span>
+                      <p className="text-slate-900 font-bold truncate">
+                        {player.nickname}
+                        {player.playerId === playerId && (
+                          <span className="text-slate-400 font-medium"> (You)</span>
+                        )}
+                      </p>
+                    </div>
+                    {label && (
+                      <p
+                        className={
+                          isWinner
+                            ? 'text-amber-600 text-sm font-semibold mt-0.5 uppercase tracking-wider'
+                            : 'text-slate-500 text-xs mt-0.5'
+                        }
+                      >
+                        {label}
+                      </p>
+                    )}
+                  </div>
+                  <div className="text-right">
+                    <p className={isWinner ? 'text-primary font-bold text-xl' : 'text-slate-900 font-bold text-lg'}>{player.score}</p>
+                    <p className="text-slate-400 text-xs font-medium">pts</p>
+                  </div>
                 </div>
-                {index === 0 && <p className="text-amber-600 text-sm font-semibold mt-0.5 uppercase tracking-wider">Champion</p>}
-                {index === 1 && <p className="text-slate-500 text-xs mt-0.5">Runner up</p>}
-                {index === 2 && <p className="text-slate-500 text-xs mt-0.5">3rd Place</p>}
+              )
+            })}
+          </div>
+          <div className="p-6 bg-white border-t border-slate-100">
+            <button
+              type="button"
+              onClick={() => { setGameEndData(null); navigate('/lobby') }}
+              className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-4 rounded-lg shadow-lg shadow-primary/20 flex items-center justify-center gap-2 transition-all"
+            >
+              <span className="material-symbols-outlined">home</span>
+              Return to Lobby
+            </button>
+            {autoReturnSeconds !== null && (
+              <div className="mt-4 flex flex-col items-center">
+                <p className="text-slate-400 text-sm font-medium">Returning to lobby in {autoReturnSeconds}s...</p>
+                <div className="w-full h-1 bg-slate-100 rounded-full mt-2 overflow-hidden">
+                  <div className="h-full bg-primary/40 rounded-full transition-all" style={{ width: `${((30 - autoReturnSeconds) / 30) * 100}%` }} />
+                </div>
               </div>
-              <div className="text-right">
-                <p className={index === 0 ? 'text-primary font-bold text-xl' : 'text-slate-900 font-bold text-lg'}>{player.score}</p>
-                <p className="text-slate-400 text-xs font-medium">pts</p>
-              </div>
-            </div>
-          ))}
-        </div>
-        <div className="p-6 bg-white border-t border-slate-100">
-          <button
-            type="button"
-            onClick={() => { setGameEndData(null); navigate('/lobby') }}
-            className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-4 rounded-lg shadow-lg shadow-primary/20 flex items-center justify-center gap-2 transition-all"
-          >
-            <span className="material-symbols-outlined">home</span>
-            Return to Lobby
-          </button>
-          {autoReturnSeconds !== null && (
-            <div className="mt-4 flex flex-col items-center">
-              <p className="text-slate-400 text-sm font-medium">Returning to lobby in {autoReturnSeconds}s...</p>
-              <div className="w-full h-1 bg-slate-100 rounded-full mt-2 overflow-hidden">
-                <div className="h-full bg-primary/40 rounded-full transition-all" style={{ width: `${((30 - autoReturnSeconds) / 30) * 100}%` }} />
-              </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-background-light font-display text-slate-900 flex flex-col">
-      <div className="w-full max-w-[430px] lg:max-w-7xl mx-auto flex-1 flex flex-col bg-white lg:bg-transparent lg:shadow-none min-h-screen">
-        <header className="pt-12 pb-4 px-6 lg:px-8 border-b border-primary/10 sticky top-0 z-10 bg-white/95 backdrop-blur-sm lg:rounded-b-2xl lg:border lg:border-slate-200 lg:shadow-sm">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div>
-                <h2 className="text-xl font-bold leading-none">
-                  {isFinalScoresView ? 'Final Scores' : `Round ${gameState.roundNumber} of ${settings?.totalRounds ?? 0}`}
-                </h2>
-                {roomCode && (
-                  <p className="mt-2 inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary">
-                    <span className="material-symbols-outlined text-sm">key</span>
-                    Room {roomCode}
-                  </p>
-                )}
-              </div>
+    <div
+      className="bg-background-light font-display text-slate-900 flex flex-col"
+      style={{ minHeight: 'var(--vvh, 100dvh)' }}
+    >
+      <div
+        className="w-full max-w-[430px] lg:max-w-7xl mx-auto flex-1 flex flex-col bg-white lg:bg-transparent lg:shadow-none overflow-hidden"
+        style={{ minHeight: 'var(--vvh, 100dvh)' }}
+      >
+        <header
+          className="shrink-0 border-b border-primary/10 bg-white/95 backdrop-blur-sm lg:rounded-b-2xl lg:border lg:border-slate-200 lg:shadow-sm px-4 lg:px-8 pb-2 lg:pb-4"
+          style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 0.75rem)' }}
+        >
+          <div className="flex items-center justify-between gap-3 pt-1 lg:pt-10">
+            <div className="min-w-0">
+              <h2 className="text-base lg:text-xl font-bold leading-none truncate">
+                {isFinalScoresView ? 'Final Scores' : `Round ${gameState.roundNumber} of ${settings?.totalRounds ?? 0}`}
+              </h2>
+              {roomCode && (
+                <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] lg:text-xs font-semibold uppercase tracking-wider text-primary">
+                  <span className="material-symbols-outlined text-[12px] lg:text-sm">key</span>
+                  Room {roomCode}
+                </p>
+              )}
             </div>
-          </div>
-          {!isFinalScoresView && (
-            <div className="mt-6 flex gap-3 lg:hidden">
-              <div className="flex-1 flex items-center gap-3 bg-primary/5 rounded-lg p-4 border border-primary/10">
-                <div className="size-10 rounded-lg bg-primary flex items-center justify-center text-white">
-                  <span className="material-symbols-outlined">timer</span>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase tracking-widest text-primary font-bold">
-                    {preGuessPhase ? 'Guessing opens in' : 'Remaining'}
+            {!isFinalScoresView && (
+              <div className="lg:hidden flex items-center gap-2 bg-primary/5 rounded-lg px-3 py-1.5 border border-primary/10 shrink-0">
+                <span className="material-symbols-outlined text-primary text-base">timer</span>
+                <div className="leading-tight">
+                  <p className="text-[9px] uppercase tracking-wider text-primary font-bold">
+                    {preGuessPhase ? 'Starts in' : 'Time'}
                   </p>
-                  <p className="text-xl font-black text-slate-900">
+                  <p className="text-base font-black text-slate-900">
                     {preGuessPhase ? Math.ceil(timeRemaining / 1000) : canGuess ? Math.ceil(timeRemaining / 1000) : 0}s
                   </p>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto px-4 py-4 md:px-6 md:py-6 lg:px-8">
-          <div className="grid gap-6 lg:grid-cols-[minmax(0,1.8fr)_320px] xl:grid-cols-[minmax(0,2fr)_360px]">
-            <div className="space-y-6">
+        <main className="flex-1 overflow-y-auto px-3 py-3 md:px-6 md:py-6 lg:px-8 min-h-0">
+          <div className="grid gap-4 lg:gap-6 lg:grid-cols-[minmax(0,1.8fr)_320px] xl:grid-cols-[minmax(0,2fr)_360px]">
+            <div className="space-y-4 lg:space-y-6">
               {!isFinalScoresView && (
-                <section className="space-y-4">
+                <section className="space-y-2 lg:space-y-4">
                   <div className="flex items-center justify-between">
-                    <h3 className="font-bold text-slate-800">Current Clues</h3>
+                    <h3 className="font-bold text-slate-800 text-sm lg:text-base">Current Clues</h3>
                     <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded-md">
                       {gameState.cluesRevealed.length} Revealed
                     </span>
                   </div>
-                  <div ref={cluesScrollRef} className="space-y-3 max-h-64 lg:max-h-[26rem] overflow-y-auto pr-1">
+                  <div
+                    ref={cluesScrollRef}
+                    className="space-y-2 lg:space-y-3 max-h-56 overflow-y-auto lg:max-h-[26rem] pr-1"
+                  >
                     {gameState.cluesRevealed
                       .slice()
                       .sort((a, b) => a.order - b.order)
                       .map((clue) => (
-                        <div key={clue.order} className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm">
-                          <div className="flex items-start gap-4">
-                            <div className="size-12 sm:hidden md:block rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                        <div key={clue.order} className="bg-white rounded-lg p-3 lg:p-5 border border-slate-200 shadow-sm">
+                          <div className="flex items-start gap-3 lg:gap-4">
+                            <div className="hidden md:flex size-12 rounded-lg bg-primary/10 items-center justify-center text-primary shrink-0">
                               <span className="material-symbols-outlined">auto_stories</span>
                             </div>
-                            <div className="flex-1">
+                            <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between mb-1">
                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Clue {clue.order}</span>
                                 <span className="material-symbols-outlined text-green-500 text-sm">check_circle</span>
                               </div>
-                              <p className="text-slate-700 leading-relaxed font-medium text-base lg:text-lg">{clue.text}</p>
+                              <p className="text-slate-700 leading-snug lg:leading-relaxed font-medium text-sm lg:text-lg">{clue.text}</p>
                             </div>
                           </div>
                         </div>
@@ -272,14 +360,14 @@ function Game() {
               )}
 
               {!isFinalScoresView && (
-                <section className="space-y-3">
+                <section className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <h3 className="font-bold text-slate-800">Recent Guesses</h3>
+                    <h3 className="font-bold text-slate-800 text-sm lg:text-base">Recent Guesses</h3>
                     <span className="text-xs font-medium text-slate-500">{guessFeed.length} recent</span>
                   </div>
-                  <div ref={guessesScrollRef} className="bg-white rounded-md border border-slate-200 shadow-sm p-4 max-h-40 lg:max-h-52 overflow-y-auto">
+                  <div ref={guessesScrollRef} className="bg-white rounded-md border border-slate-200 shadow-sm p-2 lg:p-4 max-h-28 lg:max-h-52 overflow-y-auto">
                     {guessFeed.length > 0 ? (
-                      <div className="space-y-2">
+                      <div className="space-y-1.5">
                         {guessFeed.slice(-12).map((item, index) => {
                           const isFull = settings?.transparencyMode === 'full'
                           const message = item.correct
@@ -288,14 +376,14 @@ function Game() {
                               ? `${item.nickname}: ${item.guess}`
                               : `${item.nickname} guessed`
                           return (
-                            <div key={index} className={`rounded-lg bg-slate-50 px-3 py-2 text-sm ${item.correct ? 'text-green-700' : 'text-slate-700'}`}>
+                            <div key={index} className={`rounded bg-slate-50 px-2.5 py-1.5 text-xs lg:text-sm ${item.correct ? 'text-green-700' : 'text-slate-700'}`}>
                               {message}
                             </div>
                           )
                         })}
                       </div>
                     ) : (
-                      <div className="flex min-h-16 items-center text-sm text-slate-400">
+                      <div className="flex min-h-12 items-center text-xs lg:text-sm text-slate-400 px-1">
                         No guesses yet.
                       </div>
                     )}
@@ -303,38 +391,10 @@ function Game() {
                 </section>
               )}
 
-              {!gameState.isLocked && canGuess && (
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 lg:p-5">
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <div className="relative flex-1">
-                      <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">edit_note</span>
-                      <input
-                        ref={guessInputRef}
-                        type="text"
-                        value={guess}
-                        onChange={(e) => setGuess(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleSubmitGuess()}
-                        placeholder="Enter your guess..."
-                        className="w-full bg-slate-50 border-0 focus:border-primary focus:ring-2 focus:ring-primary/20 rounded-lg py-4 pl-12 pr-4 text-slate-900 placeholder:text-slate-400 font-medium transition-all"
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleSubmitGuess}
-                      disabled={!guess.trim()}
-                      className="sm:w-auto sm:min-w-[180px] bg-primary hover:bg-primary/90 text-white font-bold py-4 px-6 rounded-lg shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Submit Guess
-                      <span className="material-symbols-outlined">send</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-
               {gameState.isLocked && (
-                <div className="p-4 bg-green-50 border-2 border-green-400 rounded-lg text-center">
-                  <div className="text-green-800 font-semibold">✓ You guessed correctly!</div>
-                  <div className="text-sm text-green-600 mt-1">Waiting for other players...</div>
+                <div className="p-3 lg:p-4 bg-green-50 border-2 border-green-400 rounded-lg text-center">
+                  <div className="text-green-800 font-semibold text-sm lg:text-base">✓ You guessed correctly!</div>
+                  <div className="text-xs lg:text-sm text-green-600 mt-1">Waiting for other players...</div>
                 </div>
               )}
 
@@ -345,7 +405,7 @@ function Game() {
               )}
             </div>
 
-            <aside className="space-y-6">
+            <aside className="space-y-4 lg:space-y-6">
               {!isFinalScoresView && (
                 <div className="hidden lg:block bg-primary text-white rounded-2xl p-6 shadow-xl shadow-primary/20">
                   <p className="text-xs uppercase tracking-widest text-white/70 font-bold">
@@ -367,27 +427,27 @@ function Game() {
                 </div>
               )}
 
-              <section className="space-y-3 bg-white rounded-2xl border border-slate-200 shadow-sm p-4 lg:p-5">
-                <h3 className="font-bold text-slate-800">Current Standing</h3>
+              <section className="space-y-2 lg:space-y-3 bg-white rounded-xl lg:rounded-2xl border border-slate-200 shadow-sm p-3 lg:p-5">
+                <h3 className="font-bold text-slate-800 text-sm lg:text-base">Current Standing</h3>
                 <div className="space-y-1">
-                  {scoreboard.map((player, index) => (
+                  {scoreboard.map(player => (
                     <div
                       key={player.playerId}
-                      className={`flex items-center justify-between p-3 rounded-lg ${
+                      className={`flex items-center justify-between p-2 lg:p-3 rounded-lg ${
                         player.playerId === playerId ? 'bg-primary/5 border border-primary/20' : 'bg-slate-50'
                       }`}
                     >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span className="text-xs font-bold text-slate-400 w-4">{index + 1}</span>
-                        <div className="size-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs border border-primary/20 shrink-0">
+                      <div className="flex items-center gap-2 lg:gap-3 min-w-0">
+                        <span className="text-xs font-bold text-slate-400 w-4">{player.rank}</span>
+                        <div className="size-7 lg:size-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs border border-primary/20 shrink-0">
                           {player.nickname.slice(0, 2).toUpperCase()}
                         </div>
-                        <span className={`truncate text-sm ${player.playerId === playerId ? 'font-semibold' : 'font-medium text-slate-600'}`}>
+                        <span className={`truncate text-xs lg:text-sm ${player.playerId === playerId ? 'font-semibold' : 'font-medium text-slate-600'}`}>
                           {player.nickname}
                           {player.playerId === playerId && ' (You)'}
                         </span>
                       </div>
-                      <span className={`text-sm font-black shrink-0 ${player.playerId === playerId ? 'text-primary' : 'text-slate-500'}`}>
+                      <span className={`text-xs lg:text-sm font-black shrink-0 ${player.playerId === playerId ? 'text-primary' : 'text-slate-500'}`}>
                         {player.score}
                       </span>
                     </div>
@@ -397,6 +457,40 @@ function Game() {
             </aside>
           </div>
         </main>
+
+        {!gameState.isLocked && canGuess && (
+          <div
+            className="shrink-0 bg-white border-t border-slate-200 px-3 py-2 lg:px-8 lg:py-4"
+            style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 0.5rem)' }}
+          >
+            <div className="flex gap-2 lg:gap-3 max-w-7xl mx-auto">
+              <div className="relative flex-1 min-w-0">
+                <input
+                  ref={guessInputRef}
+                  type="text"
+                  value={guess}
+                  onChange={(e) => setGuess(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSubmitGuess()}
+                  placeholder="Enter your guess..."
+                  enterKeyHint="send"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20 rounded-lg py-3 px-3 text-slate-900 placeholder:text-slate-400 font-medium text-base transition-all"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleSubmitGuess}
+                disabled={!guess.trim()}
+                className="bg-primary hover:bg-primary/90 text-white font-bold py-3 px-4 lg:px-6 rounded-lg shadow-md shadow-primary/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+              >
+                <span className="hidden sm:inline">Submit</span>
+                <span className="material-symbols-outlined text-xl">send</span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {roundEndData && (
@@ -442,20 +536,34 @@ function Game() {
               </div>
               {roundEndData.scoreboard?.length > 0 ? (
                 <div className="grid grid-cols-1 gap-2">
-                  {roundEndData.scoreboard.map((entry: any, index: number) => (
-                    <div
-                      key={entry.playerId}
-                      className={`flex items-center justify-between p-3 rounded border-l-4 ${
-                        index === 0 ? 'bg-primary/5 border-primary' : 'bg-slate-50 border-transparent'
-                      }`}
-                    >
-                      <span className="text-slate-900 font-bold">{entry.nickname}</span>
-                      <div className="flex items-center gap-2">
-                        {entry.pointsEarned > 0 && <span className="text-primary font-bold text-sm">+{entry.pointsEarned}</span>}
-                        <span className="text-slate-900 font-bold bg-white px-3 py-1 rounded shadow-sm">{entry.totalScore}</span>
-                      </div>
-                    </div>
-                  ))}
+                  {(() => {
+                    const topScore = Math.max(
+                      0,
+                      ...roundEndData.scoreboard.map((e: any) => e.totalScore ?? 0)
+                    )
+                    return roundEndData.scoreboard.map((entry: any) => {
+                      const isLeader = topScore > 0 && entry.totalScore === topScore
+                      return (
+                        <div
+                          key={entry.playerId}
+                          className={`flex items-center justify-between p-3 rounded border-l-4 ${
+                            isLeader ? 'bg-primary/5 border-primary' : 'bg-slate-50 border-transparent'
+                          }`}
+                        >
+                          <span className="text-slate-900 font-bold">
+                            {entry.nickname}
+                            {entry.playerId === playerId && (
+                              <span className="text-slate-400 font-medium"> (You)</span>
+                            )}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            {entry.pointsEarned > 0 && <span className="text-primary font-bold text-sm">+{entry.pointsEarned}</span>}
+                            <span className="text-slate-900 font-bold bg-white px-3 py-1 rounded shadow-sm">{entry.totalScore}</span>
+                          </div>
+                        </div>
+                      )
+                    })
+                  })()}
                 </div>
               ) : (
                 <p className="text-slate-600 text-sm">No one got it this round.</p>

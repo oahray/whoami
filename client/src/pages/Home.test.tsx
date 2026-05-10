@@ -127,4 +127,31 @@ describe('Home', () => {
     expect(emit).not.toHaveBeenCalledWith('LEAVE_ROOM', {})
     expect(localStorage.getItem('whoami_room')).not.toBeNull()
   })
+
+  it('surfaces a kick message stashed in sessionStorage and clears it after showing', () => {
+    const setError = vi.fn()
+
+    mockUseGame.mockReturnValue({
+      roomCode: null,
+      error: null,
+      setError,
+      setRoomCode: vi.fn()
+    })
+
+    window.sessionStorage.setItem(
+      'whoami_kick_message',
+      'You have been removed from the room by the host.'
+    )
+
+    render(
+      <MemoryRouter>
+        <Home />
+      </MemoryRouter>
+    )
+
+    expect(setError).toHaveBeenCalledWith(
+      'You have been removed from the room by the host.'
+    )
+    expect(window.sessionStorage.getItem('whoami_kick_message')).toBeNull()
+  })
 })

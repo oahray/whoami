@@ -116,6 +116,8 @@ export async function startNextRound(room: RoomState): Promise<void> {
     })),
     phase: 'starting',
     serverStartTime: Date.now(),
+    activeStartTime: null,
+    revealedClueCount: 1,
     correctGuesses: [],
     timers: {
       clueReveal: null,
@@ -130,25 +132,24 @@ export function activateRound(room: RoomState): void {
   }
 
   room.currentRound.phase = 'active'
-
-  const clueRevealDelay = room.settings.clueRevealTime - 2000
-  if (clueRevealDelay > 0) {
-    room.currentRound.timers.clueReveal = setTimeout(() => {
-      revealClue(room)
-    }, clueRevealDelay)
-  } else {
-    revealClue(room)
-  }
+  room.currentRound.activeStartTime = Date.now()
 }
 
-export function revealClue(room: RoomState): void {
-  if (!room.currentRound) return
+/**
+ * Reveal the next clue (state-only). Returns the freshly-revealed clue, or
+ * `null` if there are no more clues or the round is over. Callers are
+ * responsible for emitting CLUE_REVEALED to the room.
+ */
+export function revealClue(room: RoomState): { order: number; text: string } | null {
+  if (!room.currentRound) return null
+  if (room.currentRound.phase === 'ended') return null
+  if (room.currentRound.revealedClueCount >= room.currentRound.clues.length) return null
 
-  if (room.currentRound.phase === 'clue_revealed' || room.currentRound.phase === 'ended') {
-    return
-  }
-
+  const nextIndex = room.currentRound.revealedClueCount
+  const clue = room.currentRound.clues[nextIndex]
+  room.currentRound.revealedClueCount = nextIndex + 1
   room.currentRound.phase = 'clue_revealed'
+  return { order: clue.order, text: clue.text }
 }
 
 function allPlayersLocked(room: RoomState): boolean {
@@ -204,8 +205,9 @@ export function processGuess(room: RoomState, playerId: string, guess: string): 
   )
 
   if (isCorrect) {
-    const timeElapsed = Date.now() - room.currentRound.serverStartTime
-    const clueIndex = room.currentRound.phase === 'clue_revealed' ? 1 : 0
+    const referenceStart = room.currentRound.activeStartTime ?? room.currentRound.serverStartTime
+    const timeElapsed = Math.max(0, Date.now() - referenceStart)
+    const clueIndex = Math.max(0, room.currentRound.revealedClueCount - 1)
     const position = room.currentRound.correctGuesses.length + 1
     const points = calculateScore({
       timeElapsedMs: timeElapsed,
@@ -263,7 +265,6 @@ export function endRound(room: RoomState): void {
     room.currentRound.timers.roundEnd = null
   }
 
-  const previousPhase = room.currentRound.phase
   room.currentRound.phase = 'ended'
 
   const correctMap = new Map(
@@ -281,7 +282,7 @@ export function endRound(room: RoomState): void {
     }
   }).sort((a, b) => b.totalScore - a.totalScore)
 
-  const revealedClueCount = previousPhase === 'clue_revealed' ? 2 : 1
+  const revealedClueCount = room.currentRound.revealedClueCount
   const cluesForRound = room.currentRound.clues.slice(0, revealedClueCount)
 
   const roundResult = {

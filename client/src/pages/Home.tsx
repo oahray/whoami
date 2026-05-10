@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useGame } from '../hooks/useGame'
 import { useSocket } from '../hooks/useSocket'
 import { getErrorMessage, isFatalError } from '../utils/errorMessages'
+import IosInstallHint from '../components/IosInstallHint'
 
 function Home() {
   const navigate = useNavigate()
@@ -51,6 +52,15 @@ function Home() {
       setNickname(storedNickname)
     }
   }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const msg = window.sessionStorage.getItem('whoami_kick_message')
+    if (msg) {
+      setError(msg)
+      window.sessionStorage.removeItem('whoami_kick_message')
+    }
+  }, [setError])
 
   useEffect(() => {
     if (!socket) return
@@ -130,6 +140,7 @@ function Home() {
 
   return (
     <div className="relative flex min-h-screen min-h-full w-full flex-col bg-gradient-to-br from-primary via-indigo-500 to-indigo-400 bg-fixed overflow-x-hidden font-display antialiased">
+      <IosInstallHint />
       {!connected && (
         <div className="w-full bg-yellow-400/90 backdrop-blur-sm px-4 py-2 flex items-center justify-center gap-2">
           <span className="material-symbols-outlined text-yellow-900 text-sm">sync</span>
@@ -139,14 +150,14 @@ function Home() {
 
       <div className="flex flex-1 flex-col items-center justify-center p-6 pb-12">
         <div className="mb-8 flex flex-col items-center">
-          <div className="w-20 h-20 bg-white rounded-lg shadow-xl flex items-center justify-center mb-4">
+          <div className="w-20 h-20 bg-white rounded-3xl shadow-xl flex items-center justify-center mb-4">
             <span className="material-symbols-outlined text-primary text-5xl">auto_stories</span>
           </div>
           <h1 className="text-white text-3xl font-bold tracking-tight text-center">Who Am I?</h1>
           <p className="text-white/80 text-base font-medium text-center mt-1">The Ultimate Bible Character Quiz</p>
         </div>
 
-        <div className="w-full max-w-md bg-white rounded-lg shadow-2xl border border-slate-200 p-8 flex flex-col gap-6">
+        <div className="w-full max-w-md bg-white rounded-xl shadow-2xl border border-slate-200 py-8 px-5 flex flex-col gap-6">
           <div className="flex flex-col gap-2">
             <label className="text-slate-800 text-sm font-semibold ml-1">Your Nickname</label>
             <div className="relative">

@@ -50,6 +50,8 @@ describe('socket handler utils', () => {
         ],
         phase: 'active',
         serverStartTime: 123456789,
+        activeStartTime: 123456789 + 3000,
+        revealedClueCount: 1,
         correctGuesses: [],
         timers: {
           clueReveal: null,
@@ -100,6 +102,8 @@ describe('socket handler utils', () => {
         ],
         phase: 'clue_revealed',
         serverStartTime: 987654321,
+        activeStartTime: 987654321 + 3000,
+        revealedClueCount: 2,
         correctGuesses: [],
         timers: {
           clueReveal: null,

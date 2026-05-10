@@ -123,7 +123,7 @@ describe('roundState unit', () => {
     const room = createTestRoom()
     await startGame(room)
     room.currentRound!.phase = 'active'
-    room.currentRound!.serverStartTime = Date.now() - 1000
+    room.currentRound!.activeStartTime = Date.now() - 1000
 
     const result = processGuess(room, 'player-1', 'Moses')
 
@@ -181,14 +181,37 @@ describe('roundState unit', () => {
     expect(room.roundHistory[0].scoreboard[2].totalScore).toBe(0)
   })
 
-  it('endRound includes two clues after clue reveal', async () => {
+  it('endRound includes all revealed clues (not capped at 2)', async () => {
     const room = createTestRoom()
+    // Three-clue entity to verify the revealed count drives the slice
+    const threeClues = [
+      { id: 'clue-1', text: 'A', citations: null },
+      { id: 'clue-2', text: 'B', citations: null },
+      { id: 'clue-3', text: 'C', citations: null }
+    ]
+    vi.mocked(getCluesForEntity).mockResolvedValueOnce(threeClues as any)
+
     await startGame(room)
+    revealClue(room)
     revealClue(room)
 
     endRound(room)
 
-    expect(room.roundHistory[0].clues).toHaveLength(2)
+    expect(room.roundHistory[0].clues).toHaveLength(3)
+  })
+
+  it('revealClue advances the revealed count and returns the next clue', async () => {
+    const room = createTestRoom()
+    await startGame(room)
+
+    expect(room.currentRound?.revealedClueCount).toBe(1)
+    const first = revealClue(room)
+    expect(first?.order).toBe(2)
+    expect(room.currentRound?.revealedClueCount).toBe(2)
+    expect(room.currentRound?.phase).toBe('clue_revealed')
+    // No more clues for this entity
+    const second = revealClue(room)
+    expect(second).toBeNull()
   })
 
   it('startNextRound ends the game when all rounds are exhausted', async () => {
@@ -220,6 +243,8 @@ describe('roundState unit', () => {
       clues: [],
       phase: 'ended',
       serverStartTime: Date.now(),
+      activeStartTime: Date.now(),
+      revealedClueCount: 1,
       correctGuesses: [],
       timers: {
         clueReveal: null,

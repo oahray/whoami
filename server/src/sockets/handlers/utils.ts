@@ -1,9 +1,74 @@
 import { Server } from 'socket.io'
 import type { RoomState, Player } from '../../rooms/store.js'
-import { startNextRound, activateRound, revealClue, endRound } from '../../game/roundState'
+import { startNextRound, activateRound, endRound, revealClue } from '../../game/roundState'
 import { ROUND_START_DELAY_MS } from '../../game/config.js'
 import { safeTimer } from '../dispatch.js'
 import { logger } from '../../utils/logger.js'
+
+/**
+ * Minimum reveal interval. We don't reveal clues less than this far apart even
+ * if the host picks `clueRevealTime = 0`, otherwise the round just dumps all
+ * clues at once which defeats the point of a guessing game.
+ */
+const MIN_CLUE_INTERVAL_MS = 2000
+/**
+ * Don't reveal a new clue when fewer than this many ms remain in the round.
+ * Players need a moment to read the clue before the round ends.
+ */
+const CLUE_TAIL_BUFFER_MS = 1500
+
+/**
+ * Schedule the timed reveal of every clue past the first. Intervals are
+ * measured from the moment the round became `active` (after the pre-round
+ * countdown), so a `clueRevealTime` of 5s puts the 2nd clue at activation+5s
+ * regardless of how long the countdown was. Each reveal:
+ *   1. advances `currentRound.revealedClueCount` (via `revealClue`)
+ *   2. emits CLUE_REVEALED to the room
+ *   3. recurses to schedule the next reveal, if any.
+ *
+ * No-op if there is only one clue, the interval is unusable, or the round has
+ * already ended by the time the timer fires.
+ */
+export function scheduleClueReveals(io: Server, room: RoomState): void {
+  const round = room.currentRound
+  if (!round) return
+  if (round.clues.length <= 1) return
+
+  const rawInterval = room.settings.clueRevealTime
+  if (!Number.isFinite(rawInterval) || rawInterval < MIN_CLUE_INTERVAL_MS) return
+
+  const interval = Math.max(MIN_CLUE_INTERVAL_MS, rawInterval)
+  const roundDuration = room.settings.roundDuration
+  const referenceStart = round.activeStartTime ?? Date.now()
+
+  function scheduleNext(): void {
+    const current = room.currentRound
+    if (!current) return
+    if (current.phase === 'ended') return
+    if (current.revealedClueCount >= current.clues.length) return
+
+    const elapsedAtNext = current.revealedClueCount * interval
+    if (elapsedAtNext > roundDuration - CLUE_TAIL_BUFFER_MS) return
+
+    const elapsedNow = Date.now() - referenceStart
+    const delay = Math.max(0, elapsedAtNext - elapsedNow)
+
+    current.timers.clueReveal = setTimeout(() => {
+      safeTimer('scheduleClueReveals:fire', () => {
+        const round2 = room.currentRound
+        if (!round2 || round2.phase === 'ended') return
+
+        const revealed = revealClue(room)
+        if (revealed) {
+          io.to(room.code).emit('CLUE_REVEALED', { clue: revealed })
+          scheduleNext()
+        }
+      })
+    }, delay)
+  }
+
+  scheduleNext()
+}
 
 const GRACE_PERIOD_MS = 5 * 60 * 1000
 
@@ -49,8 +114,7 @@ export function buildReconnectPayload(room: RoomState, player: Player) {
   }
 
   if (room.status === 'in_progress' && room.currentRound) {
-    const revealedClueCount =
-      room.currentRound.phase === 'clue_revealed' || room.currentRound.phase === 'ended' ? 2 : 1
+    const revealedClueCount = room.currentRound.revealedClueCount
 
     payload.gameState = {
       phase: room.currentRound.phase,
@@ -130,7 +194,7 @@ export function broadcastRoundEnd(io: Server, room: RoomState, roundResult: any)
         setTimeout(() => {
           safeTimer('broadcastRoundEnd:activate', () => {
             activateRound(room)
-            const roundEndDelay = room.settings.roundDuration - ROUND_START_DELAY_MS
+            const roundEndDelay = room.settings.roundDuration
             room.currentRound!.timers.roundEnd = setTimeout(() => {
               safeTimer('broadcastRoundEnd:endRound', () => {
                 endRound(room)
@@ -138,28 +202,9 @@ export function broadcastRoundEnd(io: Server, room: RoomState, roundResult: any)
                 broadcastRoundEnd(io, room, roundResult)
               })
             }, roundEndDelay)
+            scheduleClueReveals(io, room)
           })
         }, ROUND_START_DELAY_MS)
-
-        const clueRevealDelay = room.settings.clueRevealTime
-        if (clueRevealDelay > ROUND_START_DELAY_MS) {
-          setTimeout(() => {
-            safeTimer('broadcastRoundEnd:revealClue', () => {
-              if (room.currentRound && room.currentRound.phase !== 'ended') {
-                revealClue(room)
-                const secondClue = room.currentRound.clues[1]
-                if (secondClue) {
-                  io.to(room.code).emit('CLUE_REVEALED', {
-                    clue: {
-                      order: secondClue.order,
-                      text: secondClue.text
-                    }
-                  })
-                }
-              }
-            })
-          }, clueRevealDelay)
-        }
       }).catch(error => {
         logger.error('Error starting next round', error, { roomCode: room.code })
         io.to(room.code).emit('ROOM_ERROR', {
