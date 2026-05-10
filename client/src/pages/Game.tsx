@@ -51,22 +51,33 @@ function Game() {
   const hasStoredRoom = typeof window !== 'undefined' && !!localStorage.getItem('whoami_room')
 
   /**
-   * Track the visual viewport so the layout shrinks when the on-screen keyboard
-   * appears (iOS Safari does not resize the layout viewport on focus, so the
-   * usual `100vh` / `100dvh` trick pushes the sticky input bar off-screen).
+   * Track the on-screen keyboard so the game layout shrinks above it.
+   *
+   * iOS Safari does not resize the layout viewport when the keyboard opens
+   * (it only shrinks the *visual* viewport), so a layout pinned with
+   * `position: fixed; inset: 0` would still extend behind the keyboard,
+   * hiding the guess input. By measuring `window.innerHeight - visualViewport.height`
+   * we get the keyboard's height (0 when closed) and expose it as
+   * `--keyboard-inset`. The page container uses this as its bottom padding,
+   * so the inner flex column always fits exactly above the keyboard with no
+   * gap and no off-screen clipping.
    */
   useEffect(() => {
     if (typeof window === 'undefined' || !window.visualViewport) return
     const vv = window.visualViewport
     const update = () => {
-      document.documentElement.style.setProperty('--vvh', `${vv.height}px`)
+      const inset = Math.max(0, window.innerHeight - vv.height - (vv.offsetTop || 0))
+      document.documentElement.style.setProperty('--keyboard-inset', `${inset}px`)
     }
     update()
     vv.addEventListener('resize', update)
     vv.addEventListener('scroll', update)
+    window.addEventListener('resize', update)
     return () => {
       vv.removeEventListener('resize', update)
       vv.removeEventListener('scroll', update)
+      window.removeEventListener('resize', update)
+      document.documentElement.style.removeProperty('--keyboard-inset')
     }
   }, [])
 
@@ -282,12 +293,11 @@ function Game() {
 
   return (
     <div
-      className="bg-background-light font-display text-slate-900 flex flex-col"
-      style={{ minHeight: 'var(--vvh, 100dvh)' }}
+      className="bg-background-light font-display text-slate-900 flex flex-col fixed inset-0 lg:static lg:min-h-screen"
+      style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), var(--keyboard-inset, 0px))' }}
     >
       <div
-        className="w-full max-w-[430px] lg:max-w-7xl mx-auto flex-1 flex flex-col bg-white lg:bg-transparent lg:shadow-none overflow-hidden"
-        style={{ minHeight: 'var(--vvh, 100dvh)' }}
+        className="w-full max-w-[430px] lg:max-w-7xl mx-auto flex-1 min-h-0 flex flex-col bg-white lg:bg-transparent lg:shadow-none overflow-hidden"
       >
         <header
           className="shrink-0 border-b border-primary/10 bg-white/95 backdrop-blur-sm lg:rounded-b-2xl lg:border lg:border-slate-200 lg:shadow-sm px-4 lg:px-8 pb-2 lg:pb-4"
@@ -459,10 +469,7 @@ function Game() {
         </main>
 
         {!gameState.isLocked && canGuess && (
-          <div
-            className="shrink-0 bg-white border-t border-slate-200 px-3 py-2 lg:px-8 lg:py-4"
-            style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 0.5rem)' }}
-          >
+          <div className="shrink-0 bg-white border-t border-slate-200 px-3 py-2 lg:px-8 lg:py-4">
             <div className="flex gap-2 lg:gap-3 max-w-7xl mx-auto">
               <div className="relative flex-1 min-w-0">
                 <input
