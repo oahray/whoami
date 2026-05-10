@@ -4,14 +4,13 @@ import type { RoomState } from '../../rooms/store.js'
 import {
   startGame,
   activateRound,
-  revealClue,
   processGuess,
   endRound,
   resetRoomForNewGame,
   GameStartError
 } from '../../game/roundState.js'
 import { ROUND_START_DELAY_MS } from '../../game/config.js'
-import { broadcastRoundEnd } from './utils.js'
+import { broadcastRoundEnd, scheduleClueReveals } from './utils.js'
 import { safeTimer } from '../dispatch.js'
 import { logger } from '../../utils/logger.js'
 
@@ -98,7 +97,7 @@ export async function handleStartGame(io: Server, socket: Socket, _payload: any)
     setTimeout(() => {
       safeTimer('handleStartGame:activate', () => {
         activateRound(room)
-        const roundEndDelay = room.settings.roundDuration - ROUND_START_DELAY_MS
+        const roundEndDelay = room.settings.roundDuration
         room.currentRound!.timers.roundEnd = setTimeout(() => {
           safeTimer('handleStartGame:endRound', () => {
             endRound(room)
@@ -106,28 +105,9 @@ export async function handleStartGame(io: Server, socket: Socket, _payload: any)
             broadcastRoundEnd(io, room, roundResult)
           })
         }, roundEndDelay)
+        scheduleClueReveals(io, room)
       })
     }, ROUND_START_DELAY_MS)
-
-    const clueRevealDelay = room.settings.clueRevealTime
-    if (clueRevealDelay > ROUND_START_DELAY_MS) {
-      setTimeout(() => {
-        safeTimer('handleStartGame:revealClue', () => {
-          if (room.currentRound && room.currentRound.phase !== 'ended') {
-            revealClue(room)
-            const secondClue = room.currentRound.clues[1]
-            if (secondClue) {
-              io.to(room.code).emit('CLUE_REVEALED', {
-                clue: {
-                  order: secondClue.order,
-                  text: secondClue.text
-                }
-              })
-            }
-          }
-        })
-      }, clueRevealDelay)
-    }
   } catch (error: any) {
     const room = getRoomBySocket(socket.id)
     logger.error('Error in handleStartGame', error, {

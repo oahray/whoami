@@ -39,7 +39,24 @@ export interface RoundState {
   entity: Entity
   clues: Array<{ id: string; order: number; text: string; citations: string | null }>
   phase: RoundPhase
+  /**
+   * Wall-clock ms when the round was created (pre-countdown). Used by clients
+   * to align the local pre-round countdown.
+   */
   serverStartTime: number
+  /**
+   * Wall-clock ms when the round transitioned to `active` (i.e. guessing
+   * opened). Used by the server for scoring, round-end scheduling, and the
+   * clue reveal timer so the 3-second pre-round countdown never eats into the
+   * configured `roundDuration`. `null` until `activateRound` runs.
+   */
+  activeStartTime: number | null
+  /**
+   * How many of `clues` have been revealed to clients so far. Starts at 1
+   * (the first clue is revealed when ROUND_STARTED fires). Bumped by
+   * `revealClue` each time a CLUE_REVEALED event is scheduled to be emitted.
+   */
+  revealedClueCount: number
   correctGuesses: Array<{
     playerId: string
     nickname: string

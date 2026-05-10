@@ -125,7 +125,7 @@ function Lobby() {
 
   return (
     <div className="min-h-screen bg-background-light font-display text-slate-900 antialiased">
-      <header className="sticky top-0 z-10 flex items-center bg-white px-4 md:px-6 py-3 md:py-4 border-b border-slate-200">
+      <header className="sticky top-0 z-10 flex items-center bg-white px-4 md:px-6 py-2 md:py-4 border-b border-slate-200">
         <button
           type="button"
           onClick={handleLeaveRoom}
@@ -133,7 +133,7 @@ function Lobby() {
         >
           <span className="material-symbols-outlined">arrow_back</span>
         </button>
-        <h1 className="text-slate-900 text-lg font-bold leading-tight tracking-tight flex-1 text-center">Room Lobby</h1>
+        <h1 className="text-slate-900 text-lg font-bold leading-tight tracking-tight flex-1 text-center">Room Lobby <span className="text-sm text-slate-500">({roomCode})</span></h1>
         <button
           type="button"
           onClick={handleLeaveRoom}
@@ -211,7 +211,7 @@ function Lobby() {
               {players.filter(p => p.isConnected).map((player) => (
                 <div
                   key={player.id}
-                  className={`flex items-center gap-4 p-4 rounded-lg border ${
+                  className={`flex items-center gap-4 px-4 py-2 rounded-lg border ${
                     player.isHost ? 'border-primary/30 bg-primary/5' : 'border-slate-100 bg-slate-50/50'
                   }`}
                 >
@@ -362,14 +362,14 @@ function Lobby() {
 
               <div>
                 <div className="flex justify-between items-center mb-2">
-                  <label className="text-slate-700 text-sm font-semibold">Clue Reveal Time</label>
+                  <label className="text-slate-700 text-sm font-semibold">Clue Reveal Interval</label>
                   <span className="text-primary font-bold">{settings.clueRevealTime / 1000}s</span>
                 </div>
                 {isHost ? (
                   <input
                     type="range"
-                    min={0}
-                    max={Math.max(0, settings.roundDuration - (settings.roundStartDelayMs ?? 3000))}
+                    min={2000}
+                    max={Math.max(2000, settings.roundDuration - 2000)}
                     step={1000}
                     value={settings.clueRevealTime}
                     onChange={(e) => handleUpdateSetting('clueRevealTime', parseInt(e.target.value))}
@@ -380,13 +380,37 @@ function Lobby() {
                     <div
                       className="h-full bg-primary/40 rounded-full"
                       style={{
-                        width: settings.roundDuration > (settings.roundStartDelayMs ?? 3000)
-                          ? `${(settings.clueRevealTime / (settings.roundDuration - (settings.roundStartDelayMs ?? 3000))) * 100}%`
+                        width: settings.roundDuration > 0
+                          ? `${(settings.clueRevealTime / settings.roundDuration) * 100}%`
                           : '0%'
                       }}
                     />
                   </div>
                 )}
+                <p className="text-xs text-slate-500 mt-1">Time between each clue reveal. Shorter intervals reveal more clues per round.</p>
+              </div>
+
+              <div>
+                <label htmlFor="difficultyMode" className="block text-slate-700 text-sm font-semibold mb-2">Difficulty</label>
+                {isHost ? (
+                  <select
+                    id="difficultyMode"
+                    value={settings.difficultyMode}
+                    onChange={(e) => handleUpdateSetting('difficultyMode', e.target.value)}
+                    className="w-full bg-slate-50 border-0 rounded-md text-slate-900 focus:ring-2 focus:ring-primary py-2.5 px-3"
+                  >
+                    <option value="any">Any (mix of all difficulties)</option>
+                    <option value="easy">Easy</option>
+                    <option value="medium">Medium</option>
+                    <option value="hard">Hard</option>
+                    <option value="nightmare">Nightmare</option>
+                  </select>
+                ) : (
+                  <div className="py-2.5 px-3 bg-slate-50 rounded-lg text-slate-700 capitalize">
+                    {settings.difficultyMode === 'any' ? 'Any' : settings.difficultyMode}
+                  </div>
+                )}
+                <p className="text-xs text-slate-500 mt-1">Filters which clues are used. &quot;Any&quot; uses every clue regardless of difficulty.</p>
               </div>
 
               <div className="flex items-center gap-2">
@@ -418,7 +442,7 @@ function Lobby() {
                   <select
                     value={settings.transparencyMode}
                     onChange={(e) => handleUpdateSetting('transparencyMode', e.target.value)}
-                    className="w-full bg-slate-50 border-0 rounded-lg text-slate-900 focus:ring-2 focus:ring-primary py-2.5 px-3"
+                    className="w-full bg-slate-50 border-0 rounded-md text-slate-900 focus:ring-2 focus:ring-primary py-2.5 px-3"
                   >
                     <option value="full">Full (show what people guessed)</option>
                     <option value="minimal">Minimal (only show that they guessed)</option>
@@ -436,7 +460,7 @@ function Lobby() {
       </main>
 
       {isHost && (
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-md border-t border-slate-200">
+        <div className="fixed bottom-0 left-0 right-0 p-2 bg-white/80 backdrop-blur-md border-t border-slate-200">
           <div className="max-w-7xl mx-auto flex flex-col sm:flex-row gap-3 sm:justify-end sm:items-center">
             <button
               type="button"

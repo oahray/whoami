@@ -68,7 +68,9 @@ describe('room socket handlers', () => {
       roundNumber: 1,
       phase: 'active',
       serverStartTime: Date.now(),
+      activeStartTime: Date.now(),
       clues: [],
+      revealedClueCount: 1,
       correctGuesses: [
         {
           playerId: 'old-socket',
