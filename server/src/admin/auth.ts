@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import dotenv from 'dotenv'
 import type { Request, Response, NextFunction } from 'express'
 import type { User } from '@supabase/supabase-js'
@@ -6,23 +6,36 @@ import { logger } from '../utils/logger.js'
 
 dotenv.config()
 
-const supabaseUrl = process.env.SUPABASE_URL
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY
+let cachedAdminClient: SupabaseClient | null = null
 
-if (!supabaseUrl || !supabaseServiceKey) {
-  throw new Error('Missing Supabase environment variables')
-}
+/**
+ * Lazily build the Supabase admin client. Like `db/supabase.ts`, we defer env
+ * validation to first use so importing this module (e.g. via admin route
+ * registration) is safe in environments without Supabase env vars (CI, tests
+ * that don't need auth).
+ */
+function getSupabaseAdmin(): SupabaseClient {
+  if (cachedAdminClient) return cachedAdminClient
 
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false
+  const supabaseUrl = process.env.SUPABASE_URL
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY
+
+  if (!supabaseUrl || !supabaseServiceKey) {
+    throw new Error('Missing Supabase environment variables')
   }
-})
+
+  cachedAdminClient = createClient(supabaseUrl, supabaseServiceKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  })
+  return cachedAdminClient
+}
 
 export async function verifyToken(token: string): Promise<User | null> {
   try {
-    const { data: { user }, error } = await supabaseAdmin.auth.getUser(token)
+    const { data: { user }, error } = await getSupabaseAdmin().auth.getUser(token)
 
     if (error || !user) {
       return null
@@ -37,7 +50,7 @@ export async function verifyToken(token: string): Promise<User | null> {
 
 export async function isAdmin(userId: string): Promise<boolean> {
   try {
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await getSupabaseAdmin()
       .from('admin_users')
       .select('user_id')
       .eq('user_id', userId)
