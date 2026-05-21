@@ -4,6 +4,9 @@ import { AuthProvider } from './context/AuthContext'
 import { GameProvider } from './context/GameContext'
 import { AdminDatasetProvider } from './context/AdminDatasetContext'
 import Home from './pages/Home'
+import About from './pages/About'
+import PlaySetup from './pages/PlaySetup'
+import PlayCards from './pages/PlayCards'
 import Lobby from './pages/Lobby'
 import Game from './pages/Game'
 import AdminLogin from './pages/AdminLogin'
@@ -36,6 +39,9 @@ function App() {
             <div className="flex flex-1 flex-col">
               <Routes>
                 <Route path="/" element={<Home />} />
+                <Route path="/about" element={<About />} />
+                <Route path="/play" element={<PlaySetup />} />
+                <Route path="/play/cards" element={<PlayCards />} />
                 <Route path="/lobby" element={<Lobby />} />
                 <Route path="/game" element={<Game />} />
                 <Route path="/admin/login" element={<AdminLogin />} />

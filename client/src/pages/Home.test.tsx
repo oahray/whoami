@@ -128,6 +128,17 @@ describe('Home', () => {
     expect(localStorage.getItem('whoami_room')).not.toBeNull()
   })
 
+  it('links to play in person and about', () => {
+    render(
+      <MemoryRouter>
+        <Home />
+      </MemoryRouter>
+    )
+
+    expect(screen.getByRole('link', { name: /play in person/i })).toHaveAttribute('href', '/play')
+    expect(screen.getByRole('link', { name: /about & how to play/i })).toHaveAttribute('href', '/about')
+  })
+
   it('surfaces a kick message stashed in sessionStorage and clears it after showing', () => {
     const setError = vi.fn()
 

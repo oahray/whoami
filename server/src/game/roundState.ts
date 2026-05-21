@@ -4,6 +4,7 @@ import { buildEntityPool } from './entityPool.js'
 import { calculateScore } from './scoring.js'
 import { validateGuess } from './validation.js'
 import { isRateLimited, hasExceededMaxGuesses } from './rateLimit.js'
+import { shuffle } from './shuffle.js'
 import type { RoomState } from '../rooms/store.js'
 
 export class GameStartError extends Error {
@@ -14,15 +15,6 @@ export class GameStartError extends Error {
     super(message)
     this.name = 'GameStartError'
   }
-}
-
-function shuffle<T>(array: T[]): T[] {
-  const shuffled = [...array]
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1))
-    ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
-  }
-  return shuffled
 }
 
 export async function startGame(room: RoomState): Promise<void> {

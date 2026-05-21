@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useGame } from '../hooks/useGame'
 import { useSocket } from '../hooks/useSocket'
 import { getErrorMessage, isFatalError } from '../utils/errorMessages'
@@ -217,6 +217,21 @@ function Home() {
               Create new room instead
             </button>
           </div>
+        </div>
+
+        <div className="mt-6 flex flex-col items-center gap-2">
+          <Link
+            to="/play"
+            className="text-white font-semibold text-sm hover:text-white/90 underline underline-offset-2"
+          >
+            Play in person
+          </Link>
+          <Link
+            to="/about"
+            className="text-white/90 hover:text-white text-sm font-medium underline underline-offset-2"
+          >
+            About &amp; how to play
+          </Link>
         </div>
       </div>
 

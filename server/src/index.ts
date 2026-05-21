@@ -16,6 +16,7 @@ import {
 import { wrapSync, wrapAsync } from './sockets/dispatch.js'
 import adminRoutes from './admin/routes/index.js'
 import publicDatasetsRoutes from './routes/datasets.js'
+import publicCardsRoutes from './routes/cards.js'
 import { supabase } from './db/supabase.js'
 import { logger } from './utils/logger.js'
 import { errorHandler } from './middleware/errorHandler.js'
@@ -122,6 +123,7 @@ app.get('/internal/warmth', async (req, res) => {
 })
 
 app.use(publicDatasetsRoutes)
+app.use(publicCardsRoutes)
 app.use('/admin', adminRoutes)
 
 app.use(errorHandler)
