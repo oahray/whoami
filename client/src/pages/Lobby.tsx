@@ -124,7 +124,7 @@ function Lobby() {
   const connectedCount = players.filter(p => p.isConnected).length
 
   return (
-    <div className="min-h-screen bg-background-light font-display text-slate-900 antialiased">
+    <div className="min-h-screen flex flex-col bg-background-light font-display text-slate-900 antialiased">
       <header className="sticky top-0 z-10 flex items-center bg-white px-4 md:px-6 py-2 md:py-4 border-b border-slate-200">
         <button
           type="button"
@@ -143,7 +143,7 @@ function Lobby() {
         </button>
       </header>
 
-      <main className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto flex flex-col gap-6 pb-36 md:pb-8">
+      <main className="p-4 md:p-6 lg:p-8 max-w-7xl w-full mx-auto flex flex-col gap-6 flex-1">
         <section className="bg-white rounded-lg p-5 shadow-sm border border-slate-200">
           <div className="flex flex-row items-center justify-between gap-4">
             <div className="flex flex-col min-w-0">
@@ -460,7 +460,7 @@ function Lobby() {
       </main>
 
       {isHost && (
-        <div className="fixed bottom-0 left-0 right-0 p-2 bg-white/80 backdrop-blur-md border-t border-slate-200">
+        <div className="sticky bottom-0 p-2 bg-white/80 backdrop-blur-md border-t border-slate-200">
           <div className="max-w-7xl mx-auto flex flex-col sm:flex-row gap-3 sm:justify-end sm:items-center">
             <button
               type="button"

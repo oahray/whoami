@@ -119,7 +119,7 @@ function Home() {
     emit('CREATE_ROOM', { nickname: nickname.trim() })
   }
 
-  const handleJoinRoom = (e: React.MouseEvent) => {
+  const handleJoinRoom = (e: React.FormEvent | React.MouseEvent) => {
     e.preventDefault()
     if (!nickname.trim() || !joinCode.trim()) {
       setError('Please enter both nickname and room code')
@@ -158,46 +158,48 @@ function Home() {
         </div>
 
         <div className="w-full max-w-md bg-white rounded-xl shadow-2xl border border-slate-200 py-8 px-5 flex flex-col gap-6">
-          <div className="flex flex-col gap-2">
-            <label className="text-slate-800 text-sm font-semibold ml-1">Your Nickname</label>
-            <div className="relative">
-              <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-600">person</span>
-              <input
-                type="text"
-                value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
-                placeholder="e.g. Samuel"
-                disabled={loading}
-                className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors text-slate-900 placeholder:text-slate-500 font-medium disabled:opacity-60"
-              />
+          <form onSubmit={handleJoinRoom} className="flex flex-col gap-6">
+            <div className="flex flex-col gap-2">
+              <label className="text-slate-800 text-sm font-semibold ml-1">Your Nickname</label>
+              <div className="relative">
+                <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-600">person</span>
+                <input
+                  type="text"
+                  value={nickname}
+                  onChange={(e) => setNickname(e.target.value)}
+                  placeholder="e.g. Samuel"
+                  disabled={loading}
+                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors text-slate-900 placeholder:text-slate-500 font-medium disabled:opacity-60"
+                />
+              </div>
             </div>
-          </div>
 
-          <div className="flex flex-col gap-2">
-            <label className="text-slate-800 text-sm font-semibold ml-1">Room Code</label>
-            <div className="relative">
-              <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-600">key</span>
-              <input
-                type="text"
-                value={joinCode}
-                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                placeholder="6-character code"
-                maxLength={6}
-                disabled={loading}
-                className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors text-slate-900 placeholder:text-slate-500 font-medium tracking-[0.2em] uppercase disabled:opacity-60"
-              />
+            <div className="flex flex-col gap-2">
+              <label className="text-slate-800 text-sm font-semibold ml-1">Room Code</label>
+              <div className="relative">
+                <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-600">key</span>
+                <input
+                  type="text"
+                  value={joinCode}
+                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                  placeholder="6-character code"
+                  maxLength={6}
+                  disabled={loading}
+                  enterKeyHint="go"
+                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors text-slate-900 placeholder:text-slate-500 font-medium tracking-[0.2em] uppercase disabled:opacity-60"
+                />
+              </div>
             </div>
-          </div>
 
-          <button
-            type="button"
-            onClick={handleJoinRoom}
-            disabled={loading || !nickname.trim() || !joinCode.trim() || !connected}
-            className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-5 rounded-lg shadow-lg shadow-primary/30 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
-          >
-            <span>{loading ? 'Joining...' : 'Join Room'}</span>
-            <span className="material-symbols-outlined">login</span>
-          </button>
+            <button
+              type="submit"
+              disabled={loading || !nickname.trim() || !joinCode.trim() || !connected}
+              className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-5 rounded-lg shadow-lg shadow-primary/30 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+            >
+              <span>{loading ? 'Joining...' : 'Join Room'}</span>
+              <span className="material-symbols-outlined">login</span>
+            </button>
+          </form>
 
           <div className="flex flex-col items-center gap-3">
             <div className="flex items-center w-full gap-3">
