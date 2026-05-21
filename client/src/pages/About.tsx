@@ -65,7 +65,10 @@ function About() {
             our database whenever you are online.
           </p>
           <p className="text-slate-600 text-xs">
-            In-person mode is coming soon from the home screen.
+            <Link to="/play" className="text-primary font-semibold hover:text-primary/80">
+              Start in-person mode
+            </Link>{' '}
+            from the home screen — no room code needed.
           </p>
         </section>
 

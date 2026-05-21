@@ -1,16 +1,16 @@
 import { supabase } from './supabase.js'
+import { shuffle } from '../game/shuffle.js'
 
 type Difficulty = 'easy' | 'medium' | 'hard' | 'nightmare'
 
 export type GameDifficultyMode = 'any' | Difficulty
 
-function shuffle<T>(array: T[]): T[] {
-  const shuffled = [...array]
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
-  }
-  return shuffled
+const DIFFICULTY_MODES: GameDifficultyMode[] = ['any', 'easy', 'medium', 'hard', 'nightmare']
+
+export function parseDifficultyMode(raw: unknown): GameDifficultyMode | null {
+  if (typeof raw !== 'string') return null
+  const value = raw.trim().toLowerCase() as GameDifficultyMode
+  return DIFFICULTY_MODES.includes(value) ? value : null
 }
 
 export interface Entity {

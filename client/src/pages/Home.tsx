@@ -219,14 +219,20 @@ function Home() {
           </div>
         </div>
 
-        <p className="mt-6 text-center">
+        <div className="mt-6 flex flex-col items-center gap-2">
+          <Link
+            to="/play"
+            className="text-white font-semibold text-sm hover:text-white/90 underline underline-offset-2"
+          >
+            Play in person
+          </Link>
           <Link
             to="/about"
             className="text-white/90 hover:text-white text-sm font-medium underline underline-offset-2"
           >
             About &amp; how to play
           </Link>
-        </p>
+        </div>
       </div>
 
       {error && (

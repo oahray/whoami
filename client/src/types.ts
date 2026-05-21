@@ -39,6 +39,18 @@ export interface PublicDataset {
   is_default: boolean
 }
 
+export type GameDifficultyMode = 'any' | Difficulty
+
+export interface InPersonCard {
+  entity: {
+    id: string
+    name: string
+    type: 'character' | 'place'
+    aliases: string[]
+  }
+  clues: Array<{ order: number; text: string; citations: string | null }>
+}
+
 export interface Clue {
   id: string
   entity_id: string
