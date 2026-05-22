@@ -221,7 +221,6 @@ function PlaySetup() {
                   return (
                     <option key={opt.value} value={opt.value} disabled={disabled}>
                       {opt.label}
-                      {eligibility !== null ? ` (${count})` : ''}
                     </option>
                   )
                 })}
