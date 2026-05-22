@@ -1,4 +1,10 @@
-import { getCluesForEntity, getDataset, type GameDifficultyMode, type Entity } from '../db/entities.js'
+import {
+  getCluesForEntity,
+  getDataset,
+  GAME_DIFFICULTY_MODES,
+  type GameDifficultyMode,
+  type Entity
+} from '../db/entities.js'
 import { supabase } from '../db/supabase.js'
 import { IN_PERSON_CLUES_MIN, IN_PERSON_CLUES_MAX } from './config.js'
 import { shuffle } from './shuffle.js'
@@ -13,9 +19,18 @@ export type InPersonCardPayload = {
   clues: Array<{ order: number; text: string; citations: string | null }>
 }
 
+export type InPersonEligibility = {
+  modes: Record<GameDifficultyMode, number>
+}
+
 export class InPersonPlayError extends Error {
   constructor(
-    public readonly code: 'INVALID_DATASET' | 'DATASET_DISABLED' | 'INVALID_DIFFICULTY' | 'NO_CARDS',
+    public readonly code:
+      | 'INVALID_DATASET'
+      | 'DATASET_DISABLED'
+      | 'INVALID_DIFFICULTY'
+      | 'NO_CARDS'
+      | 'ENTITY_NOT_FOUND',
     message: string
   ) {
     super(message)
@@ -23,34 +38,18 @@ export class InPersonPlayError extends Error {
   }
 }
 
-async function countCluesForEntities(
-  entityIds: string[],
-  mode: GameDifficultyMode
-): Promise<Map<string, number>> {
-  if (entityIds.length === 0) return new Map()
-
-  const { data: clueRows, error } = await supabase
-    .from('clues')
-    .select('entity_id, difficulty')
-    .in('entity_id', entityIds)
-
-  if (error) {
-    throw new Error(`Failed to fetch clues for in-person pool: ${error.message}`)
+async function assertPlayableDataset(datasetId: string) {
+  const dataset = await getDataset(datasetId)
+  if (!dataset) {
+    throw new InPersonPlayError('INVALID_DATASET', 'Dataset not found')
   }
-
-  const countByEntity = new Map<string, number>()
-  for (const row of clueRows ?? []) {
-    if (mode !== 'any' && row.difficulty !== mode) continue
-    countByEntity.set(row.entity_id, (countByEntity.get(row.entity_id) ?? 0) + 1)
+  if (!dataset.is_enabled) {
+    throw new InPersonPlayError('DATASET_DISABLED', 'Selected dataset is disabled')
   }
-  return countByEntity
+  return dataset
 }
 
-async function getEligibleEntities(
-  datasetId: string,
-  mode: GameDifficultyMode,
-  excludeEntityId?: string
-): Promise<Entity[]> {
+async function fetchPublishedEntities(datasetId: string): Promise<Entity[]> {
   const { data, error } = await supabase
     .from('entities')
     .select('*')
@@ -61,47 +60,127 @@ async function getEligibleEntities(
   if (error) {
     throw new Error(`Failed to fetch entities: ${error.message}`)
   }
-
-  const entities = (data ?? []).filter((e) => e.id !== excludeEntityId)
-  if (entities.length === 0) return []
-
-  const counts = await countCluesForEntities(
-    entities.map((e) => e.id),
-    mode
-  )
-
-  return entities.filter((e) => (counts.get(e.id) ?? 0) >= IN_PERSON_CLUES_MIN)
+  return data ?? []
 }
 
-export async function getRandomInPersonCard(params: {
-  datasetId: string
+type EntityClueCounts = Record<GameDifficultyMode, number>
+
+function emptyClueCounts(): EntityClueCounts {
+  return { any: 0, easy: 0, medium: 0, hard: 0, nightmare: 0 }
+}
+
+async function fetchClueCountsByEntity(
+  entityIds: string[]
+): Promise<Map<string, EntityClueCounts>> {
+  const countsByEntity = new Map<string, EntityClueCounts>()
+  if (entityIds.length === 0) return countsByEntity
+
+  for (const id of entityIds) {
+    countsByEntity.set(id, emptyClueCounts())
+  }
+
+  const { data: clueRows, error } = await supabase
+    .from('clues')
+    .select('entity_id, difficulty')
+    .in('entity_id', entityIds)
+
+  if (error) {
+    throw new Error(`Failed to fetch clues for in-person pool: ${error.message}`)
+  }
+
+  for (const row of clueRows ?? []) {
+    const counts = countsByEntity.get(row.entity_id)
+    if (!counts) continue
+    counts.any += 1
+    const tier = row.difficulty as keyof EntityClueCounts
+    if (tier !== 'any' && tier in counts) {
+      counts[tier] += 1
+    }
+  }
+
+  return countsByEntity
+}
+
+function isEligibleForMode(counts: EntityClueCounts, mode: GameDifficultyMode): boolean {
+  return counts[mode] >= IN_PERSON_CLUES_MIN
+}
+
+function countEligibleModes(countsByEntity: Map<string, EntityClueCounts>): InPersonEligibility {
+  const modes = emptyClueCounts()
+  for (const counts of countsByEntity.values()) {
+    for (const mode of GAME_DIFFICULTY_MODES) {
+      if (isEligibleForMode(counts, mode)) {
+        modes[mode] += 1
+      }
+    }
+  }
+  return { modes }
+}
+
+export async function getInPersonEligibility(datasetId: string): Promise<InPersonEligibility> {
+  await assertPlayableDataset(datasetId)
+  const entities = await fetchPublishedEntities(datasetId)
+  const countsByEntity = await fetchClueCountsByEntity(entities.map((e) => e.id))
+  return countEligibleModes(countsByEntity)
+}
+
+export async function getEligibleEntityIds(
+  datasetId: string,
+  mode: GameDifficultyMode
+): Promise<string[]> {
+  await assertPlayableDataset(datasetId)
+  const entities = await fetchPublishedEntities(datasetId)
+  const countsByEntity = await fetchClueCountsByEntity(entities.map((e) => e.id))
+  return entities
+    .filter((e) => {
+      const counts = countsByEntity.get(e.id)
+      return counts ? isEligibleForMode(counts, mode) : false
+    })
+    .map((e) => e.id)
+}
+
+export async function getInPersonDeck(
+  datasetId: string,
   difficultyMode: GameDifficultyMode
-  excludeEntityId?: string
-}): Promise<InPersonCardPayload> {
-  const { datasetId, difficultyMode, excludeEntityId } = params
-
-  const dataset = await getDataset(datasetId)
-  if (!dataset) {
-    throw new InPersonPlayError('INVALID_DATASET', 'Dataset not found')
-  }
-  if (!dataset.is_enabled) {
-    throw new InPersonPlayError('DATASET_DISABLED', 'Selected dataset is disabled')
-  }
-
-  const eligible = await getEligibleEntities(datasetId, difficultyMode, excludeEntityId)
-  if (eligible.length === 0) {
+): Promise<{ entityIds: string[] }> {
+  const entityIds = await getEligibleEntityIds(datasetId, difficultyMode)
+  if (entityIds.length === 0) {
     throw new InPersonPlayError(
       'NO_CARDS',
       'No published characters with enough clues for this dataset and difficulty'
     )
   }
+  return { entityIds: shuffle(entityIds) }
+}
 
-  const entity = eligible[Math.floor(Math.random() * eligible.length)]
-  const clues = await getCluesForEntity(entity.id, { difficultyMode })
+export async function buildInPersonCardForEntity(params: {
+  datasetId: string
+  entityId: string
+  difficultyMode: GameDifficultyMode
+}): Promise<InPersonCardPayload> {
+  const { datasetId, entityId, difficultyMode } = params
+  await assertPlayableDataset(datasetId)
+
+  const { data: entity, error } = await supabase
+    .from('entities')
+    .select('*')
+    .eq('id', entityId)
+    .eq('dataset_id', datasetId)
+    .eq('is_published', true)
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(`Failed to fetch entity: ${error.message}`)
+  }
+  if (!entity) {
+    throw new InPersonPlayError('ENTITY_NOT_FOUND', 'Character not found in this content pack')
+  }
+
+  const clues = await getCluesForEntity(entityId, { difficultyMode })
   if (clues.length < IN_PERSON_CLUES_MIN) {
     throw new InPersonPlayError(
       'NO_CARDS',
-      'No published characters with enough clues for this dataset and difficulty'
+      'This character does not have enough clues for the selected difficulty'
     )
   }
 
@@ -120,4 +199,26 @@ export async function getRandomInPersonCard(params: {
       citations: c.citations
     }))
   }
+}
+
+export async function getRandomInPersonCard(params: {
+  datasetId: string
+  difficultyMode: GameDifficultyMode
+  excludeEntityId?: string
+}): Promise<InPersonCardPayload> {
+  const { datasetId, difficultyMode, excludeEntityId } = params
+
+  let entityIds = await getEligibleEntityIds(datasetId, difficultyMode)
+  if (excludeEntityId) {
+    entityIds = entityIds.filter((id) => id !== excludeEntityId)
+  }
+  if (entityIds.length === 0) {
+    throw new InPersonPlayError(
+      'NO_CARDS',
+      'No published characters with enough clues for this dataset and difficulty'
+    )
+  }
+
+  const entityId = entityIds[Math.floor(Math.random() * entityIds.length)]
+  return buildInPersonCardForEntity({ datasetId, entityId, difficultyMode })
 }
