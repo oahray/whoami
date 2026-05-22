@@ -14,6 +14,7 @@ import {
   createQueryBuilder,
   hasEq,
   hasOp,
+  type QueryResolver,
   type QueryState
 } from '../test-utils/supabaseQueryBuilder.js'
 
