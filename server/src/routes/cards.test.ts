@@ -10,7 +10,12 @@ vi.mock('../db/supabase.js', () => ({
 
 import { supabase } from '../db/supabase.js'
 import cardsRouter from './cards.js'
-import { createQueryBuilder, type QueryState } from '../test-utils/supabaseQueryBuilder.js'
+import {
+  createQueryBuilder,
+  hasEq,
+  hasOp,
+  type QueryState
+} from '../test-utils/supabaseQueryBuilder.js'
 
 function makeApp() {
   const app = express()
@@ -74,9 +79,53 @@ function cluesResolver(allClues: ReturnType<typeof makeClues>) {
     )
     if (entityEq) {
       const entityId = entityEq.args[1] as string
-      return { data: allClues.filter((c) => c.entity_id === entityId), error: null }
+      let rows = allClues.filter((c) => c.entity_id === entityId)
+      const difficultyEq = state.operations.find(
+        (op) => op.method === 'eq' && op.args[0] === 'difficulty'
+      )
+      if (difficultyEq) {
+        rows = rows.filter((c) => c.difficulty === difficultyEq.args[1])
+      }
+      return { data: rows, error: null }
     }
     return { data: allClues, error: null }
+  }
+}
+
+function installMocks(
+  entities: (typeof ENTITY_A)[],
+  allClues: ReturnType<typeof makeClues>
+) {
+  vi.mocked(supabase.from).mockImplementation((table: string) =>
+    createQueryBuilder(table, inPersonMockResolver(entities, allClues))
+  )
+}
+
+function inPersonMockResolver(
+  entities: (typeof ENTITY_A)[],
+  allClues: ReturnType<typeof makeClues>
+): QueryResolver {
+  return (state: QueryState) => {
+    const table = state.table
+    if (table === 'datasets') {
+      return { data: DATASET_ENABLED, error: null }
+    }
+    if (table === 'entities') {
+      if (hasOp(state, 'maybeSingle')) {
+        const id = state.operations.find((op) => op.method === 'eq' && op.args[0] === 'id')
+          ?.args[1] as string | undefined
+        const entity = entities.find((e) => e.id === id) ?? null
+        return { data: entity, error: null }
+      }
+      if (hasEq(state, 'dataset_id', 'ds-1')) {
+        return { data: entities, error: null }
+      }
+      return { data: entities, error: null }
+    }
+    if (table === 'clues') {
+      return cluesResolver(allClues)(state)
+    }
+    return { error: new Error('Unexpected') }
   }
 }
 
@@ -89,18 +138,7 @@ describe('GET /cards/random', () => {
     const cluesA = makeClues('ent-a', 12)
 
     vi.mocked(supabase.from).mockImplementation((table: string) =>
-      createQueryBuilder(table, (state) => {
-        if (table === 'datasets') {
-          return { data: DATASET_ENABLED, error: null }
-        }
-        if (table === 'entities') {
-          return { data: [ENTITY_A], error: null }
-        }
-        if (table === 'clues') {
-          return cluesResolver(cluesA)(state)
-        }
-        return { error: new Error('Unexpected') }
-      })
+      createQueryBuilder(table, inPersonMockResolver([ENTITY_A], cluesA))
     )
 
     const response = await request(makeApp()).get('/cards/random').query({
@@ -118,18 +156,13 @@ describe('GET /cards/random', () => {
 
   it('excludes entities with fewer than 5 clues after difficulty filter', async () => {
     vi.mocked(supabase.from).mockImplementation((table: string) =>
-      createQueryBuilder(table, (state) => {
-        if (table === 'datasets') {
-          return { data: DATASET_ENABLED, error: null }
-        }
-        if (table === 'entities') {
-          return { data: [ENTITY_FEW, ENTITY_B], error: null }
-        }
-        if (table === 'clues') {
-          return cluesResolver([...makeClues('ent-few', 4), ...makeClues('ent-b', 6)])(state)
-        }
-        return { error: new Error('Unexpected') }
-      })
+      createQueryBuilder(
+        table,
+        inPersonMockResolver(
+          [ENTITY_FEW, ENTITY_B],
+          [...makeClues('ent-few', 4), ...makeClues('ent-b', 6)]
+        )
+      )
     )
 
     const response = await request(makeApp()).get('/cards/random').query({
@@ -141,20 +174,7 @@ describe('GET /cards/random', () => {
   })
 
   it('returns 404 when no eligible entities', async () => {
-    vi.mocked(supabase.from).mockImplementation((table: string) =>
-      createQueryBuilder(table, (state) => {
-        if (table === 'datasets') {
-          return { data: DATASET_ENABLED, error: null }
-        }
-        if (table === 'entities') {
-          return { data: [ENTITY_FEW], error: null }
-        }
-        if (table === 'clues') {
-          return cluesResolver(makeClues('ent-few', 4))(state)
-        }
-        return { error: new Error('Unexpected') }
-      })
-    )
+    installMocks([ENTITY_FEW], makeClues('ent-few', 4))
 
     const response = await request(makeApp()).get('/cards/random').query({
       datasetId: 'ds-1'
@@ -191,19 +211,9 @@ describe('GET /cards/random', () => {
   })
 
   it('honours excludeEntityId when another entity is eligible', async () => {
-    vi.mocked(supabase.from).mockImplementation((table: string) =>
-      createQueryBuilder(table, (state) => {
-        if (table === 'datasets') {
-          return { data: DATASET_ENABLED, error: null }
-        }
-        if (table === 'entities') {
-          return { data: [ENTITY_A, ENTITY_B], error: null }
-        }
-        if (table === 'clues') {
-          return cluesResolver([...makeClues('ent-a', 6), ...makeClues('ent-b', 6)])(state)
-        }
-        return { error: new Error('Unexpected') }
-      })
+    installMocks(
+      [ENTITY_A, ENTITY_B],
+      [...makeClues('ent-a', 6), ...makeClues('ent-b', 6)]
     )
 
     const response = await request(makeApp()).get('/cards/random').query({
@@ -213,5 +223,70 @@ describe('GET /cards/random', () => {
 
     expect(response.status).toBe(200)
     expect(response.body.entity.id).toBe('ent-b')
+  })
+})
+
+describe('GET /cards/eligibility', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('returns eligible entity counts per difficulty mode', async () => {
+    installMocks(
+      [ENTITY_A, ENTITY_B],
+      [...makeClues('ent-a', 6), ...makeClues('ent-b', 6)]
+    )
+
+    const response = await request(makeApp()).get('/cards/eligibility').query({
+      datasetId: 'ds-1'
+    })
+
+    expect(response.status).toBe(200)
+    expect(response.body.modes.any).toBe(2)
+    expect(response.body.modes.easy).toBe(0)
+    expect(response.body.modes.hard).toBe(0)
+    expect(response.body.modes.medium).toBe(0)
+    expect(response.body.modes.nightmare).toBe(0)
+  })
+})
+
+describe('GET /cards/deck', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('returns a shuffled list of eligible entity ids', async () => {
+    installMocks(
+      [ENTITY_A, ENTITY_B],
+      [...makeClues('ent-a', 6), ...makeClues('ent-b', 6)]
+    )
+
+    const response = await request(makeApp()).get('/cards/deck').query({
+      datasetId: 'ds-1',
+      difficulty: 'any'
+    })
+
+    expect(response.status).toBe(200)
+    expect(response.body.entityIds).toHaveLength(2)
+    expect(response.body.entityIds).toEqual(expect.arrayContaining(['ent-a', 'ent-b']))
+  })
+})
+
+describe('GET /cards/entity/:entityId', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('returns a card for a specific entity', async () => {
+    installMocks([ENTITY_A], makeClues('ent-a', 6))
+
+    const response = await request(makeApp()).get('/cards/entity/ent-a').query({
+      datasetId: 'ds-1',
+      difficulty: 'any'
+    })
+
+    expect(response.status).toBe(200)
+    expect(response.body.entity.id).toBe('ent-a')
+    expect(response.body.clues.length).toBeGreaterThanOrEqual(5)
   })
 })

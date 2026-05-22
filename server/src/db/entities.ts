@@ -5,7 +5,15 @@ type Difficulty = 'easy' | 'medium' | 'hard' | 'nightmare'
 
 export type GameDifficultyMode = 'any' | Difficulty
 
-const DIFFICULTY_MODES: GameDifficultyMode[] = ['any', 'easy', 'medium', 'hard', 'nightmare']
+export const GAME_DIFFICULTY_MODES: readonly GameDifficultyMode[] = [
+  'any',
+  'easy',
+  'medium',
+  'hard',
+  'nightmare'
+]
+
+const DIFFICULTY_MODES: GameDifficultyMode[] = [...GAME_DIFFICULTY_MODES]
 
 export function parseDifficultyMode(raw: unknown): GameDifficultyMode | null {
   if (typeof raw !== 'string') return null

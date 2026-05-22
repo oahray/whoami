@@ -1,6 +1,14 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { API_BASE_URL } from '../lib/apiBase'
+import {
+  fetchInPersonEligibility,
+  firstPlayableDifficulty,
+  IN_PERSON_DIFFICULTY_OPTIONS,
+  isDifficultyPlayable,
+  type InPersonEligibility
+} from '../lib/inPersonEligibility'
+import { fetchInPersonDeck } from '../lib/inPersonDeck'
 import type { GameDifficultyMode, PublicDataset } from '../types'
 
 function PlaySetup() {
@@ -8,7 +16,10 @@ function PlaySetup() {
   const [datasets, setDatasets] = useState<PublicDataset[]>([])
   const [datasetId, setDatasetId] = useState('')
   const [difficulty, setDifficulty] = useState<GameDifficultyMode>('any')
+  const [eligibility, setEligibility] = useState<InPersonEligibility | null>(null)
   const [loading, setLoading] = useState(true)
+  const [eligibilityLoading, setEligibilityLoading] = useState(false)
+  const [starting, setStarting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [offline, setOffline] = useState(
     typeof navigator !== 'undefined' ? !navigator.onLine : false
@@ -16,6 +27,13 @@ function PlaySetup() {
 
   const showDatasetPicker = datasets.length > 1
   const selectedDataset = datasets.find((d) => d.id === datasetId)
+  const selectedCount = eligibility?.modes[difficulty] ?? 0
+  const canStart =
+    Boolean(datasetId) &&
+    !offline &&
+    !starting &&
+    !eligibilityLoading &&
+    selectedCount > 0
 
   useEffect(() => {
     const onOnline = () => setOffline(false)
@@ -57,14 +75,59 @@ function PlaySetup() {
     }
   }, [])
 
-  const handleStart = () => {
-    if (!datasetId || offline) return
-    const params = new URLSearchParams({
-      datasetId,
-      difficulty
-    })
-    navigate(`/play/cards?${params.toString()}`)
+  useEffect(() => {
+    if (!datasetId || offline) {
+      setEligibility(null)
+      return
+    }
+
+    let cancelled = false
+    setEligibilityLoading(true)
+    setError(null)
+
+    fetchInPersonEligibility(datasetId)
+      .then((data) => {
+        if (cancelled) return
+        setEligibility(data)
+        if (!isDifficultyPlayable(data.modes, difficulty)) {
+          const fallback = firstPlayableDifficulty(data.modes)
+          if (fallback) setDifficulty(fallback)
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setEligibility(null)
+          setError(err instanceof Error ? err.message : 'Failed to load eligibility')
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setEligibilityLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [datasetId, offline])
+
+  const handleStart = async () => {
+    if (!canStart) return
+    setStarting(true)
+    setError(null)
+    try {
+      await fetchInPersonDeck(datasetId, difficulty)
+      const params = new URLSearchParams({ datasetId, difficulty })
+      navigate(`/play/cards?${params.toString()}`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to start cards')
+    } finally {
+      setStarting(false)
+    }
   }
+
+  const noPlayableModes =
+    eligibility &&
+    !eligibilityLoading &&
+    IN_PERSON_DIFFICULTY_OPTIONS.every((opt) => (eligibility.modes[opt.value] ?? 0) === 0)
 
   return (
     <div className="min-h-screen bg-background-light font-display text-slate-900 antialiased">
@@ -149,27 +212,52 @@ function PlaySetup() {
                 id="playDifficulty"
                 value={difficulty}
                 onChange={(e) => setDifficulty(e.target.value as GameDifficultyMode)}
-                className="w-full bg-slate-50 border-0 rounded-lg text-slate-900 focus:ring-2 focus:ring-primary py-2.5 px-3"
+                disabled={eligibilityLoading || Boolean(noPlayableModes)}
+                className="w-full bg-slate-50 border-0 rounded-lg text-slate-900 focus:ring-2 focus:ring-primary py-2.5 px-3 disabled:opacity-60"
               >
-                <option value="any">Any (mix of all difficulties)</option>
-                <option value="easy">Easy</option>
-                <option value="medium">Medium</option>
-                <option value="hard">Hard</option>
-                <option value="nightmare">Nightmare</option>
+                {IN_PERSON_DIFFICULTY_OPTIONS.map((opt) => {
+                  const count = eligibility?.modes[opt.value] ?? 0
+                  const disabled = eligibility !== null && count === 0
+                  return (
+                    <option key={opt.value} value={opt.value} disabled={disabled}>
+                      {opt.label}
+                      {eligibility !== null ? ` (${count})` : ''}
+                    </option>
+                  )
+                })}
               </select>
-              <p className="text-xs text-slate-500 mt-1">
-                Filters which clues appear on each card. Clues are shuffled every time.
-              </p>
+              {eligibilityLoading && (
+                <p className="text-xs text-slate-500 mt-1">Checking available characters…</p>
+              )}
+              {!eligibilityLoading && eligibility && selectedCount > 0 && (
+                <p className="text-xs text-slate-500 mt-1">
+                  {selectedCount} character{selectedCount === 1 ? '' : 's'} in this deck. Clues are
+                  shuffled every card.
+                </p>
+              )}
+              {!eligibilityLoading && noPlayableModes && (
+                <p className="text-xs text-amber-700 mt-1">
+                  Not enough clues for any difficulty in this content pack.
+                </p>
+              )}
+              {!eligibilityLoading &&
+                eligibility &&
+                !noPlayableModes &&
+                selectedCount === 0 && (
+                  <p className="text-xs text-amber-700 mt-1">
+                    No characters have enough clues for this difficulty. Choose another.
+                  </p>
+                )}
             </div>
 
             <button
               type="button"
-              onClick={handleStart}
-              disabled={!datasetId || offline}
+              onClick={() => void handleStart()}
+              disabled={!canStart}
               className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 md:py-4 rounded-lg shadow-lg shadow-primary/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <span className="material-symbols-outlined">style</span>
-              Start cards
+              {starting ? 'Starting…' : 'Start cards'}
             </button>
           </section>
         )}

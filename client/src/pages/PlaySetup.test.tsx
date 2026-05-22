@@ -16,23 +16,50 @@ vi.mock('react-router-dom', async () => {
 describe('PlaySetup', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    sessionStorage.clear()
     vi.stubGlobal('fetch', vi.fn())
     Object.defineProperty(navigator, 'onLine', { value: true, configurable: true })
   })
 
-  it('loads datasets and navigates to cards on start', async () => {
-    vi.mocked(fetch).mockResolvedValueOnce({
-      ok: true,
-      json: async () => [
-        {
-          id: 'ds-1',
-          name: 'Bible',
-          source: null,
-          description: null,
-          is_default: true
-        }
-      ]
-    } as Response)
+  it('loads datasets, disables empty difficulties, and starts a deck', async () => {
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const url = String(input)
+      if (url.includes('/datasets')) {
+        return {
+          ok: true,
+          json: async () => [
+            {
+              id: 'ds-1',
+              name: 'Bible',
+              source: null,
+              description: null,
+              is_default: true
+            }
+          ]
+        } as Response
+      }
+      if (url.includes('/cards/eligibility')) {
+        return {
+          ok: true,
+          json: async () => ({
+            modes: {
+              any: 2,
+              easy: 2,
+              medium: 0,
+              hard: 0,
+              nightmare: 0
+            }
+          })
+        } as Response
+      }
+      if (url.includes('/cards/deck')) {
+        return {
+          ok: true,
+          json: async () => ({ entityIds: ['ent-1', 'ent-2'] })
+        } as Response
+      }
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
 
     render(
       <MemoryRouter>
@@ -44,9 +71,19 @@ describe('PlaySetup', () => {
       expect(screen.getByRole('button', { name: /start cards/i })).toBeInTheDocument()
     })
 
+    const difficultySelect = screen.getByLabelText(/difficulty/i) as HTMLSelectElement
+    await waitFor(() => {
+      expect(difficultySelect.options[2]).toBeDisabled()
+    })
+
     fireEvent.click(screen.getByRole('button', { name: /start cards/i }))
 
-    expect(mockNavigate).toHaveBeenCalledWith('/play/cards?datasetId=ds-1&difficulty=any')
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/play/cards?datasetId=ds-1&difficulty=any')
+    })
+
+    const deck = sessionStorage.getItem('whoami-in-person-deck')
+    expect(deck).toContain('ent-1')
   })
 
   it('shows offline message when navigator is offline', async () => {
