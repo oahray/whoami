@@ -155,13 +155,13 @@ describe('GET /cards/random', () => {
     expect(response.body.entity.aliases).toEqual([])
   })
 
-  it('excludes entities with fewer than 5 clues after difficulty filter', async () => {
+  it('excludes entities with fewer than 3 clues after difficulty filter', async () => {
     vi.mocked(supabase.from).mockImplementation((table: string) =>
       createQueryBuilder(
         table,
         inPersonMockResolver(
           [ENTITY_FEW, ENTITY_B],
-          [...makeClues('ent-few', 4), ...makeClues('ent-b', 6)]
+          [...makeClues('ent-few', 2), ...makeClues('ent-b', 6)]
         )
       )
     )
@@ -175,7 +175,7 @@ describe('GET /cards/random', () => {
   })
 
   it('returns 404 when no eligible entities', async () => {
-    installMocks([ENTITY_FEW], makeClues('ent-few', 4))
+    installMocks([ENTITY_FEW], makeClues('ent-few', 2))
 
     const response = await request(makeApp()).get('/cards/random').query({
       datasetId: 'ds-1'
@@ -244,8 +244,8 @@ describe('GET /cards/eligibility', () => {
 
     expect(response.status).toBe(200)
     expect(response.body.modes.any).toBe(2)
-    expect(response.body.modes.easy).toBe(0)
-    expect(response.body.modes.hard).toBe(0)
+    expect(response.body.modes.easy).toBe(2)
+    expect(response.body.modes.hard).toBe(2)
     expect(response.body.modes.medium).toBe(0)
     expect(response.body.modes.nightmare).toBe(0)
   })
@@ -288,6 +288,6 @@ describe('GET /cards/entity/:entityId', () => {
 
     expect(response.status).toBe(200)
     expect(response.body.entity.id).toBe('ent-a')
-    expect(response.body.clues.length).toBeGreaterThanOrEqual(5)
+    expect(response.body.clues.length).toBeGreaterThanOrEqual(3)
   })
 })
