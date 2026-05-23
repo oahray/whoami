@@ -4,6 +4,7 @@ import { useGame } from '../hooks/useGame'
 import { useSocket } from '../hooks/useSocket'
 import { getErrorMessage, isFatalError } from '../utils/errorMessages'
 import IosInstallHint from '../components/IosInstallHint'
+import Logo from '../components/Logo'
 
 function Home() {
   const navigate = useNavigate()
@@ -150,9 +151,7 @@ function Home() {
 
       <div className="flex flex-1 flex-col items-center justify-center p-6 pb-12">
         <div className="mb-8 flex flex-col items-center">
-          <div className="w-20 h-20 bg-white rounded-3xl shadow-xl flex items-center justify-center mb-4">
-            <span className="material-symbols-outlined text-primary text-5xl">auto_stories</span>
-          </div>
+          <Logo className="mb-4 h-32 w-32 object-contain sm:h-40 sm:w-40" />
           <h1 className="text-white text-3xl font-bold tracking-tight text-center">Who Am I?</h1>
           <p className="text-white/80 text-base font-medium text-center mt-1">The Ultimate Bible Character Quiz</p>
         </div>

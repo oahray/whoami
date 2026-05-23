@@ -128,6 +128,19 @@ describe('Home', () => {
     expect(localStorage.getItem('whoami_room')).not.toBeNull()
   })
 
+  it('shows the brand logo in the hero', () => {
+    render(
+      <MemoryRouter>
+        <Home />
+      </MemoryRouter>
+    )
+
+    expect(screen.getByRole('img', { name: /who am i\?/i })).toHaveAttribute(
+      'src',
+      '/brand-logo.svg'
+    )
+  })
+
   it('links to play in person and about', () => {
     render(
       <MemoryRouter>
