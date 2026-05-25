@@ -23,6 +23,15 @@ export default {
         '3xl': '2.5rem',
         full: '9999px',
       },
+      keyframes: {
+        'loading-dot': {
+          '0%, 70%, 100%': { opacity: '0.2' },
+          '35%': { opacity: '1' },
+        },
+      },
+      animation: {
+        'loading-dot': 'loading-dot 1.1s ease-in-out infinite',
+      },
     },
   },
   plugins: [],

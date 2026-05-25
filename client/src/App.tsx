@@ -1,5 +1,5 @@
+import { lazy, ReactNode, Suspense } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { ReactNode } from 'react'
 import { AuthProvider } from './context/AuthContext'
 import { GameProvider } from './context/GameContext'
 import { AdminDatasetProvider } from './context/AdminDatasetContext'
@@ -9,16 +9,18 @@ import PlaySetup from './pages/PlaySetup'
 import PlayCards from './pages/PlayCards'
 import Lobby from './pages/Lobby'
 import Game from './pages/Game'
-import AdminLogin from './pages/AdminLogin'
-import AdminDashboard from './pages/AdminDashboard'
-import AdminDatasets from './pages/AdminDatasets'
-import AdminEntities from './pages/AdminEntities'
-import AdminEntityEditor from './pages/AdminEntityEditor'
-import AdminPreview from './pages/AdminPreview'
-import AdminBulkImport from './pages/AdminBulkImport'
 import ProtectedRoute from './components/ProtectedRoute'
 import ReconnectingIndicator from './components/ReconnectingIndicator'
+import RouteFallback from './components/RouteFallback'
 import UpdatePrompt from './pwa/UpdatePrompt'
+
+const AdminLogin = lazy(() => import('./pages/AdminLogin'))
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'))
+const AdminDatasets = lazy(() => import('./pages/AdminDatasets'))
+const AdminEntities = lazy(() => import('./pages/AdminEntities'))
+const AdminEntityEditor = lazy(() => import('./pages/AdminEntityEditor'))
+const AdminPreview = lazy(() => import('./pages/AdminPreview'))
+const AdminBulkImport = lazy(() => import('./pages/AdminBulkImport'))
 
 function AdminRoute({ children }: { children: ReactNode }) {
   return (
@@ -37,79 +39,81 @@ function App() {
           <div className="flex min-h-screen flex-col">
             <ReconnectingIndicator />
             <div className="flex flex-1 flex-col">
-              <Routes>
-                <Route path="/" element={<Home />} />
-                <Route path="/about" element={<About />} />
-                <Route path="/play" element={<PlaySetup />} />
-                <Route path="/play/cards" element={<PlayCards />} />
-                <Route path="/lobby" element={<Lobby />} />
-                <Route path="/game" element={<Game />} />
-                <Route path="/admin/login" element={<AdminLogin />} />
-                <Route
-                  path="/admin"
-                  element={
-                    <AdminRoute>
-                      <AdminDashboard />
-                    </AdminRoute>
-                  }
-                />
-                <Route
-                  path="/admin/datasets"
-                  element={
-                    <AdminRoute>
-                      <AdminDatasets />
-                    </AdminRoute>
-                  }
-                />
-                <Route
-                  path="/admin/datasets/:datasetId"
-                  element={
-                    <AdminRoute>
-                      <AdminDashboard />
-                    </AdminRoute>
-                  }
-                />
-                <Route
-                  path="/admin/entities/new"
-                  element={
-                    <AdminRoute>
-                      <AdminEntityEditor />
-                    </AdminRoute>
-                  }
-                />
-                <Route
-                  path="/admin/entities/:id/preview"
-                  element={
-                    <AdminRoute>
-                      <AdminPreview />
-                    </AdminRoute>
-                  }
-                />
-                <Route
-                  path="/admin/entities/:id"
-                  element={
-                    <AdminRoute>
-                      <AdminEntityEditor />
-                    </AdminRoute>
-                  }
-                />
-                <Route
-                  path="/admin/entities"
-                  element={
-                    <AdminRoute>
-                      <AdminEntities />
-                    </AdminRoute>
-                  }
-                />
-                <Route
-                  path="/admin/bulk-import"
-                  element={
-                    <AdminRoute>
-                      <AdminBulkImport />
-                    </AdminRoute>
-                  }
-                />
-              </Routes>
+              <Suspense fallback={<RouteFallback />}>
+                <Routes>
+                  <Route path="/" element={<Home />} />
+                  <Route path="/about" element={<About />} />
+                  <Route path="/play" element={<PlaySetup />} />
+                  <Route path="/play/cards" element={<PlayCards />} />
+                  <Route path="/lobby" element={<Lobby />} />
+                  <Route path="/game" element={<Game />} />
+                  <Route path="/admin/login" element={<AdminLogin />} />
+                  <Route
+                    path="/admin"
+                    element={
+                      <AdminRoute>
+                        <AdminDashboard />
+                      </AdminRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/datasets"
+                    element={
+                      <AdminRoute>
+                        <AdminDatasets />
+                      </AdminRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/datasets/:datasetId"
+                    element={
+                      <AdminRoute>
+                        <AdminDashboard />
+                      </AdminRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/entities/new"
+                    element={
+                      <AdminRoute>
+                        <AdminEntityEditor />
+                      </AdminRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/entities/:id/preview"
+                    element={
+                      <AdminRoute>
+                        <AdminPreview />
+                      </AdminRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/entities/:id"
+                    element={
+                      <AdminRoute>
+                        <AdminEntityEditor />
+                      </AdminRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/entities"
+                    element={
+                      <AdminRoute>
+                        <AdminEntities />
+                      </AdminRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/bulk-import"
+                    element={
+                      <AdminRoute>
+                        <AdminBulkImport />
+                      </AdminRoute>
+                    }
+                  />
+                </Routes>
+              </Suspense>
             </div>
           </div>
         </BrowserRouter>

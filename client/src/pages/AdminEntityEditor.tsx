@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import LoadingState from '../components/LoadingState'
 import { useAuth } from '../context/AuthContext'
 import { useAdminDataset } from '../context/AdminDatasetContext'
 import { AdminLayout } from '../components/AdminLayout'
@@ -242,7 +243,9 @@ function AdminEntityEditor() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background-light font-display flex items-center justify-center">
-        <div className="text-slate-600">Loading...</div>
+        <div className="flex items-center justify-center py-24">
+          <LoadingState label="Loading" layout="inline" />
+        </div>
       </div>
     )
   }

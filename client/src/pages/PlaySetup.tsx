@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import LoadingState from '../components/LoadingState'
 import { API_BASE_URL } from '../lib/apiBase'
 import {
   fetchInPersonEligibility,
@@ -159,7 +160,7 @@ function PlaySetup() {
         )}
 
         {loading && (
-          <p className="text-slate-600 text-sm text-center py-8">Loading content…</p>
+          <LoadingState label="Loading content" layout="page" className="flex-none py-8" />
         )}
 
         {error && (
@@ -226,7 +227,14 @@ function PlaySetup() {
                 })}
               </select>
               {eligibilityLoading && (
-                <p className="text-xs text-slate-500 mt-1">Checking available characters…</p>
+                <div className="mt-1">
+                  <LoadingState
+                    label="Checking available characters"
+                    layout="compact"
+                    showSpinner
+                    showEllipsis
+                  />
+                </div>
               )}
               {!eligibilityLoading && eligibility && selectedCount > 0 && (
                 <p className="text-xs text-slate-500 mt-1">

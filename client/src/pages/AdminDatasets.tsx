@@ -1,5 +1,6 @@
 import { FormEvent, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import LoadingState from '../components/LoadingState'
 import { useAuth } from '../context/AuthContext'
 import { useAdminDataset } from '../context/AdminDatasetContext'
 import { AdminLayout } from '../components/AdminLayout'
@@ -238,7 +239,7 @@ function AdminDatasets() {
           </div>
           <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50 text-slate-500 text-sm">
             <span>{datasets.length} dataset{datasets.length === 1 ? '' : 's'}</span>
-            {loading && <span>Refreshing…</span>}
+            {loading && <LoadingState label="Refreshing" layout="compact" />}
           </div>
         </div>
       </section>

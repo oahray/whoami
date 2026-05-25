@@ -4,6 +4,7 @@ import { useGame } from '../hooks/useGame'
 import { useSocket } from '../hooks/useSocket'
 import { getErrorMessage, isFatalError } from '../utils/errorMessages'
 import IosInstallHint from '../components/IosInstallHint'
+import LoadingState from '../components/LoadingState'
 import Logo from '../components/Logo'
 
 function Home() {
@@ -195,8 +196,14 @@ function Home() {
               disabled={loading || !nickname.trim() || !joinCode.trim() || !connected}
               className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-5 rounded-lg shadow-lg shadow-primary/30 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
             >
-              <span>{loading ? 'Joining...' : 'Join Room'}</span>
-              <span className="material-symbols-outlined">login</span>
+              {loading ? (
+                <LoadingState label="Joining" layout="inline" className="text-white" />
+              ) : (
+                <>
+                  <span>Join Room</span>
+                  <span className="material-symbols-outlined">login</span>
+                </>
+              )}
             </button>
           </form>
 

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import LoadingState from '../components/LoadingState'
 import { API_BASE_URL } from '../lib/apiBase'
 import {
   currentEntityId,
@@ -239,9 +240,11 @@ function PlayCards() {
         )}
 
         {loading && (
-          <div className="flex-1 flex items-center justify-center text-slate-600 text-sm">
-            {reshuffling ? 'Shuffling deck…' : 'Loading card…'}
-          </div>
+          <LoadingState
+            label={reshuffling ? 'Shuffling deck' : 'Loading card'}
+            layout="page"
+            className="flex-1"
+          />
         )}
 
         {error && !loading && (
