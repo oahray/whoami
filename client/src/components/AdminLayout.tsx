@@ -1,5 +1,6 @@
-import { ReactNode } from 'react'
+import { ReactNode, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
+import AdminActiveDatasetBar from './AdminActiveDatasetBar'
 import { useAuth } from '../context/AuthContext'
 import { useAdminDataset } from '../context/AdminDatasetContext'
 
@@ -29,7 +30,16 @@ export function AdminLayout({ children, breadcrumb, title = 'Admin' }: AdminLayo
   const navigate = useNavigate()
   const location = useLocation()
   const { user, signOut } = useAuth()
-  const { enabledDatasets, selectedDatasetId, selectedDataset, setSelectedDatasetId } = useAdminDataset()
+  const { setSelectedDatasetId } = useAdminDataset()
+
+  const isDatasetListPage = location.pathname === '/admin/datasets'
+
+  useEffect(() => {
+    const match = location.pathname.match(/^\/admin\/datasets\/([^/]+)/)
+    if (match?.[1]) {
+      setSelectedDatasetId(match[1])
+    }
+  }, [location.pathname, setSelectedDatasetId])
 
   const handleSignOut = async () => {
     await signOut()
@@ -41,7 +51,6 @@ export function AdminLayout({ children, breadcrumb, title = 'Admin' }: AdminLayo
     return location.pathname === item.path || location.pathname.startsWith(item.path + '/')
   }
 
-  const showSwitcher = enabledDatasets.length > 1
   void title
 
   return (
@@ -92,14 +101,8 @@ export function AdminLayout({ children, breadcrumb, title = 'Admin' }: AdminLayo
         {/* Top bar: breadcrumb (desktop) / email + sign out icon (mobile) */}
         <header className="sticky top-0 z-40 bg-white border-b border-slate-200 px-4 md:px-6 py-3 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0 flex-1">
-            <div className="hidden md:flex text-sm text-slate-500 min-w-0 items-center gap-2">
+            <div className="hidden md:flex text-sm text-slate-500 min-w-0">
               <span className="truncate">{breadcrumb}</span>
-              {selectedDataset && (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 text-primary px-2 py-0.5 text-xs font-semibold">
-                  <span className="material-symbols-outlined text-sm leading-none">collections_bookmark</span>
-                  {selectedDataset.name}
-                </span>
-              )}
             </div>
             <div className="md:hidden flex items-center gap-2">
               <span className="material-symbols-outlined">menu_book</span>
@@ -110,20 +113,6 @@ export function AdminLayout({ children, breadcrumb, title = 'Admin' }: AdminLayo
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            {showSwitcher && (
-              <select
-                value={selectedDatasetId ?? ''}
-                onChange={(e) => setSelectedDatasetId(e.target.value || null)}
-                className="hidden md:block bg-white border border-slate-200 rounded-lg text-sm py-2 px-3 text-slate-700 font-medium focus:ring-2 focus:ring-primary/20"
-                title="Active dataset"
-              >
-                {enabledDatasets.map((dataset) => (
-                  <option key={dataset.id} value={dataset.id}>
-                    {dataset.name}
-                  </option>
-                ))}
-              </select>
-            )}
             <button
               type="button"
               onClick={handleSignOut}
@@ -134,6 +123,8 @@ export function AdminLayout({ children, breadcrumb, title = 'Admin' }: AdminLayo
             </button>
           </div>
         </header>
+
+        <AdminActiveDatasetBar hidden={isDatasetListPage} />
 
         <main className="flex-1 p-4 md:p-6 overflow-auto">
           {children}

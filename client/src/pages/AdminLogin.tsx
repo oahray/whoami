@@ -1,6 +1,7 @@
 import { useState, FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import LoadingState from '../components/LoadingState'
+import Logo from '../components/Logo'
 import { useAuth } from '../context/AuthContext'
 
 function AdminLogin() {
@@ -47,9 +48,13 @@ function AdminLogin() {
   }
 
   return (
-    <div className="min-h-screen bg-background-light font-display flex items-center justify-center p-4">
-      <div className="bg-white p-8 rounded-lg shadow-lg border border-slate-100 w-full max-w-md">
-        <h1 className="text-2xl font-bold mb-6 text-center text-slate-900">Admin Login</h1>
+    <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background-light to-indigo-50 font-display flex items-center justify-center p-4">
+      <div className="bg-white p-8 rounded-2xl shadow-xl border border-slate-100 w-full max-w-md">
+        <div className="flex flex-col items-center mb-8">
+          <Logo className="h-24 w-24 object-contain sm:h-28 sm:w-28" title="Who Am I?" />
+          <p className="mt-3 text-primary font-bold text-lg tracking-tight">Who Am I?</p>
+          <h1 className="mt-1 text-xl font-semibold text-slate-700">Admin</h1>
+        </div>
 
         {error && (
           <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-sm">

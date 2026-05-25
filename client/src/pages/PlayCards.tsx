@@ -11,12 +11,8 @@ import {
   saveDeckSession,
   type InPersonDeckSession
 } from '../lib/inPersonDeck'
+import { IN_PERSON_MASK_PLACEHOLDER } from '../lib/inPersonMask'
 import type { InPersonCard } from '../types'
-
-function maskLabel(text: string): string {
-  const len = Math.max(text.trim().length, 1)
-  return '*'.repeat(len)
-}
 
 function PlayCards() {
   const navigate = useNavigate()
@@ -289,7 +285,7 @@ function PlayCards() {
                     className="text-slate-400 text-2xl md:text-3xl font-black tracking-widest leading-tight"
                     aria-hidden
                   >
-                    {maskLabel(card.entity.name)}
+                    {IN_PERSON_MASK_PLACEHOLDER}
                   </p>
                   {card.entity.aliases.map((alias) => (
                     <p
@@ -297,7 +293,7 @@ function PlayCards() {
                       className="text-slate-300 text-base md:text-lg font-semibold tracking-widest mt-0.5 md:mt-1"
                       aria-hidden
                     >
-                      {maskLabel(alias)}
+                      {IN_PERSON_MASK_PLACEHOLDER}
                     </p>
                   ))}
                 </>
