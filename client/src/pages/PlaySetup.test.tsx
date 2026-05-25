@@ -79,7 +79,9 @@ describe('PlaySetup', () => {
     fireEvent.click(screen.getByRole('button', { name: /start cards/i }))
 
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/play/cards?datasetId=ds-1&difficulty=any')
+      expect(mockNavigate).toHaveBeenCalledWith(
+        '/play/cards?datasetId=ds-1&difficulty=any&entityType=character'
+      )
     })
 
     const deck = sessionStorage.getItem('whoami-in-person-deck')

@@ -137,6 +137,20 @@ describe('handleUpdateSettings', () => {
     expect(socket.emit).not.toHaveBeenCalledWith('ROOM_ERROR', expect.anything())
   })
 
+  it('updates entityType for the host', async () => {
+    const room = createRoom('host-socket', 'Host')
+    const emitToRoom = vi.fn()
+    const io = { to: vi.fn(() => ({ emit: emitToRoom })) } as any
+    const socket = { id: 'host-socket', emit: vi.fn() } as any
+
+    vi.mocked(getRoomBySocket).mockReturnValue(room)
+
+    await handleUpdateSettings(io, socket, { entityType: 'place' })
+
+    expect(room.settings.entityType).toBe('place')
+    expect(emitToRoom).toHaveBeenCalledWith('SETTINGS_UPDATED', room.settings)
+  })
+
   it('rejects datasetId when the dataset is disabled', async () => {
     const room = createRoom('host-socket', 'Host')
     const io = { to: vi.fn(() => ({ emit: vi.fn() })) } as any

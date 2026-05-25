@@ -52,7 +52,8 @@ export async function handleUpdateSettings(io: Server, socket: Socket, payload: 
       strictMode,
       transparencyMode,
       maxGuessesPerRound,
-      datasetId
+      datasetId,
+      entityType
     } = payload
 
     if (roundDuration !== undefined) {
@@ -123,6 +124,17 @@ export async function handleUpdateSettings(io: Server, socket: Socket, payload: 
         return
       }
       room.settings.maxGuessesPerRound = maxGuessesPerRound
+    }
+
+    if (entityType !== undefined) {
+      if (!['character', 'place', 'all'].includes(entityType)) {
+        socket.emit('ROOM_ERROR', {
+          code: 'INVALID_SETTINGS',
+          message: 'Invalid entity type'
+        })
+        return
+      }
+      room.settings.entityType = entityType
     }
 
     if (datasetId !== undefined) {

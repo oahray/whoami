@@ -22,6 +22,8 @@ interface RoomSettings {
   maxGuessesPerRound: number
   /** Dataset (content set) the room is scoped to; null until the host picks one. */
   datasetId: string | null
+  /** Which entity types are drawn into rounds. Default: characters only. */
+  entityType: 'character' | 'place' | 'all'
 }
 
 interface GameState {

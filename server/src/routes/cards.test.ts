@@ -51,6 +51,14 @@ const ENTITY_B = {
   dataset_id: 'ds-1'
 }
 
+const ENTITY_PLACE = {
+  id: 'ent-place',
+  name: 'Jerusalem',
+  type: 'place',
+  is_published: true,
+  dataset_id: 'ds-1'
+}
+
 const ENTITY_FEW = {
   id: 'ent-few',
   name: 'Sparse',
@@ -249,6 +257,35 @@ describe('GET /cards/eligibility', () => {
     expect(response.body.modes.medium).toBe(0)
     expect(response.body.modes.nightmare).toBe(0)
   })
+
+  it('defaults to characters and excludes places', async () => {
+    installMocks(
+      [ENTITY_A, ENTITY_PLACE],
+      [...makeClues('ent-a', 6), ...makeClues('ent-place', 6)]
+    )
+
+    const response = await request(makeApp()).get('/cards/eligibility').query({
+      datasetId: 'ds-1'
+    })
+
+    expect(response.status).toBe(200)
+    expect(response.body.modes.any).toBe(1)
+  })
+
+  it('counts only places when entityType is place', async () => {
+    installMocks(
+      [ENTITY_A, ENTITY_PLACE],
+      [...makeClues('ent-a', 6), ...makeClues('ent-place', 6)]
+    )
+
+    const response = await request(makeApp()).get('/cards/eligibility').query({
+      datasetId: 'ds-1',
+      entityType: 'place'
+    })
+
+    expect(response.status).toBe(200)
+    expect(response.body.modes.any).toBe(1)
+  })
 })
 
 describe('GET /cards/deck', () => {
@@ -270,6 +307,22 @@ describe('GET /cards/deck', () => {
     expect(response.status).toBe(200)
     expect(response.body.entityIds).toHaveLength(2)
     expect(response.body.entityIds).toEqual(expect.arrayContaining(['ent-a', 'ent-b']))
+  })
+
+  it('filters deck to places when entityType is place', async () => {
+    installMocks(
+      [ENTITY_A, ENTITY_PLACE],
+      [...makeClues('ent-a', 6), ...makeClues('ent-place', 6)]
+    )
+
+    const response = await request(makeApp()).get('/cards/deck').query({
+      datasetId: 'ds-1',
+      difficulty: 'any',
+      entityType: 'place'
+    })
+
+    expect(response.status).toBe(200)
+    expect(response.body.entityIds).toEqual(['ent-place'])
   })
 })
 

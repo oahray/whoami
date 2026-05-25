@@ -11,6 +11,7 @@ import {
   saveDeckSession,
   type InPersonDeckSession
 } from '../lib/inPersonDeck'
+import { DEFAULT_ENTITY_TYPE_FILTER, type EntityTypeFilter } from '../lib/entityTypeFilter'
 import { IN_PERSON_MASK_PLACEHOLDER } from '../lib/inPersonMask'
 import type { InPersonCard } from '../types'
 
@@ -19,6 +20,8 @@ function PlayCards() {
   const [searchParams] = useSearchParams()
   const datasetId = searchParams.get('datasetId') ?? ''
   const difficulty = searchParams.get('difficulty') ?? 'any'
+  const entityType = (searchParams.get('entityType') ??
+    DEFAULT_ENTITY_TYPE_FILTER) as EntityTypeFilter
 
   const [card, setCard] = useState<InPersonCard | null>(null)
   const [deckSession, setDeckSession] = useState<InPersonDeckSession | null>(null)
@@ -34,10 +37,14 @@ function PlayCards() {
   const cluesScrollRef = useRef<HTMLElement>(null)
 
   const syncDeckSession = useCallback(() => {
-    const session = loadDeckSession(datasetId, difficulty as InPersonDeckSession['difficulty'])
+    const session = loadDeckSession(
+      datasetId,
+      difficulty as InPersonDeckSession['difficulty'],
+      entityType
+    )
     setDeckSession(session)
     return session
-  }, [datasetId, difficulty])
+  }, [datasetId, difficulty, entityType])
 
   const loadCardForEntity = useCallback(
     async (entityId: string) => {
@@ -59,7 +66,7 @@ function PlayCards() {
       setRevealedCount(1)
       setDeckComplete(false)
 
-      const params = new URLSearchParams({ datasetId, difficulty })
+      const params = new URLSearchParams({ datasetId, difficulty, entityType })
       try {
         const res = await fetch(
           `${API_BASE_URL}/cards/entity/${encodeURIComponent(entityId)}?${params.toString()}`
@@ -81,7 +88,7 @@ function PlayCards() {
         setLoading(false)
       }
     },
-    [datasetId, difficulty]
+    [datasetId, difficulty, entityType]
   )
 
   const loadCurrentCard = useCallback(async () => {
@@ -177,7 +184,8 @@ function PlayCards() {
     try {
       const session = await fetchInPersonDeck(
         datasetId,
-        difficulty as InPersonDeckSession['difficulty']
+        difficulty as InPersonDeckSession['difficulty'],
+        entityType
       )
       setDeckSession(session)
       setDeckComplete(false)

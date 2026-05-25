@@ -9,6 +9,14 @@ import {
   isDifficultyPlayable,
   type InPersonEligibility
 } from '../lib/inPersonEligibility'
+import {
+  DEFAULT_ENTITY_TYPE_FILTER,
+  ENTITY_TYPE_FIELD_LABEL,
+  ENTITY_TYPE_HINT_IN_PERSON,
+  ENTITY_TYPE_OPTIONS,
+  entityTypeCountLabel,
+  type EntityTypeFilter
+} from '../lib/entityTypeFilter'
 import { fetchInPersonDeck } from '../lib/inPersonDeck'
 import type { GameDifficultyMode, PublicDataset } from '../types'
 
@@ -16,6 +24,7 @@ function PlaySetup() {
   const navigate = useNavigate()
   const [datasets, setDatasets] = useState<PublicDataset[]>([])
   const [datasetId, setDatasetId] = useState('')
+  const [entityType, setEntityType] = useState<EntityTypeFilter>(DEFAULT_ENTITY_TYPE_FILTER)
   const [difficulty, setDifficulty] = useState<GameDifficultyMode>('any')
   const [eligibility, setEligibility] = useState<InPersonEligibility | null>(null)
   const [loading, setLoading] = useState(true)
@@ -86,7 +95,7 @@ function PlaySetup() {
     setEligibilityLoading(true)
     setError(null)
 
-    fetchInPersonEligibility(datasetId)
+    fetchInPersonEligibility(datasetId, entityType)
       .then((data) => {
         if (cancelled) return
         setEligibility(data)
@@ -108,15 +117,15 @@ function PlaySetup() {
     return () => {
       cancelled = true
     }
-  }, [datasetId, offline])
+  }, [datasetId, entityType, offline, difficulty])
 
   const handleStart = async () => {
     if (!canStart) return
     setStarting(true)
     setError(null)
     try {
-      await fetchInPersonDeck(datasetId, difficulty)
-      const params = new URLSearchParams({ datasetId, difficulty })
+      await fetchInPersonDeck(datasetId, difficulty, entityType)
+      const params = new URLSearchParams({ datasetId, difficulty, entityType })
       navigate(`/play/cards?${params.toString()}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start cards')
@@ -206,6 +215,26 @@ function PlaySetup() {
             )}
 
             <div>
+              <label htmlFor="playEntityType" className="block text-slate-700 text-sm font-semibold mb-2">
+                {ENTITY_TYPE_FIELD_LABEL}
+              </label>
+              <select
+                id="playEntityType"
+                value={entityType}
+                onChange={(e) => setEntityType(e.target.value as EntityTypeFilter)}
+                disabled={eligibilityLoading || Boolean(noPlayableModes)}
+                className="w-full bg-slate-50 border-0 rounded-lg text-slate-900 focus:ring-2 focus:ring-primary py-2.5 px-3 disabled:opacity-60"
+              >
+                {ENTITY_TYPE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-slate-500 mt-1">{ENTITY_TYPE_HINT_IN_PERSON}</p>
+            </div>
+
+            <div>
               <label htmlFor="playDifficulty" className="block text-slate-700 text-sm font-semibold mb-2">
                 Difficulty
               </label>
@@ -229,7 +258,7 @@ function PlaySetup() {
               {eligibilityLoading && (
                 <div className="mt-1">
                   <LoadingState
-                    label="Checking available characters"
+                    label="Checking available cards"
                     layout="compact"
                     showSpinner
                     showEllipsis
@@ -238,8 +267,7 @@ function PlaySetup() {
               )}
               {!eligibilityLoading && eligibility && selectedCount > 0 && (
                 <p className="text-xs text-slate-500 mt-1">
-                  {selectedCount} character{selectedCount === 1 ? '' : 's'} in this deck. Clues are
-                  shuffled every card.
+                  {entityTypeCountLabel(entityType, selectedCount)}. Clues are shuffled every card.
                 </p>
               )}
               {!eligibilityLoading && noPlayableModes && (
@@ -252,7 +280,7 @@ function PlaySetup() {
                 !noPlayableModes &&
                 selectedCount === 0 && (
                   <p className="text-xs text-amber-700 mt-1">
-                    No characters have enough clues for this difficulty. Choose another.
+                    No entities have enough clues for this difficulty. Choose another.
                   </p>
                 )}
             </div>

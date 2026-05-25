@@ -1,4 +1,8 @@
 import { supabase } from './supabase.js'
+import {
+  entityMatchesTypeFilter,
+  type EntityTypeFilter
+} from '../game/entityTypeFilter.js'
 import { shuffle } from '../game/shuffle.js'
 
 type Difficulty = 'easy' | 'medium' | 'hard' | 'nightmare'
@@ -81,7 +85,8 @@ export async function getPublishedEntities(): Promise<Entity[]> {
 export async function getPublishedEntitiesForGamePool(
   mode: GameDifficultyMode,
   maxEntities: number,
-  datasetId: string
+  datasetId: string,
+  entityType: EntityTypeFilter = 'character'
 ): Promise<Entity[]> {
   const { data, error } = await supabase
     .from('entities')
@@ -123,7 +128,9 @@ export async function getPublishedEntitiesForGamePool(
     if (count >= 2) eligibleIds.add(entityId)
   }
 
-  const filtered = datasetEntities.filter((e) => eligibleIds.has(e.id))
+  const filtered = datasetEntities
+    .filter((e) => eligibleIds.has(e.id))
+    .filter((e) => entityMatchesTypeFilter(e.type, entityType))
   return shuffle(filtered).slice(0, maxEntities)
 }
 

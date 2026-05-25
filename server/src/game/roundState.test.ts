@@ -288,7 +288,8 @@ describe('roundState unit', () => {
     expect(buildEntityPool).toHaveBeenCalledWith(
       room.settings.difficultyMode,
       room.settings.totalRounds,
-      DEFAULT_DATASET.id
+      DEFAULT_DATASET.id,
+      'character'
     )
   })
 
