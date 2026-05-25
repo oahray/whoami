@@ -1,9 +1,11 @@
 import { API_BASE_URL } from './apiBase'
+import { DEFAULT_ENTITY_TYPE_FILTER, type EntityTypeFilter } from './entityTypeFilter'
 import type { GameDifficultyMode } from '../types'
 
 export type InPersonDeckSession = {
   datasetId: string
   difficulty: GameDifficultyMode
+  entityType: EntityTypeFilter
   entityIds: string[]
   index: number
 }
@@ -16,16 +18,22 @@ export function saveDeckSession(session: InPersonDeckSession): void {
 
 export function loadDeckSession(
   datasetId: string,
-  difficulty: GameDifficultyMode
+  difficulty: GameDifficultyMode,
+  entityType: EntityTypeFilter = DEFAULT_ENTITY_TYPE_FILTER
 ): InPersonDeckSession | null {
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY)
     if (!raw) return null
     const session = JSON.parse(raw) as InPersonDeckSession
-    if (session.datasetId !== datasetId || session.difficulty !== difficulty) {
+    const sessionEntityType = session.entityType ?? DEFAULT_ENTITY_TYPE_FILTER
+    if (
+      session.datasetId !== datasetId ||
+      session.difficulty !== difficulty ||
+      sessionEntityType !== entityType
+    ) {
       return null
     }
-    return session
+    return { ...session, entityType: sessionEntityType }
   } catch {
     return null
   }
@@ -52,9 +60,10 @@ export function deckProgressLabel(session: InPersonDeckSession): string {
 
 export async function fetchInPersonDeck(
   datasetId: string,
-  difficulty: GameDifficultyMode
+  difficulty: GameDifficultyMode,
+  entityType: EntityTypeFilter = DEFAULT_ENTITY_TYPE_FILTER
 ): Promise<InPersonDeckSession> {
-  const params = new URLSearchParams({ datasetId, difficulty })
+  const params = new URLSearchParams({ datasetId, difficulty, entityType })
   const res = await fetch(`${API_BASE_URL}/cards/deck?${params.toString()}`)
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
@@ -64,6 +73,7 @@ export async function fetchInPersonDeck(
   const session: InPersonDeckSession = {
     datasetId,
     difficulty,
+    entityType,
     entityIds,
     index: 0
   }

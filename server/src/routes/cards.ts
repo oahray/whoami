@@ -1,5 +1,6 @@
 import { Router, type Response } from 'express'
 import { parseDifficultyMode } from '../db/entities.js'
+import { parseEntityTypeFilter } from '../game/entityTypeFilter.js'
 import {
   buildInPersonCardForEntity,
   getInPersonDeck,
@@ -18,6 +19,10 @@ function parseDatasetId(raw: unknown): string {
 function parseDifficultyQuery(raw: unknown) {
   if (raw === undefined || raw === '') return 'any' as const
   return parseDifficultyMode(raw)
+}
+
+function parseEntityTypeQuery(raw: unknown) {
+  return parseEntityTypeFilter(raw)
 }
 
 function handleInPersonError(error: unknown, res: Response, context: string) {
@@ -40,7 +45,11 @@ router.get('/cards/eligibility', async (req, res) => {
     if (!datasetId) {
       return res.status(400).json({ error: 'datasetId is required' })
     }
-    const eligibility = await getInPersonEligibility(datasetId)
+    const entityType = parseEntityTypeQuery(req.query.entityType)
+    if (!entityType) {
+      return res.status(400).json({ error: 'Invalid entity type' })
+    }
+    const eligibility = await getInPersonEligibility(datasetId, entityType)
     res.json(eligibility)
   } catch (error) {
     return handleInPersonError(error, res, 'Failed to fetch eligibility')
@@ -57,7 +66,11 @@ router.get('/cards/deck', async (req, res) => {
     if (!difficultyMode) {
       return res.status(400).json({ error: 'Invalid difficulty' })
     }
-    const deck = await getInPersonDeck(datasetId, difficultyMode)
+    const entityType = parseEntityTypeQuery(req.query.entityType)
+    if (!entityType) {
+      return res.status(400).json({ error: 'Invalid entity type' })
+    }
+    const deck = await getInPersonDeck(datasetId, difficultyMode, entityType)
     res.json(deck)
   } catch (error) {
     return handleInPersonError(error, res, 'Failed to fetch deck')
@@ -106,9 +119,15 @@ router.get('/cards/random', async (req, res) => {
         ? req.query.excludeEntityId.trim()
         : undefined
 
+    const entityType = parseEntityTypeQuery(req.query.entityType)
+    if (!entityType) {
+      return res.status(400).json({ error: 'Invalid entity type' })
+    }
+
     const card = await getRandomInPersonCard({
       datasetId,
       difficultyMode,
+      entityType,
       excludeEntityId
     })
 

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import LoadingState from '../components/LoadingState'
 import { useAuth } from '../context/AuthContext'
 import { useAdminDataset } from '../context/AdminDatasetContext'
 import { AdminLayout } from '../components/AdminLayout'
@@ -174,8 +175,14 @@ function AdminBulkImport() {
                 disabled={loading || !jsonInput.trim()}
                 className="w-full bg-primary text-white py-3 px-4 rounded-lg font-bold shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/90 transition-colors flex items-center justify-center gap-2"
               >
-                <span className="material-symbols-outlined">upload_file</span>
-                {loading ? 'Importing...' : 'Import Entities'}
+                {loading ? (
+                  <LoadingState label="Importing" layout="inline" className="text-white" />
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined">upload_file</span>
+                    Import Entities
+                  </>
+                )}
               </button>
             </div>
           </section>
@@ -253,10 +260,16 @@ function AdminBulkImport() {
           onClick={handleImport}
           disabled={loading || !jsonInput.trim()}
           className="flex items-center justify-center size-14 rounded-full bg-primary text-white font-bold shadow-lg shadow-primary/30 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/90 active:scale-95 transition-transform"
-          title={loading ? 'Importing...' : 'Import Entities'}
-          aria-label={loading ? 'Importing...' : 'Import Entities'}
+          title={loading ? 'Importing' : 'Import Entities'}
+          aria-label={loading ? 'Importing' : 'Import Entities'}
+          aria-busy={loading}
         >
-          <span className="material-symbols-outlined text-2xl">upload_file</span>
+          <span
+            className={`material-symbols-outlined text-2xl ${loading ? 'animate-spin' : ''}`}
+            aria-hidden
+          >
+            {loading ? 'progress_activity' : 'upload_file'}
+          </span>
         </button>
       </div>
     </AdminLayout>

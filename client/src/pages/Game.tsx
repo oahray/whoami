@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import LoadingState from '../components/LoadingState'
 import { useGame } from '../hooks/useGame'
 import { useSocket } from '../hooks/useSocket'
 
@@ -183,7 +184,7 @@ function Game() {
   if (!gameState) {
     return (
       <div className="min-h-screen bg-background-light flex items-center justify-center font-display">
-        <div className="text-slate-600">Loading game...</div>
+        <LoadingState label="Loading game" layout="inline" />
       </div>
     )
   }

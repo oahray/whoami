@@ -7,6 +7,11 @@ import {
 } from '../db/entities.js'
 import { supabase } from '../db/supabase.js'
 import { IN_PERSON_CLUES_MIN, IN_PERSON_CLUES_MAX } from './config.js'
+import {
+  DEFAULT_ENTITY_TYPE_FILTER,
+  entityMatchesTypeFilter,
+  type EntityTypeFilter
+} from './entityTypeFilter.js'
 import { shuffle } from './shuffle.js'
 
 export type InPersonCardPayload = {
@@ -49,7 +54,10 @@ async function assertPlayableDataset(datasetId: string) {
   return dataset
 }
 
-async function fetchPublishedEntities(datasetId: string): Promise<Entity[]> {
+async function fetchPublishedEntities(
+  datasetId: string,
+  entityType: EntityTypeFilter = DEFAULT_ENTITY_TYPE_FILTER
+): Promise<Entity[]> {
   const { data, error } = await supabase
     .from('entities')
     .select('*')
@@ -60,7 +68,7 @@ async function fetchPublishedEntities(datasetId: string): Promise<Entity[]> {
   if (error) {
     throw new Error(`Failed to fetch entities: ${error.message}`)
   }
-  return data ?? []
+  return (data ?? []).filter((e) => entityMatchesTypeFilter(e.type, entityType))
 }
 
 type EntityClueCounts = Record<GameDifficultyMode, number>
@@ -117,19 +125,23 @@ function countEligibleModes(countsByEntity: Map<string, EntityClueCounts>): InPe
   return { modes }
 }
 
-export async function getInPersonEligibility(datasetId: string): Promise<InPersonEligibility> {
+export async function getInPersonEligibility(
+  datasetId: string,
+  entityType: EntityTypeFilter = DEFAULT_ENTITY_TYPE_FILTER
+): Promise<InPersonEligibility> {
   await assertPlayableDataset(datasetId)
-  const entities = await fetchPublishedEntities(datasetId)
+  const entities = await fetchPublishedEntities(datasetId, entityType)
   const countsByEntity = await fetchClueCountsByEntity(entities.map((e) => e.id))
   return countEligibleModes(countsByEntity)
 }
 
 export async function getEligibleEntityIds(
   datasetId: string,
-  mode: GameDifficultyMode
+  mode: GameDifficultyMode,
+  entityType: EntityTypeFilter = DEFAULT_ENTITY_TYPE_FILTER
 ): Promise<string[]> {
   await assertPlayableDataset(datasetId)
-  const entities = await fetchPublishedEntities(datasetId)
+  const entities = await fetchPublishedEntities(datasetId, entityType)
   const countsByEntity = await fetchClueCountsByEntity(entities.map((e) => e.id))
   return entities
     .filter((e) => {
@@ -141,13 +153,14 @@ export async function getEligibleEntityIds(
 
 export async function getInPersonDeck(
   datasetId: string,
-  difficultyMode: GameDifficultyMode
+  difficultyMode: GameDifficultyMode,
+  entityType: EntityTypeFilter = DEFAULT_ENTITY_TYPE_FILTER
 ): Promise<{ entityIds: string[] }> {
-  const entityIds = await getEligibleEntityIds(datasetId, difficultyMode)
+  const entityIds = await getEligibleEntityIds(datasetId, difficultyMode, entityType)
   if (entityIds.length === 0) {
     throw new InPersonPlayError(
       'NO_CARDS',
-      'No published characters with enough clues for this dataset and difficulty'
+      'No published entities with enough clues for this dataset, entity type, and difficulty'
     )
   }
   return { entityIds: shuffle(entityIds) }
@@ -204,18 +217,23 @@ export async function buildInPersonCardForEntity(params: {
 export async function getRandomInPersonCard(params: {
   datasetId: string
   difficultyMode: GameDifficultyMode
+  entityType?: EntityTypeFilter
   excludeEntityId?: string
 }): Promise<InPersonCardPayload> {
-  const { datasetId, difficultyMode, excludeEntityId } = params
-
-  let entityIds = await getEligibleEntityIds(datasetId, difficultyMode)
+  const {
+    datasetId,
+    difficultyMode,
+    excludeEntityId,
+    entityType = DEFAULT_ENTITY_TYPE_FILTER
+  } = params
+  let entityIds = await getEligibleEntityIds(datasetId, difficultyMode, entityType)
   if (excludeEntityId) {
     entityIds = entityIds.filter((id) => id !== excludeEntityId)
   }
   if (entityIds.length === 0) {
     throw new InPersonPlayError(
       'NO_CARDS',
-      'No published characters with enough clues for this dataset and difficulty'
+      'No published entities with enough clues for this dataset, entity type, and difficulty'
     )
   }
 

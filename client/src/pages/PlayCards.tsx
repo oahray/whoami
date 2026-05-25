@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import LoadingState from '../components/LoadingState'
 import { API_BASE_URL } from '../lib/apiBase'
 import {
   currentEntityId,
@@ -10,18 +11,17 @@ import {
   saveDeckSession,
   type InPersonDeckSession
 } from '../lib/inPersonDeck'
+import { DEFAULT_ENTITY_TYPE_FILTER, type EntityTypeFilter } from '../lib/entityTypeFilter'
+import { IN_PERSON_MASK_PLACEHOLDER } from '../lib/inPersonMask'
 import type { InPersonCard } from '../types'
-
-function maskLabel(text: string): string {
-  const len = Math.max(text.trim().length, 1)
-  return '*'.repeat(len)
-}
 
 function PlayCards() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const datasetId = searchParams.get('datasetId') ?? ''
   const difficulty = searchParams.get('difficulty') ?? 'any'
+  const entityType = (searchParams.get('entityType') ??
+    DEFAULT_ENTITY_TYPE_FILTER) as EntityTypeFilter
 
   const [card, setCard] = useState<InPersonCard | null>(null)
   const [deckSession, setDeckSession] = useState<InPersonDeckSession | null>(null)
@@ -37,10 +37,14 @@ function PlayCards() {
   const cluesScrollRef = useRef<HTMLElement>(null)
 
   const syncDeckSession = useCallback(() => {
-    const session = loadDeckSession(datasetId, difficulty as InPersonDeckSession['difficulty'])
+    const session = loadDeckSession(
+      datasetId,
+      difficulty as InPersonDeckSession['difficulty'],
+      entityType
+    )
     setDeckSession(session)
     return session
-  }, [datasetId, difficulty])
+  }, [datasetId, difficulty, entityType])
 
   const loadCardForEntity = useCallback(
     async (entityId: string) => {
@@ -62,7 +66,7 @@ function PlayCards() {
       setRevealedCount(1)
       setDeckComplete(false)
 
-      const params = new URLSearchParams({ datasetId, difficulty })
+      const params = new URLSearchParams({ datasetId, difficulty, entityType })
       try {
         const res = await fetch(
           `${API_BASE_URL}/cards/entity/${encodeURIComponent(entityId)}?${params.toString()}`
@@ -84,7 +88,7 @@ function PlayCards() {
         setLoading(false)
       }
     },
-    [datasetId, difficulty]
+    [datasetId, difficulty, entityType]
   )
 
   const loadCurrentCard = useCallback(async () => {
@@ -180,7 +184,8 @@ function PlayCards() {
     try {
       const session = await fetchInPersonDeck(
         datasetId,
-        difficulty as InPersonDeckSession['difficulty']
+        difficulty as InPersonDeckSession['difficulty'],
+        entityType
       )
       setDeckSession(session)
       setDeckComplete(false)
@@ -239,9 +244,11 @@ function PlayCards() {
         )}
 
         {loading && (
-          <div className="flex-1 flex items-center justify-center text-slate-600 text-sm">
-            {reshuffling ? 'Shuffling deck…' : 'Loading card…'}
-          </div>
+          <LoadingState
+            label={reshuffling ? 'Shuffling deck' : 'Loading card'}
+            layout="page"
+            className="flex-1"
+          />
         )}
 
         {error && !loading && (
@@ -286,7 +293,7 @@ function PlayCards() {
                     className="text-slate-400 text-2xl md:text-3xl font-black tracking-widest leading-tight"
                     aria-hidden
                   >
-                    {maskLabel(card.entity.name)}
+                    {IN_PERSON_MASK_PLACEHOLDER}
                   </p>
                   {card.entity.aliases.map((alias) => (
                     <p
@@ -294,7 +301,7 @@ function PlayCards() {
                       className="text-slate-300 text-base md:text-lg font-semibold tracking-widest mt-0.5 md:mt-1"
                       aria-hidden
                     >
-                      {maskLabel(alias)}
+                      {IN_PERSON_MASK_PLACEHOLDER}
                     </p>
                   ))}
                 </>

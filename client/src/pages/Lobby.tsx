@@ -1,5 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import {
+  ENTITY_TYPE_FIELD_LABEL,
+  ENTITY_TYPE_HINT_LOBBY,
+  ENTITY_TYPE_OPTIONS,
+  entityTypeOptionLabel
+} from '../lib/entityTypeFilter'
 import { useGame } from '../hooks/useGame'
 import { useSocket } from '../hooks/useSocket'
 import type { PublicDataset } from '../types'
@@ -114,6 +120,7 @@ function Lobby() {
       clueRevealTime: 10000,
       totalRounds: 5,
       difficultyMode: 'any',
+      entityType: 'character',
       strictMode: false,
       transparencyMode: 'full'
     })
@@ -411,6 +418,31 @@ function Lobby() {
                   </div>
                 )}
                 <p className="text-xs text-slate-500 mt-1">Filters which clues are used. &quot;Any&quot; uses every clue regardless of difficulty.</p>
+              </div>
+
+              <div>
+                <label htmlFor="entityType" className="block text-slate-700 text-sm font-semibold mb-2">
+                  {ENTITY_TYPE_FIELD_LABEL}
+                </label>
+                {isHost ? (
+                  <select
+                    id="entityType"
+                    value={settings.entityType ?? 'character'}
+                    onChange={(e) => handleUpdateSetting('entityType', e.target.value)}
+                    className="w-full bg-slate-50 border-0 rounded-md text-slate-900 focus:ring-2 focus:ring-primary py-2.5 px-3"
+                  >
+                    {ENTITY_TYPE_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="py-2.5 px-3 bg-slate-50 rounded-lg text-slate-700">
+                    {entityTypeOptionLabel(settings.entityType ?? 'character')}
+                  </div>
+                )}
+                <p className="text-xs text-slate-500 mt-1">{ENTITY_TYPE_HINT_LOBBY}</p>
               </div>
 
               <div className="flex items-center gap-2">

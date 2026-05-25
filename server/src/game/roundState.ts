@@ -45,7 +45,8 @@ export async function startGame(room: RoomState): Promise<void> {
   room.entityPool = (await buildEntityPool(
     room.settings.difficultyMode,
     room.settings.totalRounds,
-    datasetId
+    datasetId,
+    room.settings.entityType
   )) as any
 
   if (room.entityPool.length === 0) {

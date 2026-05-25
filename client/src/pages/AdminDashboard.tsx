@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import LoadingState from '../components/LoadingState'
 import { useAuth } from '../context/AuthContext'
 import { useAdminDataset } from '../context/AdminDatasetContext'
 import { AdminLayout } from '../components/AdminLayout'
@@ -74,7 +75,7 @@ function AdminDashboard() {
     return (
       <AdminLayout breadcrumb={breadcrumb} title="Admin Dashboard">
         <div className="flex items-center justify-center py-24">
-          <div className="text-slate-600">Loading...</div>
+          <LoadingState label="Loading" layout="inline" />
         </div>
       </AdminLayout>
     )

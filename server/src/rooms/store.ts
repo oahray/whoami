@@ -32,6 +32,8 @@ export interface RoomSettings {
    * one is enabled). Validated again at game start.
    */
   datasetId: string | null
+  /** Which entity types are drawn into the game pool. Default: characters only. */
+  entityType: 'character' | 'place' | 'all'
 }
 
 export interface RoundState {
@@ -118,7 +120,8 @@ export function createRoom(hostId: string, hostNickname: string): RoomState {
       strictMode: false,
       transparencyMode: 'full',
       maxGuessesPerRound: 10,
-      datasetId: null
+      datasetId: null,
+      entityType: 'character'
     },
     status: 'waiting',
     currentRound: null,

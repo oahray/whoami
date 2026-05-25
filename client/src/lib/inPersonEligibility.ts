@@ -1,4 +1,5 @@
 import { API_BASE_URL } from './apiBase'
+import { DEFAULT_ENTITY_TYPE_FILTER, type EntityTypeFilter } from './entityTypeFilter'
 import type { GameDifficultyMode } from '../types'
 
 export type InPersonEligibility = {
@@ -17,6 +18,10 @@ export const IN_PERSON_DIFFICULTY_OPTIONS: {
 ]
 
 const CACHE_PREFIX = 'whoami-in-person-eligibility:'
+
+function cacheKey(datasetId: string, entityType: EntityTypeFilter): string {
+  return `${CACHE_PREFIX}${datasetId}:${entityType}`
+}
 const TTL_MS = 20 * 60 * 1000
 
 type CachedEntry = {
@@ -24,13 +29,16 @@ type CachedEntry = {
   data: InPersonEligibility
 }
 
-export function getCachedEligibility(datasetId: string): InPersonEligibility | null {
+export function getCachedEligibility(
+  datasetId: string,
+  entityType: EntityTypeFilter = DEFAULT_ENTITY_TYPE_FILTER
+): InPersonEligibility | null {
   try {
-    const raw = sessionStorage.getItem(`${CACHE_PREFIX}${datasetId}`)
+    const raw = sessionStorage.getItem(cacheKey(datasetId, entityType))
     if (!raw) return null
     const entry = JSON.parse(raw) as CachedEntry
     if (Date.now() - entry.fetchedAt > TTL_MS) {
-      sessionStorage.removeItem(`${CACHE_PREFIX}${datasetId}`)
+      sessionStorage.removeItem(cacheKey(datasetId, entityType))
       return null
     }
     return entry.data
@@ -39,10 +47,14 @@ export function getCachedEligibility(datasetId: string): InPersonEligibility | n
   }
 }
 
-export function setCachedEligibility(datasetId: string, data: InPersonEligibility): void {
+export function setCachedEligibility(
+  datasetId: string,
+  data: InPersonEligibility,
+  entityType: EntityTypeFilter = DEFAULT_ENTITY_TYPE_FILTER
+): void {
   try {
     const entry: CachedEntry = { fetchedAt: Date.now(), data }
-    sessionStorage.setItem(`${CACHE_PREFIX}${datasetId}`, JSON.stringify(entry))
+    sessionStorage.setItem(cacheKey(datasetId, entityType), JSON.stringify(entry))
   } catch {
     // ignore quota / private mode
   }
@@ -50,23 +62,24 @@ export function setCachedEligibility(datasetId: string, data: InPersonEligibilit
 
 export async function fetchInPersonEligibility(
   datasetId: string,
+  entityType: EntityTypeFilter = DEFAULT_ENTITY_TYPE_FILTER,
   options?: { useCache?: boolean }
 ): Promise<InPersonEligibility> {
   const useCache = options?.useCache !== false
   if (useCache) {
-    const cached = getCachedEligibility(datasetId)
+    const cached = getCachedEligibility(datasetId, entityType)
     if (cached) return cached
   }
 
   const res = await fetch(
-    `${API_BASE_URL}/cards/eligibility?${new URLSearchParams({ datasetId })}`
+    `${API_BASE_URL}/cards/eligibility?${new URLSearchParams({ datasetId, entityType })}`
   )
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
     throw new Error(body.error ?? `Failed to load eligibility (${res.status})`)
   }
   const data = (await res.json()) as InPersonEligibility
-  setCachedEligibility(datasetId, data)
+  setCachedEligibility(datasetId, data, entityType)
   return data
 }
 
