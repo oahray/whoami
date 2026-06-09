@@ -42,3 +42,16 @@ body {
 .material-symbols-outlined {
   font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
+
+/* Home hero: faded abstract shapes on solid primary (no full-page gradient) */
+.home-hero-pattern {
+  background-image:
+    radial-gradient(ellipse 65% 55% at 10% 15%, rgba(255, 255, 255, 0.2) 0%, transparent 58%),
+    radial-gradient(ellipse 60% 50% at 92% 88%, rgba(255, 255, 255, 0.16) 0%, transparent 55%),
+    radial-gradient(circle at 72% 12%, rgba(255, 255, 255, 0.1) 0%, transparent 40%),
+    radial-gradient(circle at 22% 78%, transparent 52%, rgba(255, 255, 255, 0.12) 52.4%, transparent 53.2%),
+    radial-gradient(circle at 78% 38%, transparent 38%, rgba(255, 255, 255, 0.09) 38.4%, transparent 39.2%),
+    radial-gradient(circle at 48% 42%, transparent 62%, rgba(255, 255, 255, 0.07) 62.3%, transparent 63%),
+    radial-gradient(rgba(255, 255, 255, 0.11) 1.5px, transparent 1.5px);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 30px 30px;
+}
