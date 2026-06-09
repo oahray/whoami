@@ -29,7 +29,7 @@ function AdminEntities() {
       setError('')
       const token = await getAccessToken()
       if (!token) {
-        navigate('/admin/login')
+        navigate('/login')
         return
       }
       const url = new URL(`${API_BASE_URL}/admin/entities`)
@@ -52,7 +52,7 @@ function AdminEntities() {
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load entities')
       if (err instanceof Error && (err.message.includes('Unauthorized') || err.message.includes('Forbidden'))) {
-        navigate('/admin/login')
+        navigate('/login')
       }
     } finally {
       setLoading(false)
@@ -103,7 +103,7 @@ function AdminEntities() {
           <div className="hidden md:flex gap-2 shrink-0">
             <button
               type="button"
-              onClick={() => navigate('/admin/bulk-import')}
+              onClick={() => navigate('/bulk-import')}
               className="flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 border-slate-200 bg-white text-slate-700 font-semibold hover:bg-slate-50 transition-colors"
             >
               <span className="material-symbols-outlined text-lg">upload_file</span>
@@ -111,7 +111,7 @@ function AdminEntities() {
             </button>
             <button
               type="button"
-              onClick={() => navigate('/admin/entities/new')}
+              onClick={() => navigate('/entities/new')}
               className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-white font-semibold hover:bg-primary/90 transition-colors shadow-sm"
             >
               <span className="material-symbols-outlined text-lg">add</span>
@@ -159,7 +159,7 @@ function AdminEntities() {
         <div className="flex flex-col gap-3 mb-4 md:hidden">
           <button
             type="button"
-            onClick={() => navigate('/admin/entities/new')}
+            onClick={() => navigate('/entities/new')}
             className="w-full flex items-center justify-center gap-2 bg-primary text-white font-bold py-3 px-4 rounded-lg"
           >
             <span className="material-symbols-outlined">add</span>
@@ -167,7 +167,7 @@ function AdminEntities() {
           </button>
           <button
             type="button"
-            onClick={() => navigate('/admin/bulk-import')}
+            onClick={() => navigate('/bulk-import')}
             className="w-full flex items-center justify-center gap-2 bg-slate-100 text-primary font-semibold py-3 px-4 rounded-lg border border-slate-200"
           >
             <span className="material-symbols-outlined">upload_file</span>
@@ -213,7 +213,7 @@ function AdminEntities() {
                     <td className="px-4 py-4 text-right">
                       <button
                         type="button"
-                        onClick={() => navigate(`/admin/entities/${entity.id}`)}
+                        onClick={() => navigate(`/entities/${entity.id}`)}
                         className="inline-flex items-center justify-center size-9 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-primary transition-colors"
                         title="Edit"
                       >
@@ -237,7 +237,7 @@ function AdminEntities() {
       <div className="md:hidden fixed right-4 bottom-20 z-20">
         <button
           type="button"
-          onClick={() => navigate('/admin/entities/new')}
+          onClick={() => navigate('/entities/new')}
           className="flex items-center justify-center size-14 rounded-full bg-primary text-white font-bold shadow-lg shadow-primary/30 hover:bg-primary/90 active:scale-95 transition-transform"
           title="New entity"
           aria-label="New entity"

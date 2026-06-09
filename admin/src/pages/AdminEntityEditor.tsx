@@ -131,7 +131,7 @@ function AdminEntityEditor() {
           throw new Error('Server did not return the created entity; please try again.')
         }
         entityId = newEntity.id
-        navigate(`/admin/entities/${entityId}`, { replace: true })
+        navigate(`/entities/${entityId}`, { replace: true })
       } else {
         if (!id || id === 'undefined') {
           setError('Invalid entity id; please go back to entities and try again.')
@@ -193,7 +193,7 @@ function AdminEntityEditor() {
         }
       }
 
-      navigate('/admin/entities')
+      navigate('/entities')
     } catch (err: any) {
       setError(err.message || 'Failed to save')
     } finally {
@@ -264,7 +264,7 @@ function AdminEntityEditor() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <button
             type="button"
-            onClick={() => navigate('/admin/entities')}
+            onClick={() => navigate('/entities')}
             className="text-primary flex items-center gap-2 py-2 px-3 rounded-lg hover:bg-primary/10 font-medium w-fit"
           >
             <span className="material-symbols-outlined">arrow_back</span>
@@ -416,7 +416,7 @@ function AdminEntityEditor() {
         <div className="hidden md:flex items-center justify-end gap-3 mt-8 pt-6 border-t border-slate-200">
           <button
             type="button"
-            onClick={() => navigate('/admin/entities')}
+            onClick={() => navigate('/entities')}
             className="py-3 px-5 rounded-lg bg-slate-100 text-slate-700 font-semibold hover:bg-slate-200"
           >
             Back to Entities
@@ -434,7 +434,7 @@ function AdminEntityEditor() {
 
       {/* Mobile fixed bar above bottom nav */}
       <div className="fixed left-0 right-0 bottom-20 md:hidden max-w-3xl mx-auto bg-white/95 backdrop-blur-lg border-t border-slate-200 p-4 flex gap-3 z-10">
-        <button type="button" onClick={() => navigate('/admin/entities')} className="flex-1 py-4 px-6 rounded-lg bg-slate-100 text-slate-600 font-bold hover:bg-slate-200">
+        <button type="button" onClick={() => navigate('/entities')} className="flex-1 py-4 px-6 rounded-lg bg-slate-100 text-slate-600 font-bold hover:bg-slate-200">
           Back to Entities
         </button>
         <button

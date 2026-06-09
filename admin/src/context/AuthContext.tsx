@@ -5,8 +5,7 @@ import type { User } from '@supabase/supabase-js'
 interface AuthContextType {
   user: User | null
   loading: boolean
-  signInWithEmail: (email: string, password: string) => Promise<{ data: any; error: any }>
-  signInWithGoogle: () => Promise<{ data: any; error: any }>
+  signInWithEmail: (email: string, password: string) => Promise<{ data: unknown; error: { message: string } | null }>
   signOut: () => Promise<void>
   getAccessToken: () => Promise<string | null>
 }
@@ -41,16 +40,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { data, error }
   }
 
-  const signInWithGoogle = async () => {
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/admin`,
-      },
-    })
-    return { data, error }
-  }
-
   const signOut = async () => {
     await supabase.auth.signOut()
   }
@@ -64,7 +53,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     loading,
     signInWithEmail,
-    signInWithGoogle,
     signOut,
     getAccessToken,
   }

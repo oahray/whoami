@@ -59,7 +59,7 @@ export default function AdminActiveDatasetBar({ hidden }: AdminActiveDatasetBarP
           No active dataset. Enable or create a content pack to manage entities.
         </p>
         <Link
-          to="/admin/datasets"
+          to="/datasets"
           className="text-sm font-semibold text-primary hover:text-primary/80 shrink-0"
         >
           Manage datasets →
@@ -99,7 +99,7 @@ export default function AdminActiveDatasetBar({ hidden }: AdminActiveDatasetBarP
             </select>
           )}
           <Link
-            to="/admin/datasets"
+            to="/datasets"
             className="hidden sm:inline-flex items-center text-xs font-semibold text-primary hover:text-primary/80 shrink-0"
           >
             All
@@ -175,7 +175,7 @@ export default function AdminActiveDatasetBar({ hidden }: AdminActiveDatasetBarP
             </span>
           )}
           <Link
-            to="/admin/datasets"
+            to="/datasets"
             className="inline-flex items-center justify-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
           >
             All datasets

@@ -1,8 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from 'react'
 import type { Dataset } from '../types'
+import { API_BASE_URL } from '../lib/apiBase'
 import { useAuth } from './AuthContext'
-
-const API_BASE_URL = import.meta.env.VITE_SOCKET_URL?.replace('ws://', 'http://').replace('wss://', 'https://') || 'http://localhost:3001'
 const STORAGE_KEY = 'whoami_admin_dataset_id'
 
 interface AdminDatasetContextValue {

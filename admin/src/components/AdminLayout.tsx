@@ -13,17 +13,17 @@ interface AdminLayoutProps {
 }
 
 const navItems = [
-  { path: '/admin', label: 'Dashboard', icon: 'dashboard', exact: true },
-  { path: '/admin/datasets', label: 'Datasets', icon: 'collections_bookmark', exact: false },
-  { path: '/admin/entities', label: 'Entities', icon: 'database', exact: false },
-  { path: '/admin/bulk-import', label: 'Bulk Import', icon: 'upload_file', exact: false },
+  { path: '/', label: 'Dashboard', icon: 'dashboard', exact: true },
+  { path: '/datasets', label: 'Datasets', icon: 'collections_bookmark', exact: false },
+  { path: '/entities', label: 'Entities', icon: 'database', exact: false },
+  { path: '/bulk-import', label: 'Bulk Import', icon: 'upload_file', exact: false },
 ]
 
 const bottomNavItems = [
-  { path: '/admin', label: 'Home', icon: 'home' },
-  { path: '/admin/datasets', label: 'Sets', icon: 'collections_bookmark' },
-  { path: '/admin/entities', label: 'Entities', icon: 'database' },
-  { path: '/admin/bulk-import', label: 'Import', icon: 'upload_file' },
+  { path: '/', label: 'Home', icon: 'home' },
+  { path: '/datasets', label: 'Sets', icon: 'collections_bookmark' },
+  { path: '/entities', label: 'Entities', icon: 'database' },
+  { path: '/bulk-import', label: 'Import', icon: 'upload_file' },
 ]
 
 export function AdminLayout({ children, breadcrumb, title = 'Admin' }: AdminLayoutProps) {
@@ -32,10 +32,10 @@ export function AdminLayout({ children, breadcrumb, title = 'Admin' }: AdminLayo
   const { user, signOut } = useAuth()
   const { setSelectedDatasetId } = useAdminDataset()
 
-  const isDatasetListPage = location.pathname === '/admin/datasets'
+  const isDatasetListPage = location.pathname === '/datasets'
 
   useEffect(() => {
-    const match = location.pathname.match(/^\/admin\/datasets\/([^/]+)/)
+    const match = location.pathname.match(/^\/datasets\/([^/]+)/)
     if (match?.[1]) {
       setSelectedDatasetId(match[1])
     }
@@ -43,7 +43,7 @@ export function AdminLayout({ children, breadcrumb, title = 'Admin' }: AdminLayo
 
   const handleSignOut = async () => {
     await signOut()
-    navigate('/admin/login')
+    navigate('/login')
   }
 
   const isNavActive = (item: (typeof navItems)[0]) => {
@@ -133,8 +133,8 @@ export function AdminLayout({ children, breadcrumb, title = 'Admin' }: AdminLayo
         {/* Mobile bottom nav: Home, Entities, Bulk Import */}
         <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex items-center justify-around py-2 safe-area-pb">
           {bottomNavItems.map((item) => {
-            const active = item.path === '/admin'
-              ? location.pathname === '/admin'
+            const active = item.path === '/'
+              ? location.pathname === '/'
               : (location.pathname === item.path || location.pathname.startsWith(item.path + '/'))
             return (
               <button

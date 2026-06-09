@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        workspace: [client, server]
+        workspace: [client, admin, server]
 
     steps:
       - name: Checkout repository
