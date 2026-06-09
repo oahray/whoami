@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PreferencesProvider } from '../context/PreferencesContext'
+import { stubMatchMedia } from '../test/matchMedia'
 import SoundToggle from './SoundToggle'
 
 function renderToggle() {
@@ -14,14 +15,11 @@ function renderToggle() {
 describe('SoundToggle', () => {
   beforeEach(() => {
     localStorage.clear()
-    vi.stubGlobal(
-      'matchMedia',
-      vi.fn().mockReturnValue({
-        matches: false,
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn()
-      })
-    )
+    stubMatchMedia()
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
   })
 
   it('shows volume on when sound effects are enabled', () => {
@@ -38,7 +36,7 @@ describe('SoundToggle', () => {
     const button = screen.getByRole('button', { name: /turn sound effects on/i })
     expect(localStorage.getItem('whoami_sfx_enabled')).toBe('false')
     expect(button).toHaveAttribute('aria-pressed', 'false')
-    expect(button.className).toMatch(/text-slate-400/)
+    expect(button.className).toMatch(/text-foreground-muted/)
     expect(screen.getByText('volume_off')).toBeInTheDocument()
   })
 })

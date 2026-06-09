@@ -204,7 +204,7 @@ function Game() {
 
   if (!gameState) {
     return (
-      <div className="min-h-screen bg-background-light flex items-center justify-center font-display">
+      <div className="min-h-screen bg-app-bg flex items-center justify-center font-display">
         <LoadingState label="Loading game" layout="inline" />
       </div>
     )
@@ -227,12 +227,12 @@ function Game() {
       return null
     }
     return (
-      <div className="min-h-screen bg-background-light font-display text-slate-900 flex justify-center">
-        <div className="w-full max-w-[430px] flex flex-col bg-white">
+      <div className="min-h-screen bg-app-bg font-display text-foreground flex justify-center">
+        <div className="w-full max-w-[430px] flex flex-col bg-surface">
           <div className="flex flex-col items-center pt-12 pb-6 px-6 bg-gradient-to-b from-primary/10 to-transparent">
             <span className="material-symbols-outlined text-primary text-6xl mb-2">auto_awesome</span>
-            <h1 className="text-3xl font-bold tracking-tight text-slate-900">Game Over!</h1>
-            <p className="text-slate-500 mt-1 font-medium">Final Rankings</p>
+            <h1 className="text-3xl font-bold tracking-tight text-foreground">Game Over!</h1>
+            <p className="text-foreground-muted mt-1 font-medium">Final Rankings</p>
           </div>
           <div className="flex-1 overflow-y-auto px-4 space-y-3 pb-4">
             {ranked.map(player => {
@@ -244,14 +244,14 @@ function Game() {
                   key={player.playerId}
                   className={`flex items-center gap-4 p-4 rounded-lg border ${
                     isWinner
-                      ? 'bg-white border-2 border-amber-400 shadow-lg shadow-amber-400/10'
+                      ? 'bg-surface border-2 border-amber-400 shadow-lg shadow-amber-400/10'
                       : isPodium
-                        ? 'bg-white border border-slate-200'
-                        : 'bg-white/50 border border-dashed border-slate-200'
+                        ? 'bg-surface border border-edge'
+                        : 'bg-surface/50 border border-dashed border-edge'
                   }`}
                 >
                   <div className="relative">
-                    <div className="size-14 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-bold shrink-0">
+                    <div className="size-14 rounded-full bg-surface-elevated flex items-center justify-center text-foreground-muted font-bold shrink-0">
                       {player.nickname?.slice(0, 2).toUpperCase() || '?'}
                     </div>
                     {isWinner && (
@@ -262,11 +262,11 @@ function Game() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className={isWinner ? 'text-amber-600 font-bold' : 'text-slate-400 font-bold'}>#{player.rank}</span>
-                      <p className="text-slate-900 font-bold truncate">
+                      <span className={isWinner ? 'text-amber-600 font-bold' : 'text-foreground-muted font-bold'}>#{player.rank}</span>
+                      <p className="text-foreground font-bold truncate">
                         {player.nickname}
                         {player.playerId === playerId && (
-                          <span className="text-slate-400 font-medium"> (You)</span>
+                          <span className="text-foreground-muted font-medium"> (You)</span>
                         )}
                       </p>
                     </div>
@@ -275,7 +275,7 @@ function Game() {
                         className={
                           isWinner
                             ? 'text-amber-600 text-sm font-semibold mt-0.5 uppercase tracking-wider'
-                            : 'text-slate-500 text-xs mt-0.5'
+                            : 'text-foreground-muted text-xs mt-0.5'
                         }
                       >
                         {label}
@@ -283,14 +283,14 @@ function Game() {
                     )}
                   </div>
                   <div className="text-right">
-                    <p className={isWinner ? 'text-primary font-bold text-xl' : 'text-slate-900 font-bold text-lg'}>{player.score}</p>
-                    <p className="text-slate-400 text-xs font-medium">pts</p>
+                    <p className={isWinner ? 'text-primary font-bold text-xl' : 'text-foreground font-bold text-lg'}>{player.score}</p>
+                    <p className="text-foreground-muted text-xs font-medium">pts</p>
                   </div>
                 </div>
               )
             })}
           </div>
-          <div className="p-6 bg-white border-t border-slate-100">
+          <div className="p-6 bg-surface border-t border-edge">
             <button
               type="button"
               onClick={() => { setGameEndData(null); navigate('/lobby') }}
@@ -301,8 +301,8 @@ function Game() {
             </button>
             {autoReturnSeconds !== null && (
               <div className="mt-4 flex flex-col items-center">
-                <p className="text-slate-400 text-sm font-medium">Returning to lobby in {autoReturnSeconds}s...</p>
-                <div className="w-full h-1 bg-slate-100 rounded-full mt-2 overflow-hidden">
+                <p className="text-foreground-muted text-sm font-medium">Returning to lobby in {autoReturnSeconds}s...</p>
+                <div className="w-full h-1 bg-surface-elevated rounded-full mt-2 overflow-hidden">
                   <div className="h-full bg-primary/40 rounded-full transition-all" style={{ width: `${((30 - autoReturnSeconds) / 30) * 100}%` }} />
                 </div>
               </div>
@@ -315,14 +315,14 @@ function Game() {
 
   return (
     <div
-      className="bg-background-light font-display text-slate-900 flex flex-col fixed inset-0 lg:static lg:min-h-screen"
+      className="bg-app-bg font-display text-foreground flex flex-col fixed inset-0 lg:static lg:min-h-screen"
       style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), var(--keyboard-inset, 0px))' }}
     >
       <div
-        className="w-full max-w-[430px] lg:max-w-7xl mx-auto flex-1 min-h-0 flex flex-col bg-white lg:bg-transparent lg:shadow-none overflow-hidden"
+        className="w-full max-w-[430px] lg:max-w-7xl mx-auto flex-1 min-h-0 flex flex-col bg-surface lg:bg-transparent lg:shadow-none overflow-hidden"
       >
         <header
-          className="shrink-0 border-b border-primary/10 bg-white/95 backdrop-blur-sm lg:rounded-b-2xl lg:border lg:border-slate-200 lg:shadow-sm px-4 lg:px-8 pb-2 lg:pb-4"
+          className="shrink-0 border-b border-primary/10 bg-surface/95 backdrop-blur-sm lg:rounded-b-2xl lg:border lg:border-edge lg:shadow-sm px-4 lg:px-8 pb-2 lg:pb-4"
           style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 0.75rem)' }}
         >
           <div className="flex items-center justify-between gap-3 pt-1 lg:pt-10">
@@ -346,7 +346,7 @@ function Game() {
                     <p className="text-[9px] uppercase tracking-wider text-primary font-bold">
                       {preGuessPhase ? 'Starts in' : 'Time'}
                     </p>
-                    <p className="text-base font-black text-slate-900">
+                    <p className="text-base font-black text-foreground">
                       {preGuessPhase ? Math.ceil(timeRemaining / 1000) : canGuess ? Math.ceil(timeRemaining / 1000) : 0}s
                     </p>
                   </div>
@@ -362,7 +362,7 @@ function Game() {
               {!isFinalScoresView && (
                 <section className="space-y-2 lg:space-y-4">
                   <div className="flex items-center justify-between">
-                    <h3 className="font-bold text-slate-800 text-sm lg:text-base">Current Clues</h3>
+                    <h3 className="font-bold text-foreground text-sm lg:text-base">Current Clues</h3>
                     <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded-md">
                       {gameState.cluesRevealed.length} Revealed
                     </span>
@@ -385,7 +385,7 @@ function Game() {
                             className={`rounded-lg border p-3 lg:p-5 shadow-sm ${
                               isLatest
                                 ? 'border-primary/35 bg-primary/5 ring-1 ring-primary/10'
-                                : 'border-slate-200 bg-white'
+                                : 'border-edge bg-surface'
                             }`}
                           >
                             <div className="flex items-start gap-2.5 lg:gap-4">
@@ -404,7 +404,7 @@ function Game() {
                                 <div className="mb-1 flex items-center justify-between gap-2">
                                   <span
                                     className={`text-[10px] font-bold uppercase tracking-widest ${
-                                      isLatest ? 'text-primary' : 'text-slate-400'
+                                      isLatest ? 'text-primary' : 'text-foreground-muted'
                                     }`}
                                   >
                                     Clue {clue.order}
@@ -417,8 +417,8 @@ function Game() {
                                 <p
                                   className={`leading-snug font-medium lg:leading-relaxed ${
                                     isLatest
-                                      ? 'text-slate-900 text-base lg:text-lg'
-                                      : 'text-slate-600 text-sm lg:text-base'
+                                      ? 'text-foreground text-base lg:text-lg'
+                                      : 'text-foreground-muted text-sm lg:text-base'
                                   }`}
                                 >
                                   {clue.text}
@@ -436,10 +436,10 @@ function Game() {
               {!isFinalScoresView && (
                 <section className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <h3 className="font-bold text-slate-800 text-sm lg:text-base">Recent Guesses</h3>
-                    <span className="text-xs font-medium text-slate-500">{guessFeed.length} recent</span>
+                    <h3 className="font-bold text-foreground text-sm lg:text-base">Recent Guesses</h3>
+                    <span className="text-xs font-medium text-foreground-muted">{guessFeed.length} recent</span>
                   </div>
-                  <div ref={guessesScrollRef} className="bg-white rounded-md border border-slate-200 shadow-sm p-2 lg:p-4 max-h-28 lg:max-h-52 overflow-y-auto">
+                  <div ref={guessesScrollRef} className="bg-surface rounded-md border border-edge shadow-sm p-2 lg:p-4 max-h-28 lg:max-h-52 overflow-y-auto">
                     {guessFeed.length > 0 ? (
                       <div className="space-y-1.5">
                         {guessFeed.slice(-12).map((item, index) => {
@@ -450,14 +450,14 @@ function Game() {
                               ? `${item.nickname}: ${item.guess}`
                               : `${item.nickname} guessed`
                           return (
-                            <div key={index} className={`rounded bg-slate-50 px-2.5 py-1.5 text-xs lg:text-sm ${item.correct ? 'text-green-700' : 'text-slate-700'}`}>
+                            <div key={index} className={`rounded bg-surface-muted px-2.5 py-1.5 text-xs lg:text-sm ${item.correct ? 'text-green-700' : 'text-foreground'}`}>
                               {message}
                             </div>
                           )
                         })}
                       </div>
                     ) : (
-                      <div className="flex min-h-12 items-center text-xs lg:text-sm text-slate-400 px-1">
+                      <div className="flex min-h-12 items-center text-xs lg:text-sm text-foreground-muted px-1">
                         No guesses yet.
                       </div>
                     )}
@@ -473,7 +473,7 @@ function Game() {
               )}
 
               {error && (
-                <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-sm">
+                <div className="p-3 bg-red-100 dark:bg-red-950/60 border border-red-400 dark:border-red-800 text-red-700 dark:text-red-200 rounded-lg text-sm">
                   {error}
                 </div>
               )}
@@ -488,9 +488,9 @@ function Game() {
                   <p className="text-5xl font-black mt-3 leading-none">
                     {preGuessPhase ? Math.ceil(timeRemaining / 1000) : canGuess ? Math.ceil(timeRemaining / 1000) : 0}s
                   </p>
-                  <div className="mt-5 h-2 rounded-full bg-white/20 overflow-hidden">
+                  <div className="mt-5 h-2 rounded-full bg-surface/20 overflow-hidden">
                     <div
-                      className="h-full rounded-full bg-white/80 transition-all"
+                      className="h-full rounded-full bg-surface/80 transition-all"
                       style={{
                         width: preGuessPhase
                           ? `${Math.max(0, Math.min(100, ((settings?.roundStartDelayMs ?? 3000) - timeRemaining) / (settings?.roundStartDelayMs ?? 3000) * 100))}%`
@@ -501,27 +501,27 @@ function Game() {
                 </div>
               )}
 
-              <section className="space-y-2 lg:space-y-3 bg-white rounded-xl lg:rounded-2xl border border-slate-200 shadow-sm p-3 lg:p-5">
-                <h3 className="font-bold text-slate-800 text-sm lg:text-base">Current Standing</h3>
+              <section className="space-y-2 lg:space-y-3 bg-surface rounded-xl lg:rounded-2xl border border-edge shadow-sm p-3 lg:p-5">
+                <h3 className="font-bold text-foreground text-sm lg:text-base">Current Standing</h3>
                 <div className="space-y-1">
                   {scoreboard.map(player => (
                     <div
                       key={player.playerId}
                       className={`flex items-center justify-between p-2 lg:p-3 rounded-lg ${
-                        player.playerId === playerId ? 'bg-primary/5 border border-primary/20' : 'bg-slate-50'
+                        player.playerId === playerId ? 'bg-primary/5 border border-primary/20' : 'bg-surface-muted'
                       }`}
                     >
                       <div className="flex items-center gap-2 lg:gap-3 min-w-0">
-                        <span className="text-xs font-bold text-slate-400 w-4">{player.rank}</span>
+                        <span className="text-xs font-bold text-foreground-muted w-4">{player.rank}</span>
                         <div className="size-7 lg:size-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs border border-primary/20 shrink-0">
                           {player.nickname.slice(0, 2).toUpperCase()}
                         </div>
-                        <span className={`truncate text-xs lg:text-sm ${player.playerId === playerId ? 'font-semibold' : 'font-medium text-slate-600'}`}>
+                        <span className={`truncate text-xs lg:text-sm ${player.playerId === playerId ? 'font-semibold' : 'font-medium text-foreground-muted'}`}>
                           {player.nickname}
                           {player.playerId === playerId && ' (You)'}
                         </span>
                       </div>
-                      <span className={`text-xs lg:text-sm font-black shrink-0 ${player.playerId === playerId ? 'text-primary' : 'text-slate-500'}`}>
+                      <span className={`text-xs lg:text-sm font-black shrink-0 ${player.playerId === playerId ? 'text-primary' : 'text-foreground-muted'}`}>
                         {player.score}
                       </span>
                     </div>
@@ -533,7 +533,7 @@ function Game() {
         </main>
 
         {!gameState.isLocked && canGuess && (
-          <div className="shrink-0 bg-white border-t border-slate-200 px-3 py-2 lg:px-8 lg:py-4">
+          <div className="shrink-0 bg-surface border-t border-edge px-3 py-2 lg:px-8 lg:py-4">
             <div className="flex gap-2 lg:gap-3 max-w-7xl mx-auto">
               <div className="relative flex-1 min-w-0">
                 <input
@@ -547,7 +547,7 @@ function Game() {
                   autoComplete="off"
                   autoCorrect="off"
                   spellCheck={false}
-                  className="w-full bg-slate-50 border border-slate-200 focus:border-primary focus:ring-2 focus:ring-primary/20 rounded-lg py-3 px-3 text-slate-900 placeholder:text-slate-400 font-medium text-base transition-all"
+                  className="w-full bg-surface-muted border border-edge focus:border-primary focus:ring-2 focus:ring-primary/20 rounded-lg py-3 px-3 text-foreground placeholder:text-foreground-muted font-medium text-base transition-all"
                 />
               </div>
               <button
@@ -566,34 +566,34 @@ function Game() {
 
       {roundEndData && (
         <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-slate-900/60 backdrop-blur-sm md:p-6">
-          <div className="w-full bg-white rounded-t-lg md:rounded-2xl overflow-hidden shadow-2xl max-h-[90vh] md:max-w-2xl overflow-y-auto">
+          <div className="w-full bg-surface rounded-t-lg md:rounded-2xl overflow-hidden shadow-2xl max-h-[90vh] md:max-w-2xl overflow-y-auto">
             <div className="flex h-6 w-full items-center justify-center md:hidden">
-              <div className="h-1.5 w-12 rounded-full bg-slate-200" />
+              <div className="h-1.5 w-12 rounded-full bg-surface-elevated" />
             </div>
             <div className="px-6 pt-2 pb-6 text-center">
               <h4 className="text-primary text-sm font-bold uppercase tracking-widest mb-1">Round Over!</h4>
               {!roundEndData.answerRevealed && (
-                <p className="text-slate-900">Awww... Nobody guessed correctly this round.</p>
+                <p className="text-foreground">Awww... Nobody guessed correctly this round.</p>
               )}
               {roundEndData.answerRevealed && (
-                <h2 className="text-slate-900 text-3xl font-bold">Answer: {roundEndData.answer}</h2>
+                <h2 className="text-foreground text-3xl font-bold">Answer: {roundEndData.answer}</h2>
               )}
             </div>
             {roundEndData.answerRevealed && roundEndData.clues?.length > 0 && (
               <div className="px-6 pb-6">
                 <div className="flex items-center gap-2 mb-3">
                   <span className="material-symbols-outlined text-primary text-xl">menu_book</span>
-                  <h3 className="text-slate-900 text-lg font-bold">Clues Used</h3>
+                  <h3 className="text-foreground text-lg font-bold">Clues Used</h3>
                 </div>
                 <div className="space-y-3">
                   {roundEndData.clues.map((clue: any, index: number) => (
-                    <div key={index} className="flex items-center gap-4 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                    <div key={index} className="flex items-center gap-4 bg-surface-muted p-3 rounded-lg border border-edge">
                       <div className="text-primary flex items-center justify-center rounded-lg bg-primary/10 shrink-0 h-10 w-10">
                         <span className="material-symbols-outlined">water_drop</span>
                       </div>
                       <div className="flex flex-col justify-center min-w-0">
-                        <p className="text-slate-900 text-sm font-semibold">{clue.text}</p>
-                        {clue.citations && <p className="text-slate-500 text-xs font-medium">{clue.citations}</p>}
+                        <p className="text-foreground text-sm font-semibold">{clue.text}</p>
+                        {clue.citations && <p className="text-foreground-muted text-xs font-medium">{clue.citations}</p>}
                       </div>
                     </div>
                   ))}
@@ -603,7 +603,7 @@ function Game() {
             <div className="px-6 pb-8">
               <div className="flex items-center gap-2 mb-4">
                 <span className="material-symbols-outlined text-amber-500 text-xl">leaderboard</span>
-                <h3 className="text-slate-900 text-lg font-bold">Scores after this round</h3>
+                <h3 className="text-foreground text-lg font-bold">Scores after this round</h3>
               </div>
               {roundEndData.scoreboard?.length > 0 ? (
                 <div className="grid grid-cols-1 gap-2">
@@ -618,18 +618,18 @@ function Game() {
                         <div
                           key={entry.playerId}
                           className={`flex items-center justify-between p-3 rounded border-l-4 ${
-                            isLeader ? 'bg-primary/5 border-primary' : 'bg-slate-50 border-transparent'
+                            isLeader ? 'bg-primary/5 border-primary' : 'bg-surface-muted border-transparent'
                           }`}
                         >
-                          <span className="text-slate-900 font-bold">
+                          <span className="text-foreground font-bold">
                             {entry.nickname}
                             {entry.playerId === playerId && (
-                              <span className="text-slate-400 font-medium"> (You)</span>
+                              <span className="text-foreground-muted font-medium"> (You)</span>
                             )}
                           </span>
                           <div className="flex items-center gap-2">
                             {entry.pointsEarned > 0 && <span className="text-primary font-bold text-sm">+{entry.pointsEarned}</span>}
-                            <span className="text-slate-900 font-bold bg-white px-3 py-1 rounded shadow-sm">{entry.totalScore}</span>
+                            <span className="text-foreground font-bold bg-surface px-3 py-1 rounded shadow-sm">{entry.totalScore}</span>
                           </div>
                         </div>
                       )
@@ -637,11 +637,11 @@ function Game() {
                   })()}
                 </div>
               ) : (
-                <p className="text-slate-600 text-sm">No one got it this round.</p>
+                <p className="text-foreground-muted text-sm">No one got it this round.</p>
               )}
             </div>
             <div className="pb-8 text-center">
-              <p className="text-slate-400 text-xs font-medium italic">
+              <p className="text-foreground-muted text-xs font-medium italic">
                 {nextRoundSeconds !== null && nextRoundSeconds > 0
                   ? `Next round starting in ${nextRoundSeconds}s…`
                   : 'Next round starting…'}

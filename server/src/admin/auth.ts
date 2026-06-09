@@ -1,5 +1,6 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import dotenv from 'dotenv'
+import { createSupabaseClient } from '../db/createSupabaseClient.js'
 import type { Request, Response, NextFunction } from 'express'
 import type { User } from '@supabase/supabase-js'
 import { logger } from '../utils/logger.js'
@@ -24,12 +25,7 @@ function getSupabaseAdmin(): SupabaseClient {
     throw new Error('Missing Supabase environment variables')
   }
 
-  cachedAdminClient = createClient(supabaseUrl, supabaseServiceKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  })
+  cachedAdminClient = createSupabaseClient(supabaseUrl, supabaseServiceKey)
   return cachedAdminClient
 }
 

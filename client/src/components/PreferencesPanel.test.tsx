@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PreferencesProvider } from '../context/PreferencesContext'
+import { stubMatchMedia } from '../test/matchMedia'
 import PreferencesPanel from './PreferencesPanel'
 
 function renderPanel() {
@@ -14,14 +15,12 @@ function renderPanel() {
 describe('PreferencesPanel', () => {
   beforeEach(() => {
     localStorage.clear()
-    vi.stubGlobal(
-      'matchMedia',
-      vi.fn().mockReturnValue({
-        matches: false,
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn()
-      })
-    )
+    document.documentElement.classList.remove('dark')
+    stubMatchMedia()
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
   })
 
   it('renders sound effects toggle defaulting to on', () => {
@@ -38,15 +37,15 @@ describe('PreferencesPanel', () => {
   })
 
   it('shows reduced motion notice when applicable', () => {
-    vi.stubGlobal(
-      'matchMedia',
-      vi.fn().mockReturnValue({
-        matches: true,
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn()
-      })
-    )
+    stubMatchMedia({ reducedMotion: true })
     renderPanel()
     expect(screen.getByText(/reduce motion/i)).toBeInTheDocument()
+  })
+
+  it('persists dark theme and applies class to the document', () => {
+    renderPanel()
+    fireEvent.click(screen.getByRole('radio', { name: /^dark$/i }))
+    expect(localStorage.getItem('whoami_theme')).toBe('dark')
+    expect(document.documentElement.classList.contains('dark')).toBe(true)
   })
 })

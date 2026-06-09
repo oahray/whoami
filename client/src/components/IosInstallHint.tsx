@@ -44,7 +44,7 @@ export default function IosInstallHint() {
   }
 
   return (
-    <div className="w-full bg-white/20 backdrop-blur-sm border-b border-white/25 px-4 py-3 flex items-start gap-3">
+    <div className="w-full bg-surface/20 backdrop-blur-sm border-b border-white/25 px-4 py-3 flex items-start gap-3">
       <span className="material-symbols-outlined text-white text-xl shrink-0 mt-0.5">share</span>
       <div className="flex-1 min-w-0">
         <p className="text-white text-sm font-semibold leading-snug">Install on your Home Screen</p>
@@ -56,7 +56,7 @@ export default function IosInstallHint() {
       <button
         type="button"
         onClick={dismiss}
-        className="text-white/90 hover:text-white text-xs font-semibold shrink-0 px-2 py-1 rounded-md hover:bg-white/10"
+        className="text-white/90 hover:text-white text-xs font-semibold shrink-0 px-2 py-1 rounded-md hover:bg-surface/10"
       >
         OK
       </button>

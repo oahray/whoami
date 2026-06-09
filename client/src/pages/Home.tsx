@@ -160,27 +160,27 @@ function Home() {
           <p className="text-white/80 text-base font-medium text-center mt-1">The Ultimate Bible Character Quiz</p>
         </div>
 
-        <div className="w-full max-w-md bg-white rounded-xl shadow-2xl border border-slate-200 py-8 px-5 flex flex-col gap-6">
+        <div className="w-full max-w-md bg-surface rounded-xl shadow-2xl border border-edge py-8 px-5 flex flex-col gap-6">
           <form onSubmit={handleJoinRoom} className="flex flex-col gap-6">
             <div className="flex flex-col gap-2">
-              <label className="text-slate-800 text-sm font-semibold ml-1">Your Nickname</label>
+              <label className="text-foreground text-sm font-semibold ml-1">Your Nickname</label>
               <div className="relative">
-                <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-600">person</span>
+                <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-foreground-muted">person</span>
                 <input
                   type="text"
                   value={nickname}
                   onChange={(e) => setNickname(e.target.value)}
                   placeholder="e.g. Samuel"
                   disabled={loading}
-                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors text-slate-900 placeholder:text-slate-500 font-medium disabled:opacity-60"
+                  className="w-full pl-12 pr-4 py-4 bg-surface-muted border-2 border-edge rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors text-foreground placeholder:text-foreground-muted font-medium disabled:opacity-60"
                 />
               </div>
             </div>
 
             <div className="flex flex-col gap-2">
-              <label className="text-slate-800 text-sm font-semibold ml-1">Room Code</label>
+              <label className="text-foreground text-sm font-semibold ml-1">Room Code</label>
               <div className="relative">
-                <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-600">key</span>
+                <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-foreground-muted">key</span>
                 <input
                   type="text"
                   value={joinCode}
@@ -189,7 +189,7 @@ function Home() {
                   maxLength={6}
                   disabled={loading}
                   enterKeyHint="go"
-                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border-2 border-slate-200 rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors text-slate-900 placeholder:text-slate-500 font-medium tracking-[0.2em] uppercase disabled:opacity-60"
+                  className="w-full pl-12 pr-4 py-4 bg-surface-muted border-2 border-edge rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors text-foreground placeholder:text-foreground-muted font-medium tracking-[0.2em] uppercase disabled:opacity-60"
                 />
               </div>
             </div>
@@ -212,9 +212,9 @@ function Home() {
 
           <div className="flex flex-col items-center gap-3">
             <div className="flex items-center w-full gap-3">
-              <div className="flex-1 h-px bg-slate-200" />
-              <span className="text-slate-600 text-sm font-medium">Or</span>
-              <div className="flex-1 h-px bg-slate-200" />
+              <div className="flex-1 h-px bg-edge" />
+              <span className="text-foreground-muted text-sm font-medium">Or</span>
+              <div className="flex-1 h-px bg-edge" />
             </div>
             <button
               type="button"
@@ -245,7 +245,7 @@ function Home() {
       </div>
 
       {error && (
-        <div className="fixed bottom-4 left-4 right-4 max-w-md mx-auto p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-sm z-50">
+        <div className="fixed bottom-4 left-4 right-4 max-w-md mx-auto p-3 bg-red-100 dark:bg-red-950/60 border border-red-400 dark:border-red-800 text-red-700 dark:text-red-200 rounded-lg text-sm z-50">
           {error}
         </div>
       )}

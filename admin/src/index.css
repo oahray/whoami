@@ -2,17 +2,44 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Admin shell tokens — zinc/violet, separate from the player app palette. */
+:root {
+  --admin-canvas: 244 244 245;
+  --admin-panel: 255 255 255;
+  --admin-muted-surface: 244 244 245;
+  --admin-sidebar: 24 24 27;
+  --admin-sidebar-fg: 250 250 250;
+  --admin-sidebar-muted: 161 161 170;
+  --admin-sidebar-hover: 39 39 42;
+  --admin-fg: 24 24 27;
+  --admin-muted: 113 113 122;
+  --admin-border: 228 228 231;
+}
+
+.dark {
+  --admin-canvas: 9 9 11;
+  --admin-panel: 24 24 27;
+  --admin-muted-surface: 39 39 42;
+  --admin-sidebar: 9 9 11;
+  --admin-sidebar-fg: 250 250 250;
+  --admin-sidebar-muted: 161 161 170;
+  --admin-sidebar-hover: 39 39 42;
+  --admin-fg: 250 250 250;
+  --admin-muted: 161 161 170;
+  --admin-border: 63 63 70;
+}
+
 html {
   min-height: 100%;
-  background-color: #f6f6f8;
+  background-color: rgb(var(--admin-canvas));
 }
 
 body {
   font-family: 'Inter', sans-serif;
   min-height: 100%;
   min-height: max(100%, 100dvh);
-  background-color: #f6f6f8;
-  color: #0f172a;
+  background-color: rgb(var(--admin-canvas));
+  color: rgb(var(--admin-fg));
 }
 
 #root {

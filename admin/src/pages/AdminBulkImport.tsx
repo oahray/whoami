@@ -119,21 +119,21 @@ function AdminBulkImport() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 pb-28 md:pb-8">
           {/* Format / instructions - responsive: full width on mobile, column on desktop */}
           <section className="order-2 lg:order-1">
-            <h3 className="text-slate-900 text-lg font-bold mb-3">JSON Format</h3>
+            <h3 className="text-admin-fg text-lg font-bold mb-3">JSON Format</h3>
             <div className="bg-primary/5 rounded-lg p-4 md:p-5 border border-primary/10">
               <div className="flex items-start gap-4 mb-4">
                 <div className="w-12 h-12 bg-primary rounded-lg flex items-center justify-center shrink-0">
                   <span className="material-symbols-outlined text-white">code</span>
                 </div>
                 <div className="min-w-0">
-                  <p className="text-slate-900 font-bold text-sm">Format Rules</p>
-                  <p className="text-slate-600 text-xs md:text-sm leading-relaxed mt-1">
+                  <p className="text-admin-fg font-bold text-sm">Format Rules</p>
+                  <p className="text-admin-muted text-xs md:text-sm leading-relaxed mt-1">
                     JSON must be an array of entities. Each entity: name, type, clues array (text; optional citations, difficulty).
                     Re-importing the same data is safe: entities update only when fields differ; clues match by trimmed text and update when citations or difficulty change.
                   </p>
                 </div>
               </div>
-              <div className="bg-slate-100 rounded-md p-3 font-mono text-[11px] md:text-xs text-primary/80 overflow-x-auto">
+              <div className="bg-admin-muted-surface rounded-md p-3 font-mono text-[11px] md:text-xs text-primary/80 overflow-x-auto">
                 <pre className="whitespace-pre-wrap break-all">{exampleJson}</pre>
               </div>
             </div>
@@ -141,12 +141,12 @@ function AdminBulkImport() {
 
           {/* Paste area + actions */}
           <section className="order-1 lg:order-2 flex flex-col">
-            <h3 className="text-slate-900 text-lg font-bold mb-3">Paste JSON Data</h3>
+            <h3 className="text-admin-fg text-lg font-bold mb-3">Paste JSON Data</h3>
             <div className="flex items-center justify-between gap-2 mb-2">
               <button
                 type="button"
                 onClick={() => setJsonInput(exampleJson)}
-                className="text-slate-600 text-sm font-medium flex items-center gap-1.5 py-2 px-3 rounded-lg bg-slate-100 hover:bg-slate-200 transition-colors"
+                className="text-admin-muted text-sm font-medium flex items-center gap-1.5 py-2 px-3 rounded-lg bg-admin-muted-surface hover:bg-admin-muted-surface transition-colors"
               >
                 <span className="material-symbols-outlined text-lg">data_object</span>
                 Load Example
@@ -154,7 +154,7 @@ function AdminBulkImport() {
               <button
                 type="button"
                 onClick={handleClear}
-                className="text-slate-500 text-sm font-medium flex items-center gap-1 hover:text-red-500 py-2 px-3 rounded-lg hover:bg-red-50"
+                className="text-admin-muted text-sm font-medium flex items-center gap-1 hover:text-red-500 py-2 px-3 rounded-lg hover:bg-red-50"
               >
                 <span className="material-symbols-outlined text-sm">delete</span>
                 Clear
@@ -164,7 +164,7 @@ function AdminBulkImport() {
               value={jsonInput}
               onChange={(e) => setJsonInput(e.target.value)}
               placeholder='[{"name": "...", "type": "character", "clues": [{"text": "..."}]}]'
-              className="w-full min-h-[240px] md:min-h-[280px] lg:min-h-[320px] flex-1 bg-slate-50 border border-slate-200 rounded-lg p-4 font-mono text-sm focus:ring-2 focus:ring-primary focus:border-primary text-slate-900 placeholder-slate-400 resize-y"
+              className="w-full min-h-[240px] md:min-h-[280px] lg:min-h-[320px] flex-1 bg-admin-muted-surface border border-admin-border rounded-lg p-4 font-mono text-sm focus:ring-2 focus:ring-primary focus:border-primary text-admin-fg placeholder-admin-muted resize-y"
             />
 
             {/* Desktop: primary action below textarea */}
@@ -196,42 +196,42 @@ function AdminBulkImport() {
         )}
 
         {result && (
-          <div className="mt-6 bg-white rounded-lg shadow-sm border border-slate-200 p-5 md:p-6">
+          <div className="mt-6 bg-admin-panel rounded-lg shadow-sm border border-admin-border p-5 md:p-6">
             <h2 className="text-lg font-bold mb-4">Import Results</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-4">
               <div className="bg-primary/10 rounded-lg p-3">
                 <div className="text-xl md:text-2xl font-bold text-primary">{result.summary?.total ?? 0}</div>
-                <div className="text-sm text-slate-600">Entities in file</div>
+                <div className="text-sm text-admin-muted">Entities in file</div>
               </div>
               <div className="bg-emerald-50 rounded-lg p-3">
                 <div className="text-xl md:text-2xl font-bold text-emerald-600">{result.summary?.created ?? 0}</div>
-                <div className="text-sm text-slate-600">Entities created</div>
+                <div className="text-sm text-admin-muted">Entities created</div>
               </div>
               <div className="bg-amber-50 rounded-lg p-3">
                 <div className="text-xl md:text-2xl font-bold text-amber-600">{result.summary?.updated ?? 0}</div>
-                <div className="text-sm text-slate-600">Entities updated</div>
+                <div className="text-sm text-admin-muted">Entities updated</div>
               </div>
-              <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
-                <div className="text-xl md:text-2xl font-bold text-slate-700">{result.summary?.entitiesUnchanged ?? 0}</div>
-                <div className="text-sm text-slate-600">Entities unchanged</div>
+              <div className="bg-admin-muted-surface rounded-lg p-3 border border-admin-border">
+                <div className="text-xl md:text-2xl font-bold text-admin-fg">{result.summary?.entitiesUnchanged ?? 0}</div>
+                <div className="text-sm text-admin-muted">Entities unchanged</div>
               </div>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-4">
               <div className="bg-teal-50 rounded-lg p-3">
                 <div className="text-xl md:text-2xl font-bold text-teal-700">{result.summary?.cluesInserted ?? 0}</div>
-                <div className="text-sm text-slate-600">Clues added</div>
+                <div className="text-sm text-admin-muted">Clues added</div>
               </div>
               <div className="bg-indigo-50 rounded-lg p-3">
                 <div className="text-xl md:text-2xl font-bold text-indigo-700">{result.summary?.cluesUpdated ?? 0}</div>
-                <div className="text-sm text-slate-600">Clues updated</div>
+                <div className="text-sm text-admin-muted">Clues updated</div>
               </div>
-              <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
-                <div className="text-xl md:text-2xl font-bold text-slate-600">{result.summary?.cluesUnchanged ?? 0}</div>
-                <div className="text-sm text-slate-600">Clues unchanged</div>
+              <div className="bg-admin-muted-surface rounded-lg p-3 border border-admin-border">
+                <div className="text-xl md:text-2xl font-bold text-admin-muted">{result.summary?.cluesUnchanged ?? 0}</div>
+                <div className="text-sm text-admin-muted">Clues unchanged</div>
               </div>
               <div className="bg-rose-50 rounded-lg p-3">
                 <div className="text-xl md:text-2xl font-bold text-rose-600">{result.summary?.errors ?? 0}</div>
-                <div className="text-sm text-slate-600">Errors</div>
+                <div className="text-sm text-admin-muted">Errors</div>
               </div>
             </div>
             {result.errors?.length > 0 && (

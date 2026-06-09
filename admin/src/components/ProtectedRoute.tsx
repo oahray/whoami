@@ -8,7 +8,7 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-admin-canvas flex items-center justify-center">
         <LoadingState label="Loading" layout="page" />
       </div>
     )

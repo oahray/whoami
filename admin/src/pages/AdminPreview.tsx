@@ -102,17 +102,17 @@ function AdminPreview() {
           <button
             type="button"
             onClick={() => navigate(`/entities/${id}`)}
-            className="flex items-center gap-2 py-2 px-3 rounded-lg hover:bg-slate-100 text-slate-600 font-medium w-fit"
+            className="flex items-center gap-2 py-2 px-3 rounded-lg hover:bg-admin-muted-surface text-admin-muted font-medium w-fit"
           >
             <span className="material-symbols-outlined">arrow_back</span>
             Back to Edit
           </button>
-          <span className="text-slate-500 text-sm">Entity Preview Mode</span>
+          <span className="text-admin-muted text-sm">Entity Preview Mode</span>
         </div>
 
       <main className="flex-1 overflow-y-auto pb-28 md:pb-8">
         <div className="px-0 md:px-2">
-          <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+          <div className="bg-admin-panel rounded-lg shadow-sm border border-admin-border overflow-hidden">
             <div className="p-5">
               <p className="text-primary text-sm font-semibold mb-1 uppercase tracking-wide">Category: {entity.type}</p>
               <h2 className="text-2xl font-bold mb-2">Who Am I?</h2>
@@ -121,7 +121,7 @@ function AdminPreview() {
         </div>
 
         <div className="mt-6 mb-6">
-          <h3 className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-3 px-1">Clues (Admin Simulation)</h3>
+          <h3 className="text-admin-muted text-xs font-bold uppercase tracking-widest mb-3 px-1">Clues (Admin Simulation)</h3>
           <div className="space-y-3">
             {clues.map((clue, clueIndex) => {
               const isRevealed = revealedClues.has(clueIndex)
@@ -129,24 +129,24 @@ function AdminPreview() {
                 <div
                   key={clue.id}
                   className={`flex items-center gap-4 p-4 rounded-lg border shadow-sm ${
-                    isRevealed ? 'bg-white border-slate-200' : 'bg-slate-50 border-dashed border-slate-300'
+                    isRevealed ? 'bg-admin-panel border-admin-border' : 'bg-admin-muted-surface border-dashed border-admin-border'
                   }`}
                 >
-                  <div className={`flex items-center justify-center rounded-lg shrink-0 size-12 ${isRevealed ? 'bg-primary/10 text-primary' : 'bg-slate-200 text-slate-400'}`}>
+                  <div className={`flex items-center justify-center rounded-lg shrink-0 size-12 ${isRevealed ? 'bg-primary/10 text-primary' : 'bg-admin-muted-surface text-admin-muted'}`}>
                     <span className="material-symbols-outlined">{isRevealed ? 'visibility' : 'visibility_off'}</span>
                   </div>
                   <div className="flex-1">
                     {isRevealed ? (
-                      <p className="text-slate-900 text-base font-medium leading-snug">{clue.text}</p>
+                      <p className="text-admin-fg text-base font-medium leading-snug">{clue.text}</p>
                     ) : (
-                      <p className="text-slate-400 text-base italic font-medium">[Clue hidden from players]</p>
+                      <p className="text-admin-muted text-base italic font-medium">[Clue hidden from players]</p>
                     )}
-                    <p className="text-slate-500 text-xs mt-1">Clue #{clueIndex + 1} • {isRevealed ? 'Revealed' : 'Hidden'}</p>
+                    <p className="text-admin-muted text-xs mt-1">Clue #{clueIndex + 1} • {isRevealed ? 'Revealed' : 'Hidden'}</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => toggleClue(clueIndex)}
-                    className={isRevealed ? 'bg-slate-100 text-slate-700 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-slate-200' : 'bg-primary text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary/90'}
+                    className={isRevealed ? 'bg-admin-muted-surface text-admin-fg text-sm font-semibold px-4 py-2 rounded-lg hover:bg-admin-muted-surface' : 'bg-primary text-white text-sm font-semibold px-4 py-2 rounded-lg hover:bg-primary/90'}
                   >
                     {isRevealed ? 'Hide' : 'Reveal'}
                   </button>
@@ -158,12 +158,12 @@ function AdminPreview() {
 
         <div className="mb-8">
           <div className="bg-slate-900 rounded-lg p-6 text-center border border-slate-800">
-            <h4 className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-4">Solution</h4>
+            <h4 className="text-admin-muted text-xs font-bold uppercase tracking-widest mb-4">Solution</h4>
             {showAnswer ? (
               <div className="mb-6">
                 <h2 className="text-white text-4xl font-black tracking-tight mb-2 uppercase">{entity.name}</h2>
                 {clues.some(c => c.citations) && (
-                  <ul className="list-disc list-inside space-y-1 text-slate-400 text-sm text-left max-w-sm mx-auto">
+                  <ul className="list-disc list-inside space-y-1 text-admin-muted text-sm text-left max-w-sm mx-auto">
                     {clues.filter(c => c.citations).map((clue, i) => (
                       <li key={clue.id}>Clue {i + 1}: {clue.citations}</li>
                     ))}
@@ -171,12 +171,12 @@ function AdminPreview() {
                 )}
               </div>
             ) : (
-              <p className="text-slate-400 italic mb-4">[Answer hidden]</p>
+              <p className="text-admin-muted italic mb-4">[Answer hidden]</p>
             )}
             <button
               type="button"
               onClick={() => setShowAnswer(!showAnswer)}
-              className="w-full bg-white text-slate-900 font-bold py-3 px-6 rounded-lg hover:opacity-90 flex items-center justify-center gap-2"
+              className="w-full bg-admin-panel text-admin-fg font-bold py-3 px-6 rounded-lg hover:opacity-90 flex items-center justify-center gap-2"
             >
               <span className="material-symbols-outlined">check_circle</span>
               {showAnswer ? 'Hide Answer' : 'Show Answer'}

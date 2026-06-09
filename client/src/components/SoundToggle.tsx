@@ -31,7 +31,7 @@ function SoundToggle({ className = '' }: SoundToggleProps) {
       className={`flex size-9 md:size-10 items-center justify-center rounded-full border transition-colors ${
         isOn
           ? 'border-primary/30 bg-primary/10 text-primary hover:bg-primary/15'
-          : 'border-slate-200 bg-slate-100 text-slate-400 hover:bg-slate-200 hover:text-slate-500'
+          : 'border-edge bg-surface-elevated text-foreground-muted hover:bg-surface-muted'
       } ${className}`.trim()}
       aria-label={label}
       aria-pressed={isOn}

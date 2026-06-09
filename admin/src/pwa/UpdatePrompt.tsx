@@ -15,16 +15,16 @@ export default function UpdatePrompt() {
     <div
       role="status"
       aria-live="polite"
-      className="fixed bottom-4 left-4 right-4 mx-auto max-w-md z-50 bg-white border border-slate-200 shadow-2xl rounded-lg p-4 flex items-center gap-3"
+      className="fixed bottom-4 left-4 right-4 mx-auto max-w-md z-50 bg-admin-panel border border-admin-border shadow-2xl rounded-lg p-4 flex items-center gap-3"
     >
       <div className="flex-1 min-w-0">
-        <p className="text-slate-900 text-sm font-bold">A new version is available</p>
-        <p className="text-slate-600 text-xs mt-0.5">Refresh to get the latest admin build.</p>
+        <p className="text-admin-fg text-sm font-bold">A new version is available</p>
+        <p className="text-admin-muted text-xs mt-0.5">Refresh to get the latest admin build.</p>
       </div>
       <button
         type="button"
         onClick={() => setDismissed(true)}
-        className="text-slate-500 hover:text-slate-700 text-xs px-2 py-1 font-medium"
+        className="text-admin-muted hover:text-admin-fg text-xs px-2 py-1 font-medium"
       >
         Later
       </button>

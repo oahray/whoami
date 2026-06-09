@@ -2,17 +2,37 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --color-app-bg: 246 246 248;
+  --color-surface: 255 255 255;
+  --color-surface-muted: 248 250 252;
+  --color-surface-elevated: 241 245 249;
+  --color-foreground: 15 23 42;
+  --color-foreground-muted: 100 116 139;
+  --color-edge: 226 232 240;
+}
+
+.dark {
+  --color-app-bg: 16 19 34;
+  --color-surface: 15 23 42;
+  --color-surface-muted: 30 41 59;
+  --color-surface-elevated: 51 65 85;
+  --color-foreground: 241 245 249;
+  --color-foreground-muted: 148 163 184;
+  --color-edge: 51 65 85;
+}
+
 html {
   min-height: 100%;
-  background-color: #f6f6f8;
+  background-color: rgb(var(--color-app-bg));
 }
 
 body {
   font-family: 'Inter', sans-serif;
   min-height: 100%;
   min-height: max(100%, 100dvh);
-  background-color: #f6f6f8;
-  color: #0f172a;
+  background-color: rgb(var(--color-app-bg));
+  color: rgb(var(--color-foreground));
 }
 
 #root {

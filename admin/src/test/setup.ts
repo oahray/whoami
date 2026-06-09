@@ -4,18 +4,19 @@ import * as matchers from '@testing-library/jest-dom/matchers'
 
 expect.extend(matchers)
 
-Object.defineProperty(window, 'matchMedia', {
-  writable: true,
-  value: vi.fn().mockImplementation((query: string) => ({
-    matches: false,
+vi.stubGlobal(
+  'matchMedia',
+  vi.fn((query: string) => ({
+    matches: query.includes('prefers-color-scheme: dark'),
     media: query,
     onchange: null,
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
     dispatchEvent: vi.fn()
   }))
-})
+)
 
 afterEach(() => {
   cleanup()
+  document.documentElement.classList.remove('dark')
 })

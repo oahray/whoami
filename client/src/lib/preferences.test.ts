@@ -1,22 +1,21 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { stubMatchMedia } from '../test/matchMedia'
 import {
   isSfxPlaybackAllowed,
   readSfxEnabled,
+  readTheme,
+  resolveTheme,
   STORAGE_KEY_SFX_ENABLED,
-  writeSfxEnabled
+  STORAGE_KEY_THEME,
+  writeSfxEnabled,
+  writeTheme
 } from './preferences'
 
 describe('preferences', () => {
   beforeEach(() => {
     localStorage.clear()
-    vi.stubGlobal(
-      'matchMedia',
-      vi.fn().mockReturnValue({
-        matches: false,
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn()
-      })
-    )
+    document.documentElement.classList.remove('dark')
+    stubMatchMedia()
   })
 
   afterEach(() => {
@@ -34,14 +33,7 @@ describe('preferences', () => {
   })
 
   it('blocks playback when reduced motion is preferred', () => {
-    vi.stubGlobal(
-      'matchMedia',
-      vi.fn().mockReturnValue({
-        matches: true,
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn()
-      })
-    )
+    stubMatchMedia({ reducedMotion: true })
     expect(isSfxPlaybackAllowed(true)).toBe(false)
     expect(isSfxPlaybackAllowed(false)).toBe(false)
   })
@@ -49,5 +41,27 @@ describe('preferences', () => {
   it('allows playback when enabled and motion is not reduced', () => {
     expect(isSfxPlaybackAllowed(true)).toBe(true)
     expect(isSfxPlaybackAllowed(false)).toBe(false)
+  })
+
+  it('defaults theme to system', () => {
+    expect(readTheme()).toBe('system')
+  })
+
+  it('persists theme preference', () => {
+    writeTheme('dark')
+    expect(localStorage.getItem(STORAGE_KEY_THEME)).toBe('dark')
+    expect(readTheme()).toBe('dark')
+  })
+
+  it('resolves explicit light and dark themes', () => {
+    expect(resolveTheme('light')).toBe('light')
+    expect(resolveTheme('dark')).toBe('dark')
+  })
+
+  it('resolves system theme from prefers-color-scheme', () => {
+    stubMatchMedia({ prefersDark: true })
+    expect(resolveTheme('system')).toBe('dark')
+    stubMatchMedia({ prefersDark: false })
+    expect(resolveTheme('system')).toBe('light')
   })
 })

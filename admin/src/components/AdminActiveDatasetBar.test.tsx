@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { ThemeProvider } from '../context/ThemeContext'
 import AdminActiveDatasetBar from './AdminActiveDatasetBar'
 
 const mockUseAdminDataset = vi.fn()
@@ -20,9 +21,11 @@ const dataset = {
 
 function renderBar() {
   return render(
-    <MemoryRouter>
-      <AdminActiveDatasetBar />
-    </MemoryRouter>
+    <ThemeProvider>
+      <MemoryRouter>
+        <AdminActiveDatasetBar />
+      </MemoryRouter>
+    </ThemeProvider>
   )
 }
 
