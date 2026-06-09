@@ -35,7 +35,7 @@ function AdminDashboard() {
       setError('')
       const token = await getAccessToken()
       if (!token) {
-        navigate('/admin/login')
+        navigate('/login')
         return
       }
 
@@ -60,7 +60,7 @@ function AdminDashboard() {
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load stats')
       if (err instanceof Error && (err.message.includes('Unauthorized') || err.message.includes('Forbidden'))) {
-        navigate('/admin/login')
+        navigate('/login')
       }
     } finally {
       setLoading(false)
@@ -209,7 +209,7 @@ function AdminDashboard() {
             <div className="flex flex-col xs:flex-row gap-2 sm:gap-3 shrink-0">
               <button
                 type="button"
-                onClick={() => navigate('/admin/entities')}
+                onClick={() => navigate('/entities')}
                 className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-primary text-white font-semibold hover:bg-primary/90 transition-colors"
               >
                 <span className="material-symbols-outlined">database</span>
@@ -217,7 +217,7 @@ function AdminDashboard() {
               </button>
               <button
                 type="button"
-                onClick={() => navigate('/admin/bulk-import')}
+                onClick={() => navigate('/bulk-import')}
                 className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg border-2 border-primary text-primary font-semibold hover:bg-primary/10 transition-colors"
               >
                 <span className="material-symbols-outlined">upload_file</span>
@@ -225,7 +225,7 @@ function AdminDashboard() {
               </button>
               <button
                 type="button"
-                onClick={() => navigate('/admin/datasets')}
+                onClick={() => navigate('/datasets')}
                 className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg border-2 border-slate-200 text-slate-700 font-semibold hover:bg-slate-100 transition-colors"
               >
                 <span className="material-symbols-outlined">collections_bookmark</span>

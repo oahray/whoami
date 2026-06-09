@@ -5,17 +5,21 @@
   "private": true,
   "workspaces": [
     "client",
+    "admin",
     "server"
   ],
   "scripts": {
     "dev:client": "npm run dev --workspace=client",
+    "dev:admin": "npm run dev --workspace=admin",
     "dev:server": "npm run dev --workspace=server",
-    "build": "npm run build:client && npm run build:server",
+    "build": "npm run build:client && npm run build:admin && npm run build:server",
     "build:client": "npm run build --workspace=client",
+    "build:admin": "npm run build --workspace=admin",
     "build:server": "npm run build --workspace=server",
     "test:server": "npm run test --workspace=server -- --run",
     "test:client": "npm run test --workspace=client -- --run",
-    "test": "npm run test:client && npm run test:server"
+    "test:admin": "npm run test --workspace=admin -- --run",
+    "test": "npm run test:client && npm run test:admin && npm run test:server"
   },
   "engines": {
     "node": ">=20.0.0"

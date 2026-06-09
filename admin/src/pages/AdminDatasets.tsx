@@ -81,7 +81,7 @@ function AdminDatasets() {
 
   const handleManage = (dataset: Dataset) => {
     setSelectedDatasetId(dataset.id)
-    navigate(`/admin/datasets/${dataset.id}`)
+    navigate(`/datasets/${dataset.id}`)
   }
 
   return (

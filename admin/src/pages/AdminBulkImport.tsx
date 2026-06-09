@@ -107,7 +107,7 @@ function AdminBulkImport() {
         <div className="flex items-center justify-between mb-4 md:mb-6">
           <button
             type="button"
-            onClick={() => navigate('/admin/entities')}
+            onClick={() => navigate('/entities')}
             className="text-primary flex items-center gap-2 py-2 px-3 rounded-lg hover:bg-primary/10 font-medium"
           >
             <span className="material-symbols-outlined">arrow_back</span>

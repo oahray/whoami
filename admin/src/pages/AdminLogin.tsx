@@ -9,7 +9,7 @@ function AdminLogin() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const { signInWithEmail, signInWithGoogle } = useAuth()
+  const { signInWithEmail } = useAuth()
   const navigate = useNavigate()
 
   const handleEmailSignIn = async (e: FormEvent) => {
@@ -22,27 +22,11 @@ function AdminLogin() {
       if (error) {
         setError(error.message)
       } else {
-        navigate('/admin')
+        navigate('/')
       }
-    } catch (err: any) {
-      setError(err.message || 'An error occurred')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'An error occurred')
     } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleGoogleSignIn = async () => {
-    setError('')
-    setLoading(true)
-
-    try {
-      const { error } = await signInWithGoogle()
-      if (error) {
-        setError(error.message)
-        setLoading(false)
-      }
-    } catch (err: any) {
-      setError(err.message || 'An error occurred')
       setLoading(false)
     }
   }
@@ -101,12 +85,10 @@ function AdminLogin() {
             {loading ? (
               <LoadingState label="Signing in" layout="inline" className="text-white w-full" />
             ) : (
-              'Sign In with Email'
+              'Sign In'
             )}
           </button>
         </form>
-
-        {/* TODO: Add Google sign in */}
       </div>
     </div>
   )

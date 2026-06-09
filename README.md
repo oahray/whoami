@@ -4,29 +4,19 @@ A browser-based, real-time multiplayer Bible quiz game focused on identity guess
 
 ## Tech Stack
 
-- **Frontend**: React 18 + Vite + Tailwind CSS
+- **Player app**: React 18 + Vite + Tailwind CSS (PWA)
+- **Admin app**: React 18 + Vite + Tailwind CSS (separate PWA on `admin.*`)
 - **Backend**: Node.js 20 + Express + Socket.io
 - **Database**: Supabase (PostgreSQL)
-- **Deployment**: Vercel (frontend) + Railway (backend)
+- **Deployment**: Vercel (player + admin frontends) + Railway (backend)
 
 ## Project Structure
 
 ```
 whoami/
-├── client/          # React frontend
-│   ├── src/
-│   │   ├── pages/   # Route pages
-│   │   ├── components/
-│   │   ├── hooks/
-│   │   └── context/
-│   └── package.json
-├── server/          # Node.js backend
-│   ├── src/
-│   │   ├── rooms/   # Room management
-│   │   ├── game/    # Game logic
-│   │   ├── sockets/ # Socket.io handlers
-│   │   └── db/      # Database queries
-│   └── package.json
+├── client/          # Player PWA (whoami.example.com)
+├── admin/           # Admin PWA (admin.whoami.example.com)
+├── server/          # Node.js backend + REST + Socket.io
 └── package.json     # Root workspace config
 ```
 
@@ -35,7 +25,7 @@ whoami/
 ### Prerequisites
 
 - Node.js 20+
-- npm or yarn
+- npm
 - Supabase account
 
 ### Installation
@@ -51,24 +41,32 @@ whoami/
    - Create a new Supabase project (or use existing)
    - Link your project: `cd server && supabase link --project-ref your-project-ref`
    - Run migrations: `supabase db push` (or `supabase migrate up` for local)
-   - Configure Supabase Auth (email + Google OAuth) in Supabase dashboard
+   - Configure Supabase Auth (email/password) in Supabase dashboard
    - Note your project URL and service role key
 
 4. Configure environment variables:
-   - Copy `.env.example` to `.env` (if it exists) or create `.env` files:
-   - **Client** (`client/.env`):
-     ```
-     VITE_SOCKET_URL=http://localhost:3001
-     VITE_SUPABASE_URL=your_supabase_url
-     VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-     ```
-   - **Server** (`server/.env`):
-     ```
-     SUPABASE_URL=your_supabase_url
-     SUPABASE_SERVICE_KEY=your_supabase_service_role_key
-     PORT=3001
-     CLIENT_ORIGIN=http://localhost:5173
-     ```
+
+   **Player** (`client/.env`):
+   ```
+   VITE_SOCKET_URL=http://localhost:3001
+   VITE_ADMIN_URL=http://localhost:5174
+   ```
+
+   **Admin** (`admin/.env`):
+   ```
+   VITE_SOCKET_URL=http://localhost:3001
+   VITE_SUPABASE_URL=your_supabase_url
+   VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+   ```
+
+   **Server** (`server/.env`):
+   ```
+   SUPABASE_URL=your_supabase_url
+   SUPABASE_SERVICE_KEY=your_supabase_service_role_key
+   PORT=3001
+   CLIENT_ORIGIN=http://localhost:5173
+   CLIENT_ORIGINS=http://localhost:5173,http://localhost:5174
+   ```
 
 5. Seed dev data (optional):
    ```bash
@@ -77,7 +75,7 @@ whoami/
    ```
 
 6. Add admin user:
-   - First, sign in to the admin dashboard at `/admin/login` to create your user account
+   - Sign in at http://localhost:5174/login to create your Supabase user
    - Then add yourself as admin:
    ```bash
    cd server
@@ -86,34 +84,39 @@ whoami/
 
 ### Development
 
-Run both client and server in development mode:
-
 ```bash
-# Terminal 1: Frontend
+# Terminal 1: Player app
 npm run dev:client
 
-# Terminal 2: Backend
+# Terminal 2: Admin app
+npm run dev:admin
+
+# Terminal 3: Backend
 npm run dev:server
 ```
 
-- Frontend: http://localhost:5173
+- Player: http://localhost:5173
+- Admin: http://localhost:5174
 - Backend: http://localhost:3001
+
+Legacy `/admin/*` URLs on the player app redirect to the admin app (using `VITE_ADMIN_URL`).
+
+### Production deploy
+
+- **Vercel project 1** — root directory `client`, domain `whoami.example.com`
+- **Vercel project 2** — root directory `admin`, domain `admin.whoami.example.com`
+- **Railway** — `server/`, set `CLIENT_ORIGINS` to both production frontend URLs
+
+Install the admin PWA from `admin.*` (Add to Home Screen) for standalone admin access on mobile.
 
 ## Features
 
-- ✅ Private, code-based rooms
-- ✅ Real-time multiplayer gameplay
-- ✅ Server-authoritative timing and scoring
-- ✅ Reconnection with grace period
-- ✅ Difficulty modes with backfill logic
-- ✅ Admin dashboard (coming soon)
-
-## Upcoming features
-- [Settings in the app (existing + planned)
-- Dataset purge & maintenance windows (planned)
-- Sound effects (planned)
-- In-person card flip animation (planned)
-- Public rooms (planned; after traction)
+- Private, code-based rooms
+- Real-time multiplayer gameplay
+- Server-authoritative timing and scoring
+- Reconnection with grace period
+- Difficulty modes with backfill logic
+- Admin dashboard (datasets, entities, bulk import)
 
 ## License
 

@@ -31,7 +31,7 @@ const CLIENT_ORIGINS = process.env.CLIENT_ORIGINS
   ? process.env.CLIENT_ORIGINS.split(',').map(origin => origin.trim())
   : [CLIENT_ORIGIN]
 
-const allowedOrigins = [...CLIENT_ORIGINS, CLIENT_ORIGIN].filter(Boolean)
+const allowedOrigins = CLIENT_ORIGINS.filter(Boolean)
 
 // Basic in-memory IP throttle for internal warmth endpoint
 type WarmthBucket = {
