@@ -2,6 +2,7 @@ import { Router, Response } from 'express'
 import { supabase } from '../../db/supabase.js'
 import { resolveDatasetIdFromRequest } from '../../db/entities.js'
 import type { AuthRequest } from '../auth.js'
+import { getMaintenanceBlock } from '../../db/maintenance.js'
 import { logger } from '../../utils/logger.js'
 
 const router = Router()
@@ -58,6 +59,15 @@ function cluePayloadMatchesRow(
 
 router.post('/bulk-import', async (req: AuthRequest, res: Response) => {
   try {
+    const maintenance = await getMaintenanceBlock()
+    if (maintenance) {
+      return res.status(503).json({
+        error: maintenance.message,
+        code: maintenance.code,
+        maintenanceEndsAt: maintenance.endsAt
+      })
+    }
+
     const { entities }: { entities: BulkEntity[] } = req.body
 
     if (!Array.isArray(entities)) {

@@ -28,6 +28,10 @@ vi.mock('./utils.js', () => ({
   broadcastRoundEnd: vi.fn()
 }))
 
+vi.mock('../../db/maintenance.js', () => ({
+  getMaintenanceBlock: vi.fn().mockResolvedValue(null)
+}))
+
 const actualStore = await vi.importActual<typeof import('../../rooms/store.js')>('../../rooms/store.js')
 
 import { getRoomBySocket } from '../../rooms/store.js'

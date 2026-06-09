@@ -34,6 +34,24 @@ export interface Clue {
   updated_at?: string
 }
 
+export interface MaintenanceWindow {
+  id: string
+  dataset_id: string | null
+  starts_at: string
+  ends_at: string
+  admin_note: string | null
+  created_by: string | null
+  created_at: string
+}
+
+export type MaintenancePhase = 'none' | 'upcoming' | 'freeze' | 'active'
+
+export interface MaintenanceStatus {
+  phase: MaintenancePhase
+  endsAt: string | null
+  startsAt: string | null
+}
+
 export interface Stats {
   datasetId?: string
   totalEntities: number

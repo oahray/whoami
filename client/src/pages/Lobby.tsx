@@ -8,8 +8,11 @@ import {
   ENTITY_TYPE_OPTIONS,
   entityTypeOptionLabel
 } from '../lib/entityTypeFilter'
+import MaintenanceBanner from '../components/MaintenanceBanner'
 import { useGame } from '../hooks/useGame'
+import { useMaintenanceStatus } from '../hooks/useMaintenanceStatus'
 import { useSocket } from '../hooks/useSocket'
+import { isMaintenanceBlockingNewGames } from '../lib/maintenance'
 import type { PublicDataset } from '../types'
 
 const COPIED_FEEDBACK_MS = 2000
@@ -20,6 +23,8 @@ const API_BASE_URL =
 function Lobby() {
   const navigate = useNavigate()
   const { emit, on, off } = useSocket()
+  const { status: maintenanceStatus } = useMaintenanceStatus()
+  const maintenanceBlocking = isMaintenanceBlockingNewGames(maintenanceStatus)
   const [copiedCode, setCopiedCode] = useState(false)
   const [copiedLink, setCopiedLink] = useState(false)
   const [datasets, setDatasets] = useState<PublicDataset[]>([])
@@ -157,6 +162,7 @@ function Lobby() {
       </header>
 
       <main className="p-4 md:p-6 lg:p-8 max-w-7xl w-full mx-auto flex flex-col gap-6 flex-1">
+        <MaintenanceBanner status={maintenanceStatus} />
         <section className="bg-surface rounded-lg p-5 shadow-sm border border-edge">
           <div className="flex flex-row items-center justify-between gap-4">
             <div className="flex flex-col min-w-0">
@@ -511,7 +517,7 @@ function Lobby() {
             <button
               type="button"
               onClick={handleStartGame}
-              disabled={connectedCount < 2}
+              disabled={connectedCount < 2 || maintenanceBlocking}
               className="order-1 sm:order-2 w-full md:w-auto md:min-w-[200px] bg-green-600 hover:bg-green-700 text-white font-bold py-4 md:py-3 px-6 rounded-lg shadow-lg shadow-green-500/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
             >
               <span className="material-symbols-outlined">play_circle</span>

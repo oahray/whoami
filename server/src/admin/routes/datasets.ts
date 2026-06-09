@@ -9,6 +9,11 @@ import {
   type DatasetCreateInput,
   type DatasetUpdateInput
 } from '../../db/entities.js'
+import {
+  DatasetContentError,
+  exportDatasetContent,
+  purgeDatasetContent
+} from '../../db/datasetContent.js'
 import { logger } from '../../utils/logger.js'
 
 const router = Router()
@@ -61,6 +66,36 @@ router.post('/datasets', async (req: AuthRequest, res: Response) => {
     }
     logger.error('Error creating dataset', error)
     res.status(500).json({ error: 'Failed to create dataset' })
+  }
+})
+
+router.get('/datasets/:id/export', async (req: AuthRequest, res: Response) => {
+  try {
+    const payload = await exportDatasetContent(req.params.id)
+    res.json(payload)
+  } catch (error) {
+    if (error instanceof DatasetContentError && error.code === 'NOT_FOUND') {
+      return res.status(404).json({ error: error.code, message: error.message })
+    }
+    logger.error('Error exporting dataset', error)
+    res.status(500).json({ error: 'Failed to export dataset' })
+  }
+})
+
+router.delete('/datasets/:id/content', async (req: AuthRequest, res: Response) => {
+  try {
+    const selectedDatasetId =
+      typeof req.query.selectedDatasetId === 'string' ? req.query.selectedDatasetId : null
+
+    const result = await purgeDatasetContent(req.params.id, { selectedDatasetId })
+    res.json(result)
+  } catch (error) {
+    if (error instanceof DatasetContentError) {
+      const status = error.code === 'NOT_FOUND' ? 404 : 400
+      return res.status(status).json({ error: error.code, message: error.message })
+    }
+    logger.error('Error purging dataset content', error)
+    res.status(500).json({ error: 'Failed to purge dataset content' })
   }
 })
 
