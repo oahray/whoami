@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import PreferencesMenu from '../components/PreferencesMenu'
+import { unlockAudio } from '../lib/sounds'
 import {
   ENTITY_TYPE_FIELD_LABEL,
   ENTITY_TYPE_HINT_LOBBY,
@@ -98,6 +100,7 @@ function Lobby() {
       setError('Need at least 2 players to start')
       return
     }
+    unlockAudio()
     emit('START_GAME', {})
   }
 
@@ -141,13 +144,16 @@ function Lobby() {
           <span className="material-symbols-outlined">arrow_back</span>
         </button>
         <h1 className="text-slate-900 text-lg font-bold leading-tight tracking-tight flex-1 text-center">Room Lobby <span className="text-sm text-slate-500">({roomCode})</span></h1>
-        <button
-          type="button"
-          onClick={handleLeaveRoom}
-          className="text-red-500 text-sm font-bold shrink-0 md:px-4 md:py-2 md:rounded-full md:bg-slate-100 md:text-slate-700 md:hover:bg-slate-200 md:font-semibold"
-        >
-          Leave Room
-        </button>
+        <div className="flex items-center gap-1 shrink-0">
+          <PreferencesMenu />
+          <button
+            type="button"
+            onClick={handleLeaveRoom}
+            className="text-red-500 text-sm font-bold md:px-4 md:py-2 md:rounded-full md:bg-slate-100 md:text-slate-700 md:hover:bg-slate-200 md:font-semibold"
+          >
+            Leave Room
+          </button>
+        </div>
       </header>
 
       <main className="p-4 md:p-6 lg:p-8 max-w-7xl w-full mx-auto flex flex-col gap-6 flex-1">
@@ -283,12 +289,12 @@ function Lobby() {
                       className="w-full bg-slate-50 border-0 rounded-lg text-slate-900 focus:ring-2 focus:ring-primary py-2.5 px-3"
                     >
                       <option value="">
-                        Default ({datasets.find((d) => d.is_default)?.name ?? datasets[0]?.name ?? '—'})
+                        Default ({datasets.find((d) => d.is_default)?.name ?? datasets[0]?.name ?? '-'})
                       </option>
                       {datasets.map((d) => (
                         <option key={d.id} value={d.id}>
                           {d.name}
-                          {d.source ? ` — ${d.source}` : ''}
+                          {d.source ? ` (${d.source})` : ''}
                         </option>
                       ))}
                     </select>
@@ -297,7 +303,7 @@ function Lobby() {
                       {datasets.find((d) => d.id === settings.datasetId)?.name ??
                         datasets.find((d) => d.is_default)?.name ??
                         datasets[0]?.name ??
-                        '—'}
+                        '-'}
                     </div>
                   )}
                   {(() => {
@@ -487,6 +493,7 @@ function Lobby() {
               </div>
             </section>
           )}
+
         </div>
 
       </main>

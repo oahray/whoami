@@ -108,11 +108,12 @@ npm run dev:server
 - ✅ Difficulty modes with backfill logic
 - ✅ Admin dashboard (coming soon)
 
-## Planning docs
-
-- [Settings in the app (existing + planned)](docs/settings.md)
-- [Sound effects (planned)](docs/sounds.md)
-- [In-person card flip animation (planned)](docs/in-person-card-flip.md)
+## Upcoming features
+- [Settings in the app (existing + planned)
+- Dataset purge & maintenance windows (planned)
+- Sound effects (planned)
+- In-person card flip animation (planned)
+- Public rooms (planned; after traction)
 
 ## License
 

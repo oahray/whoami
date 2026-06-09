@@ -4,7 +4,7 @@
  * The real builder accepts long chains like:
  *   supabase.from('clues').select('*', { count: 'exact', head: true }).eq(...).is(...)
  *
- * Tests don't need to model network behaviour — they just need to:
+ * Tests don't need to model network behaviour - they just need to:
  *   1. Record which methods were called with which args (so the resolver can
  *      branch on the shape of the query), and
  *   2. Resolve to a `{ data, error }` (or `{ count, error }`) shape exactly the

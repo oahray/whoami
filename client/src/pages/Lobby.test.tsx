@@ -1,6 +1,7 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { renderWithPreferences } from '../test/renderWithPreferences'
 import Lobby from './Lobby'
 
 const mockUseGame = vi.fn()
@@ -75,7 +76,7 @@ describe('Lobby', () => {
   })
 
   it('shows copied feedback after copying the room code', async () => {
-    render(
+    renderWithPreferences(
       <MemoryRouter>
         <Lobby />
       </MemoryRouter>
@@ -97,7 +98,7 @@ describe('Lobby', () => {
   })
 
   it('shows copied feedback after copying the invite link', async () => {
-    render(
+    renderWithPreferences(
       <MemoryRouter>
         <Lobby />
       </MemoryRouter>
@@ -117,7 +118,7 @@ describe('Lobby', () => {
       { id: 'ds-1', name: 'Bible', source: 'NWT', description: null, is_default: true }
     ])
 
-    render(
+    renderWithPreferences(
       <MemoryRouter>
         <Lobby />
       </MemoryRouter>
@@ -134,10 +135,10 @@ describe('Lobby', () => {
   it('shows a dataset picker when there are 2+ enabled datasets', async () => {
     mockDatasetsFetch([
       { id: 'ds-1', name: 'Bible', source: 'NWT', description: null, is_default: true },
-      { id: 'ds-2', name: 'Org History', source: 'JW.org', description: null, is_default: false }
+      { id: 'ds-2', name: 'Org History', source: 'Wiki', description: null, is_default: false }
     ])
 
-    render(
+    renderWithPreferences(
       <MemoryRouter>
         <Lobby />
       </MemoryRouter>
@@ -149,19 +150,19 @@ describe('Lobby', () => {
     })
 
     expect(screen.getByLabelText('Content')).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: /Org History — JW\.org/ })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /Org History \(Wiki\)/ })).toBeInTheDocument()
   })
 
   it('emits UPDATE_SETTINGS with datasetId when host changes the picker', async () => {
     mockDatasetsFetch([
       { id: 'ds-1', name: 'Bible', source: 'NWT', description: null, is_default: true },
-      { id: 'ds-2', name: 'Org History', source: 'JW.org', description: null, is_default: false }
+      { id: 'ds-2', name: 'Org History', source: 'Wiki', description: null, is_default: false }
     ])
 
     const emit = vi.fn()
     mockUseSocket.mockReturnValue({ emit, on: vi.fn(), off: vi.fn() })
 
-    render(
+    renderWithPreferences(
       <MemoryRouter>
         <Lobby />
       </MemoryRouter>
@@ -182,7 +183,7 @@ describe('Lobby', () => {
     const emit = vi.fn()
     mockUseSocket.mockReturnValue({ emit, on: vi.fn(), off: vi.fn() })
 
-    render(
+    renderWithPreferences(
       <MemoryRouter>
         <Lobby />
       </MemoryRouter>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import LoadingState from '../components/LoadingState'
+import PreferencesMenu from '../components/PreferencesMenu'
 import { API_BASE_URL } from '../lib/apiBase'
 import {
   fetchInPersonEligibility,
@@ -18,6 +19,7 @@ import {
   type EntityTypeFilter
 } from '../lib/entityTypeFilter'
 import { fetchInPersonDeck } from '../lib/inPersonDeck'
+import { unlockAudio } from '../lib/sounds'
 import type { GameDifficultyMode, PublicDataset } from '../types'
 
 function PlaySetup() {
@@ -123,6 +125,7 @@ function PlaySetup() {
     if (!canStart) return
     setStarting(true)
     setError(null)
+    unlockAudio()
     try {
       await fetchInPersonDeck(datasetId, difficulty, entityType)
       const params = new URLSearchParams({ datasetId, difficulty, entityType })
@@ -154,9 +157,12 @@ function PlaySetup() {
             <h1 className="text-lg font-bold tracking-tight">Play in person</h1>
             <p className="text-slate-500 text-xs truncate">One phone · read clues aloud</p>
           </div>
-          <Link to="/about" className="text-primary text-sm font-semibold shrink-0">
-            Help
-          </Link>
+          <div className="flex items-center gap-1 shrink-0">
+            <PreferencesMenu />
+            <Link to="/about" className="text-primary text-sm font-semibold px-2">
+              Help
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -296,6 +302,7 @@ function PlaySetup() {
             </button>
           </section>
         )}
+
       </main>
     </div>
   )

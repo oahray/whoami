@@ -43,7 +43,7 @@ const squarePng = await sharp(SRC)
 
 // 2) Threshold the greyscale to get a 1-channel mask: 255 inside the glyph,
 //    0 elsewhere. We then attach this as the alpha channel of an all-white
-//    RGB image via joinChannel — the previous `dest-in` approach silently
+//    RGB image via joinChannel - the previous `dest-in` approach silently
 //    treated the mask as fully opaque and ended up with a fully white output.
 const alphaMask = await sharp(squarePng)
   .greyscale()

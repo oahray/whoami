@@ -1,6 +1,7 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { renderWithPreferences } from '../test/renderWithPreferences'
 import PlaySetup from './PlaySetup'
 
 const mockNavigate = vi.fn()
@@ -61,7 +62,7 @@ describe('PlaySetup', () => {
       throw new Error(`Unexpected fetch: ${url}`)
     })
 
-    render(
+    renderWithPreferences(
       <MemoryRouter>
         <PlaySetup />
       </MemoryRouter>
@@ -96,7 +97,7 @@ describe('PlaySetup', () => {
       json: async () => []
     } as Response)
 
-    render(
+    renderWithPreferences(
       <MemoryRouter>
         <PlaySetup />
       </MemoryRouter>

@@ -5,7 +5,7 @@ dotenv.config()
 
 /**
  * Bootstrap script: create the first dataset and backfill any existing entities
- * into it. Mirrors the `addAdmin.js` pattern — schema lives in migrations, but
+ * into it. Mirrors the `addAdmin.js` pattern - schema lives in migrations, but
  * initial content is created intentionally via a script rather than implicitly.
  *
  * Usage:

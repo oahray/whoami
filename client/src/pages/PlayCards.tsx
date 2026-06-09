@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import LoadingState from '../components/LoadingState'
+import SoundToggle from '../components/SoundToggle'
 import { API_BASE_URL } from '../lib/apiBase'
 import {
   currentEntityId,
@@ -13,6 +14,7 @@ import {
 } from '../lib/inPersonDeck'
 import { DEFAULT_ENTITY_TYPE_FILTER, type EntityTypeFilter } from '../lib/entityTypeFilter'
 import { IN_PERSON_MASK_PLACEHOLDER } from '../lib/inPersonMask'
+import { playSound, unlockAudio } from '../lib/sounds'
 import type { InPersonCard } from '../types'
 
 function PlayCards() {
@@ -81,6 +83,10 @@ function PlayCards() {
         }
         const data = (await res.json()) as InPersonCard
         setCard(data)
+        const sessionAfterLoad = syncDeckSession()
+        if (sessionAfterLoad?.index === 0) {
+          playSound('round-start')
+        }
       } catch (err) {
         setCard(null)
         setError(err instanceof Error ? err.message : 'Failed to load card')
@@ -88,7 +94,7 @@ function PlayCards() {
         setLoading(false)
       }
     },
-    [datasetId, difficulty, entityType]
+    [datasetId, difficulty, entityType, syncDeckSession]
   )
 
   const loadCurrentCard = useCallback(async () => {
@@ -170,6 +176,7 @@ function PlayCards() {
 
     if (nextIndex >= session.entityIds.length) {
       setDeckComplete(true)
+      playSound('round-end')
       return
     }
 
@@ -224,9 +231,12 @@ function PlayCards() {
               </p>
             )}
           </div>
-          <Link to="/" className="text-slate-500 text-sm font-medium shrink-0">
-            Home
-          </Link>
+          <div className="flex items-center gap-1 shrink-0">
+            <SoundToggle />
+            <Link to="/" className="text-slate-500 text-sm font-medium px-2">
+              Home
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -314,7 +324,7 @@ function PlayCards() {
               aria-label="Clues"
             >
               <h2 className="text-slate-500 text-xs font-bold uppercase tracking-widest px-1 sticky top-0 bg-background-light py-1 z-10">
-                Clues — read aloud
+                Clues (read aloud)
               </h2>
               <div className="space-y-2 pb-1">
                 {visibleClues.map((clue) => (
@@ -381,7 +391,13 @@ function PlayCards() {
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => setShowAnswer((v) => !v)}
+                  onClick={() => {
+                    unlockAudio()
+                    setShowAnswer((v) => {
+                      if (!v) playSound('card-flip')
+                      return !v
+                    })
+                  }}
                   className="flex-1 py-2.5 md:py-3 rounded-lg border-2 border-slate-200 font-semibold text-slate-800 hover:bg-slate-50"
                 >
                   {showAnswer ? 'Hide answer' : 'Reveal answer'}

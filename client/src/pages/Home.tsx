@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useGame } from '../hooks/useGame'
 import { useSocket } from '../hooks/useSocket'
+import { unlockAudio } from '../lib/sounds'
 import { getErrorMessage, isFatalError } from '../utils/errorMessages'
 import IosInstallHint from '../components/IosInstallHint'
 import LoadingState from '../components/LoadingState'
@@ -117,6 +118,7 @@ function Home() {
     }
     setLoading(true)
     setError(null)
+    unlockAudio()
     localStorage.setItem('whoami_nickname', nickname.trim())
     emit('CREATE_ROOM', { nickname: nickname.trim() })
   }
@@ -133,6 +135,7 @@ function Home() {
     }
     setLoading(true)
     setError(null)
+    unlockAudio()
     localStorage.setItem('whoami_nickname', nickname.trim())
     emit('JOIN_ROOM', {
       roomCode: joinCode.trim().toUpperCase(),

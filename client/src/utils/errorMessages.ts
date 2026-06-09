@@ -1,6 +1,6 @@
 /**
  * Maps server-emitted error codes (`ROOM_ERROR { code, message }`) to friendly,
- * user-facing copy. Never returns a raw stack trace or unknown server string —
+ * user-facing copy. Never returns a raw stack trace or unknown server string -
  * unknown codes always fall back to a generic friendly message and the raw
  * payload is logged to the console for devs.
  */
@@ -91,7 +91,7 @@ export function getErrorMessage(code: string, serverMessage?: unknown): string {
 
   if (typeof console !== 'undefined') {
     console.warn(
-      `[errorMessages] Unknown ROOM_ERROR code "${code}" — falling back to generic copy.`,
+      `[errorMessages] Unknown ROOM_ERROR code "${code}" - falling back to generic copy.`,
       { serverMessage }
     )
   }

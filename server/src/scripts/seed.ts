@@ -6,7 +6,7 @@ dotenv.config()
 type ClueDifficulty = 'easy' | 'medium' | 'hard' | 'nightmare'
 
 /**
- * Dev seed: mirrors whoami-datasets shape (per PRD) — name, type, is_published,
+ * Dev seed: mirrors whoami-datasets shape (per PRD) - name, type, is_published,
  * aliases, clues with first-person text, citation strings, and difficulty.
  * `dataset_id` is applied at insert time from the default dataset.
  */

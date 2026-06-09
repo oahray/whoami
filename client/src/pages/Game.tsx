@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import LoadingState from '../components/LoadingState'
+import SoundToggle from '../components/SoundToggle'
+import { INTER_ROUND_DELAY_MS } from '../lib/gameTiming'
 import { useGame } from '../hooks/useGame'
 import { useSocket } from '../hooks/useSocket'
 
@@ -41,6 +43,7 @@ function Game() {
   const [roundEndData, setRoundEndData] = useState<any>(null)
   const [gameEndData, setGameEndData] = useState<any>(null)
   const [autoReturnSeconds, setAutoReturnSeconds] = useState<number | null>(null)
+  const [nextRoundSeconds, setNextRoundSeconds] = useState<number | null>(null)
   const [guessFeed, setGuessFeed] = useState<Array<{ nickname: string; guess?: string; correct: boolean }>>([])
   const [currentPhase, setCurrentPhase] = useState<'starting' | 'active' | 'clue_revealed' | 'ended'>('starting')
   const guessInputRef = useRef<HTMLInputElement | null>(null)
@@ -99,10 +102,28 @@ function Game() {
   }, [gameState])
 
   useEffect(() => {
+    if (!roundEndData) {
+      setNextRoundSeconds(null)
+      return
+    }
+
+    const endsAt = Date.now() + INTER_ROUND_DELAY_MS
+    const tick = () => {
+      setNextRoundSeconds(Math.max(0, Math.ceil((endsAt - Date.now()) / 1000)))
+    }
+    tick()
+    const id = window.setInterval(tick, 200)
+    return () => window.clearInterval(id)
+  }, [roundEndData])
+
+  useEffect(() => {
     const handleRoundEnded = (data: any) => {
       setRoundEndData(data)
       setCurrentPhase('ended')
-      setTimeout(() => setRoundEndData(null), 5000)
+      setTimeout(() => {
+        setRoundEndData(null)
+        setNextRoundSeconds(null)
+      }, INTER_ROUND_DELAY_MS)
     }
     const handleGameEnded = (data: any) => setGameEndData(data)
     const handleGuessBroadcast = (data: { nickname: string; guess?: string; correct: boolean }) => {
@@ -316,19 +337,22 @@ function Game() {
                 </p>
               )}
             </div>
-            {!isFinalScoresView && (
-              <div className="lg:hidden flex items-center gap-2 bg-primary/5 rounded-lg px-3 py-1.5 border border-primary/10 shrink-0">
-                <span className="material-symbols-outlined text-primary text-base">timer</span>
-                <div className="leading-tight">
-                  <p className="text-[9px] uppercase tracking-wider text-primary font-bold">
-                    {preGuessPhase ? 'Starts in' : 'Time'}
-                  </p>
-                  <p className="text-base font-black text-slate-900">
-                    {preGuessPhase ? Math.ceil(timeRemaining / 1000) : canGuess ? Math.ceil(timeRemaining / 1000) : 0}s
-                  </p>
+            <div className="flex items-center gap-1 shrink-0">
+              <SoundToggle />
+              {!isFinalScoresView && (
+                <div className="flex items-center gap-2 bg-primary/5 rounded-lg px-3 py-1.5 border border-primary/10">
+                  <span className="material-symbols-outlined text-primary text-base">timer</span>
+                  <div className="leading-tight">
+                    <p className="text-[9px] uppercase tracking-wider text-primary font-bold">
+                      {preGuessPhase ? 'Starts in' : 'Time'}
+                    </p>
+                    <p className="text-base font-black text-slate-900">
+                      {preGuessPhase ? Math.ceil(timeRemaining / 1000) : canGuess ? Math.ceil(timeRemaining / 1000) : 0}s
+                    </p>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </header>
 
@@ -345,27 +369,66 @@ function Game() {
                   </div>
                   <div
                     ref={cluesScrollRef}
-                    className="space-y-2 lg:space-y-3 max-h-56 overflow-y-auto lg:max-h-[26rem] pr-1"
+                    className="space-y-2 lg:space-y-3 max-h-64 overflow-y-auto lg:max-h-[26rem] pr-1"
                   >
-                    {gameState.cluesRevealed
-                      .slice()
-                      .sort((a, b) => a.order - b.order)
-                      .map((clue) => (
-                        <div key={clue.order} className="bg-white rounded-lg p-3 lg:p-5 border border-slate-200 shadow-sm">
-                          <div className="flex items-start gap-3 lg:gap-4">
-                            <div className="hidden md:flex size-12 rounded-lg bg-primary/10 items-center justify-center text-primary shrink-0">
-                              <span className="material-symbols-outlined">auto_stories</span>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Clue {clue.order}</span>
-                                <span className="material-symbols-outlined text-green-500 text-sm">check_circle</span>
+                    {(() => {
+                      const sortedClues = gameState.cluesRevealed
+                        .slice()
+                        .sort((a, b) => a.order - b.order)
+                      const latestOrder = sortedClues[sortedClues.length - 1]?.order
+
+                      return sortedClues.map((clue) => {
+                        const isLatest = clue.order === latestOrder
+                        return (
+                          <div
+                            key={clue.order}
+                            className={`rounded-lg border p-3 lg:p-5 shadow-sm ${
+                              isLatest
+                                ? 'border-primary/35 bg-primary/5 ring-1 ring-primary/10'
+                                : 'border-slate-200 bg-white'
+                            }`}
+                          >
+                            <div className="flex items-start gap-2.5 lg:gap-4">
+                              <div
+                                className={`flex shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary ${
+                                  isLatest ? 'size-10 lg:size-12' : 'size-9 lg:size-11'
+                                }`}
+                              >
+                                <span
+                                  className={`material-symbols-outlined ${isLatest ? 'text-2xl lg:text-3xl' : 'text-xl lg:text-2xl'}`}
+                                >
+                                  auto_stories
+                                </span>
                               </div>
-                              <p className="text-slate-700 leading-snug lg:leading-relaxed font-medium text-sm lg:text-lg">{clue.text}</p>
+                              <div className="min-w-0 flex-1">
+                                <div className="mb-1 flex items-center justify-between gap-2">
+                                  <span
+                                    className={`text-[10px] font-bold uppercase tracking-widest ${
+                                      isLatest ? 'text-primary' : 'text-slate-400'
+                                    }`}
+                                  >
+                                    Clue {clue.order}
+                                    {isLatest ? ' · New' : ''}
+                                  </span>
+                                  <span className="material-symbols-outlined shrink-0 text-green-500 text-sm">
+                                    check_circle
+                                  </span>
+                                </div>
+                                <p
+                                  className={`leading-snug font-medium lg:leading-relaxed ${
+                                    isLatest
+                                      ? 'text-slate-900 text-base lg:text-lg'
+                                      : 'text-slate-600 text-sm lg:text-base'
+                                  }`}
+                                >
+                                  {clue.text}
+                                </p>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        )
+                      })
+                    })()}
                   </div>
                 </section>
               )}
@@ -578,7 +641,11 @@ function Game() {
               )}
             </div>
             <div className="pb-8 text-center">
-              <p className="text-slate-400 text-xs font-medium italic">Next round starting in 5s...</p>
+              <p className="text-slate-400 text-xs font-medium italic">
+                {nextRoundSeconds !== null && nextRoundSeconds > 0
+                  ? `Next round starting in ${nextRoundSeconds}s…`
+                  : 'Next round starting…'}
+              </p>
             </div>
           </div>
         </div>

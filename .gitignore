@@ -14,6 +14,7 @@ coverage/
 *.swo
 .vite/
 *~
+docs/
 
 # Supabase
 server/.supabase/
