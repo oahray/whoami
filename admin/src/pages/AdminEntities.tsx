@@ -70,7 +70,7 @@ function AdminEntities() {
   const typePillClass = (type: string) => {
     if (type === 'character') return 'bg-blue-100 text-blue-700'
     if (type === 'place') return 'bg-amber-100 text-amber-800'
-    return 'bg-slate-100 text-slate-700'
+    return 'bg-admin-muted-surface text-admin-fg'
   }
 
   const breadcrumb = selectedDataset
@@ -97,14 +97,14 @@ function AdminEntities() {
 
       <section>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-          <h2 className="text-slate-900 text-xl md:text-2xl font-bold">
+          <h2 className="text-admin-fg text-xl md:text-2xl font-bold">
             Entities Management
           </h2>
           <div className="hidden md:flex gap-2 shrink-0">
             <button
               type="button"
               onClick={() => navigate('/bulk-import')}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 border-slate-200 bg-white text-slate-700 font-semibold hover:bg-slate-50 transition-colors"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg border-2 border-admin-border bg-admin-panel text-admin-fg font-semibold hover:bg-admin-muted-surface transition-colors"
             >
               <span className="material-symbols-outlined text-lg">upload_file</span>
               Bulk Import
@@ -122,20 +122,20 @@ function AdminEntities() {
 
         <div className="flex flex-col md:flex-row md:items-center gap-3 mb-4">
           <div className="relative flex-1 min-w-0">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">search</span>
+            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-admin-muted pointer-events-none">search</span>
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search entities by name or clue..."
-              className="w-full bg-white border border-slate-200 rounded-lg pl-10 pr-4 py-2.5 text-slate-900 focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              className="w-full bg-admin-panel border border-admin-border rounded-lg pl-10 pr-4 py-2.5 text-admin-fg focus:ring-2 focus:ring-primary/20 focus:border-primary"
             />
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
-              className="bg-white border border-slate-200 rounded-lg text-sm py-2.5 px-4 text-slate-700 font-medium focus:ring-2 focus:ring-primary/20"
+              className="bg-admin-panel border border-admin-border rounded-lg text-sm py-2.5 px-4 text-admin-fg font-medium focus:ring-2 focus:ring-primary/20"
             >
               <option value="all">All Types</option>
               <option value="character">Character</option>
@@ -144,13 +144,13 @@ function AdminEntities() {
             <select
               value={filterPublished}
               onChange={(e) => setFilterPublished(e.target.value)}
-              className="bg-white border border-slate-200 rounded-lg text-sm py-2.5 px-4 text-slate-700 font-medium focus:ring-2 focus:ring-primary/20"
+              className="bg-admin-panel border border-admin-border rounded-lg text-sm py-2.5 px-4 text-admin-fg font-medium focus:ring-2 focus:ring-primary/20"
             >
               <option value="all">All Status</option>
               <option value="published">Published</option>
               <option value="unpublished">Unpublished</option>
             </select>
-            <button type="button" className="flex size-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-50" title="Filters">
+            <button type="button" className="flex size-10 items-center justify-center rounded-lg border border-admin-border bg-admin-panel text-admin-muted hover:bg-admin-muted-surface" title="Filters">
               <span className="material-symbols-outlined">filter_list</span>
             </button>
           </div>
@@ -168,18 +168,18 @@ function AdminEntities() {
           <button
             type="button"
             onClick={() => navigate('/bulk-import')}
-            className="w-full flex items-center justify-center gap-2 bg-slate-100 text-primary font-semibold py-3 px-4 rounded-lg border border-slate-200"
+            className="w-full flex items-center justify-center gap-2 bg-admin-muted-surface text-primary font-semibold py-3 px-4 rounded-lg border border-admin-border"
           >
             <span className="material-symbols-outlined">upload_file</span>
             Bulk Import
           </button>
         </div>
 
-        <div className="bg-white rounded-md border border-slate-200 shadow-sm overflow-hidden">
+        <div className="bg-admin-panel rounded-md border border-admin-border shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wider">
+                <tr className="bg-admin-muted-surface text-admin-muted text-xs font-semibold uppercase tracking-wider">
                   <th className="px-4 py-3">Name</th>
                   <th className="px-4 py-3">Type</th>
                   <th className="px-4 py-3">Clues</th>
@@ -187,16 +187,16 @@ function AdminEntities() {
                   <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-admin-border">
                 {filteredEntities.map((entity) => (
-                  <tr key={entity.id} className="hover:bg-slate-50/50">
-                    <td className="px-4 py-4 font-medium text-slate-900">{entity.name}</td>
+                  <tr key={entity.id} className="hover:bg-admin-muted-surface/50">
+                    <td className="px-4 py-4 font-medium text-admin-fg">{entity.name}</td>
                     <td className="px-4 py-4">
                       <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize ${typePillClass(entity.type)}`}>
                         {entity.type}
                       </span>
                     </td>
-                    <td className="px-4 py-4 text-slate-600">{entity.clueCount ?? 0} Clues</td>
+                    <td className="px-4 py-4 text-admin-muted">{entity.clueCount ?? 0} Clues</td>
                     <td className="px-4 py-4">
                       {entity.is_published ? (
                         <span className="flex items-center gap-1.5 text-green-600 font-medium">
@@ -204,8 +204,8 @@ function AdminEntities() {
                           Published
                         </span>
                       ) : (
-                        <span className="flex items-center gap-1.5 text-slate-400 font-medium">
-                          <span className="size-2 rounded-full bg-slate-400" />
+                        <span className="flex items-center gap-1.5 text-admin-muted font-medium">
+                          <span className="size-2 rounded-full bg-admin-muted" />
                           Draft
                         </span>
                       )}
@@ -214,7 +214,7 @@ function AdminEntities() {
                       <button
                         type="button"
                         onClick={() => navigate(`/entities/${entity.id}`)}
-                        className="inline-flex items-center justify-center size-9 rounded-lg text-slate-600 hover:bg-slate-100 hover:text-primary transition-colors"
+                        className="inline-flex items-center justify-center size-9 rounded-lg text-admin-muted hover:bg-admin-muted-surface hover:text-primary transition-colors"
                         title="Edit"
                       >
                         <span className="material-symbols-outlined">edit</span>
@@ -225,8 +225,8 @@ function AdminEntities() {
               </tbody>
             </table>
           </div>
-          <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
-            <span className="text-slate-500 text-sm">
+          <div className="px-4 py-3 border-t border-admin-border flex items-center justify-between bg-admin-muted-surface/50">
+            <span className="text-admin-muted text-sm">
               Showing {filteredEntities.length} of {entities.length}
             </span>
           </div>

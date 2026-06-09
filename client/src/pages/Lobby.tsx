@@ -134,22 +134,22 @@ function Lobby() {
   const connectedCount = players.filter(p => p.isConnected).length
 
   return (
-    <div className="min-h-screen flex flex-col bg-background-light font-display text-slate-900 antialiased">
-      <header className="sticky top-0 z-10 flex items-center bg-white px-4 md:px-6 py-2 md:py-4 border-b border-slate-200">
+    <div className="min-h-screen flex flex-col bg-app-bg font-display text-foreground antialiased">
+      <header className="sticky top-0 z-10 flex items-center bg-surface px-4 md:px-6 py-2 md:py-4 border-b border-edge">
         <button
           type="button"
           onClick={handleLeaveRoom}
-          className="text-slate-600 flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-slate-100 md:size-auto md:px-0 md:py-0"
+          className="text-foreground-muted flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-surface-elevated md:size-auto md:px-0 md:py-0"
         >
           <span className="material-symbols-outlined">arrow_back</span>
         </button>
-        <h1 className="text-slate-900 text-lg font-bold leading-tight tracking-tight flex-1 text-center">Room Lobby <span className="text-sm text-slate-500">({roomCode})</span></h1>
+        <h1 className="text-foreground text-lg font-bold leading-tight tracking-tight flex-1 text-center">Room Lobby <span className="text-sm text-foreground-muted">({roomCode})</span></h1>
         <div className="flex items-center gap-1 shrink-0">
           <PreferencesMenu />
           <button
             type="button"
             onClick={handleLeaveRoom}
-            className="text-red-500 text-sm font-bold md:px-4 md:py-2 md:rounded-full md:bg-slate-100 md:text-slate-700 md:hover:bg-slate-200 md:font-semibold"
+            className="text-red-500 text-sm font-bold md:px-4 md:py-2 md:rounded-full md:bg-surface-elevated md:text-foreground md:hover:bg-surface-elevated md:font-semibold"
           >
             Leave Room
           </button>
@@ -157,18 +157,18 @@ function Lobby() {
       </header>
 
       <main className="p-4 md:p-6 lg:p-8 max-w-7xl w-full mx-auto flex flex-col gap-6 flex-1">
-        <section className="bg-white rounded-lg p-5 shadow-sm border border-slate-200">
+        <section className="bg-surface rounded-lg p-5 shadow-sm border border-edge">
           <div className="flex flex-row items-center justify-between gap-4">
             <div className="flex flex-col min-w-0">
-              <span className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Room Code</span>
-              <p className="text-slate-900 text-2xl md:text-3xl font-black tracking-widest mt-1 text-primary">{roomCode}</p>
+              <span className="text-foreground-muted text-xs font-semibold uppercase tracking-wider">Room Code</span>
+              <p className="text-foreground text-2xl md:text-3xl font-black tracking-widest mt-1 text-primary">{roomCode}</p>
             </div>
             <div className="flex gap-2 shrink-0">
               <button
                 type="button"
                 onClick={handleCopyCode}
                 title="Copy code"
-                className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors md:size-auto md:px-4 md:py-2 md:rounded-lg md:bg-slate-100 md:font-semibold md:flex md:items-center md:gap-2"
+                className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors md:size-auto md:px-4 md:py-2 md:rounded-lg md:bg-surface-elevated md:font-semibold md:flex md:items-center md:gap-2"
               >
                 {copiedCode ? (
                   <>
@@ -186,7 +186,7 @@ function Lobby() {
                 type="button"
                 onClick={handleCopyLink}
                 title="Copy link"
-                className="flex size-10 items-center justify-center rounded-full bg-primary text-white hover:bg-primary/90 transition-colors md:size-auto md:px-4 md:py-2 md:rounded-lg md:bg-slate-100 md:text-primary md:font-semibold md:flex md:items-center md:gap-2 md:hover:bg-slate-200"
+                className="flex size-10 items-center justify-center rounded-full bg-primary text-white hover:bg-primary/90 transition-colors md:size-auto md:px-4 md:py-2 md:rounded-lg md:bg-surface-elevated md:text-primary md:font-semibold md:flex md:items-center md:gap-2 md:hover:bg-surface-elevated"
               >
                 {copiedLink ? (
                   <>
@@ -202,22 +202,22 @@ function Lobby() {
               </button>
             </div>
           </div>
-          <div className="flex items-center gap-2 bg-slate-50 p-3 rounded-lg mt-4">
+          <div className="flex items-center gap-2 bg-surface-muted p-3 rounded-lg mt-4">
             <span className="material-symbols-outlined text-primary text-sm shrink-0">info</span>
-            <p className="text-slate-600 text-xs md:text-sm">Share this code or link with your friends to join the game.</p>
+            <p className="text-foreground-muted text-xs md:text-sm">Share this code or link with your friends to join the game.</p>
           </div>
         </section>
 
         {error && (
-          <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-sm">
+          <div className="p-3 bg-red-100 dark:bg-red-950/60 border border-red-400 dark:border-red-800 text-red-700 dark:text-red-200 rounded-lg text-sm">
             {error}
           </div>
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
-          <section className="bg-white rounded-lg p-5 shadow-sm border border-slate-200">
+          <section className="bg-surface rounded-lg p-5 shadow-sm border border-edge">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-slate-900 text-lg font-bold tracking-tight">Connected Players</h2>
+              <h2 className="text-foreground text-lg font-bold tracking-tight">Connected Players</h2>
               <span className="bg-primary/10 text-primary text-xs font-bold px-2.5 py-1 rounded-full">{connectedCount} / 10</span>
             </div>
             <div className="space-y-3">
@@ -225,25 +225,25 @@ function Lobby() {
                 <div
                   key={player.id}
                   className={`flex items-center gap-4 px-4 py-2 rounded-lg border ${
-                    player.isHost ? 'border-primary/30 bg-primary/5' : 'border-slate-100 bg-slate-50/50'
+                    player.isHost ? 'border-primary/30 bg-primary/5' : 'border-edge bg-surface-muted/50'
                   }`}
                 >
                   <div className="relative shrink-0">
-                    <div className="size-12 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 font-bold text-sm">
+                    <div className="size-12 rounded-full bg-surface-elevated flex items-center justify-center text-foreground-muted font-bold text-sm">
                       {player.nickname.slice(0, 2).toUpperCase()}
                     </div>
-                    <div className="absolute bottom-0 right-0 size-3 rounded-full bg-green-500 border-2 border-white" title="Connected" />
+                    <div className="absolute bottom-0 right-0 size-3 rounded-full bg-green-500 border-2 border-surface" title="Connected" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-slate-900 font-bold truncate">{player.nickname}</p>
+                      <p className="text-foreground font-bold truncate">{player.nickname}</p>
                       {player.isHost && (
                         <span className="bg-amber-100 text-amber-700 text-[10px] font-black px-1.5 py-0.5 rounded border border-amber-200 uppercase shrink-0">
                           Host
                         </span>
                       )}
                     </div>
-                    <p className="text-slate-500 text-xs italic mt-0.5">
+                    <p className="text-foreground-muted text-xs italic mt-0.5">
                       {player.id === playerId ? 'You' : 'Ready'}
                     </p>
                   </div>
@@ -251,7 +251,7 @@ function Lobby() {
                     <button
                       type="button"
                       onClick={() => emit('KICK_PLAYER', { playerId: player.id })}
-                      className="text-xs px-2 py-1 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 font-semibold shrink-0"
+                      className="text-xs px-2 py-1 rounded-lg bg-red-100 dark:bg-red-950/50 text-red-600 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/60 font-semibold shrink-0"
                     >
                       Kick
                     </button>
@@ -260,25 +260,25 @@ function Lobby() {
               ))}
             </div>
             {!isHost && (
-              <div className="mt-4 w-full text-center text-sm text-slate-600 py-2">
+              <div className="mt-4 w-full text-center text-sm text-foreground-muted py-2">
                 Waiting for host to start the game…
               </div>
             )}
           </section>
 
           {settings && (
-            <section className="bg-white rounded-lg p-5 shadow-sm border border-slate-200">
+            <section className="bg-surface rounded-lg p-5 shadow-sm border border-edge">
               <div className="flex items-center gap-2 mb-4">
                 <span className="material-symbols-outlined text-primary">settings</span>
-                <h2 className="text-slate-900 text-lg font-bold tracking-tight">
+                <h2 className="text-foreground text-lg font-bold tracking-tight">
                   Game Settings
-                  {!isHost && <span className="text-slate-500 font-normal text-sm ml-1">(Only host can change)</span>}
+                  {!isHost && <span className="text-foreground-muted font-normal text-sm ml-1">(Only host can change)</span>}
                 </h2>
               </div>
               <div className="space-y-6">
               {datasets.length > 1 && (
                 <div>
-                  <label htmlFor="datasetPicker" className="block text-slate-700 text-sm font-semibold mb-2">Content</label>
+                  <label htmlFor="datasetPicker" className="block text-foreground text-sm font-semibold mb-2">Content</label>
                   {isHost ? (
                     <select
                       id="datasetPicker"
@@ -286,7 +286,7 @@ function Lobby() {
                       onChange={(e) =>
                         handleUpdateSetting('datasetId', e.target.value === '' ? null : e.target.value)
                       }
-                      className="w-full bg-slate-50 border-0 rounded-lg text-slate-900 focus:ring-2 focus:ring-primary py-2.5 px-3"
+                      className="w-full bg-surface-muted border-0 rounded-lg text-foreground focus:ring-2 focus:ring-primary py-2.5 px-3"
                     >
                       <option value="">
                         Default ({datasets.find((d) => d.is_default)?.name ?? datasets[0]?.name ?? '-'})
@@ -299,7 +299,7 @@ function Lobby() {
                       ))}
                     </select>
                   ) : (
-                    <div className="py-2.5 px-3 bg-slate-50 rounded-lg text-slate-700">
+                    <div className="py-2.5 px-3 bg-surface-muted rounded-lg text-foreground">
                       {datasets.find((d) => d.id === settings.datasetId)?.name ??
                         datasets.find((d) => d.is_default)?.name ??
                         datasets[0]?.name ??
@@ -315,7 +315,7 @@ function Lobby() {
                     const bits = [active.description, active.source].filter(Boolean)
                     if (bits.length === 0) return null
                     return (
-                      <p className="text-xs text-slate-500 mt-1">
+                      <p className="text-xs text-foreground-muted mt-1">
                         {bits.join(' · ')}
                       </p>
                     )
@@ -324,15 +324,15 @@ function Lobby() {
               )}
 
               {datasets.length === 1 && (datasets[0].source || datasets[0].description) && (
-                <div className="text-xs text-slate-500">
-                  Content: <span className="font-medium text-slate-600">{datasets[0].name}</span>
+                <div className="text-xs text-foreground-muted">
+                  Content: <span className="font-medium text-foreground-muted">{datasets[0].name}</span>
                   {datasets[0].source ? ` · ${datasets[0].source}` : ''}
                 </div>
               )}
 
               <div>
                 <div className="flex justify-between items-center mb-2">
-                  <label className="text-slate-700 text-sm font-semibold">Total Rounds</label>
+                  <label className="text-foreground text-sm font-semibold">Total Rounds</label>
                   <span className="text-primary font-bold">{settings.totalRounds} Rounds</span>
                 </div>
                 {isHost ? (
@@ -342,10 +342,10 @@ function Lobby() {
                     max={10}
                     value={settings.totalRounds}
                     onChange={(e) => handleUpdateSetting('totalRounds', parseInt(e.target.value))}
-                    className="w-full h-2 bg-slate-100 rounded-full appearance-none accent-primary cursor-pointer"
+                    className="w-full h-2 bg-surface-elevated rounded-full appearance-none accent-primary cursor-pointer"
                   />
                 ) : (
-                  <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="w-full h-2 bg-surface-elevated rounded-full overflow-hidden">
                     <div className="h-full bg-primary/40 rounded-full" style={{ width: `${((settings.totalRounds - 3) / 7) * 100}%` }} />
                   </div>
                 )}
@@ -353,7 +353,7 @@ function Lobby() {
 
               <div>
                 <div className="flex justify-between items-center mb-2">
-                  <label className="text-slate-700 text-sm font-semibold">Round Duration</label>
+                  <label className="text-foreground text-sm font-semibold">Round Duration</label>
                   <span className="text-primary font-bold">{settings.roundDuration / 1000}s</span>
                 </div>
                 {isHost ? (
@@ -364,10 +364,10 @@ function Lobby() {
                     step={5000}
                     value={settings.roundDuration}
                     onChange={(e) => handleUpdateSetting('roundDuration', parseInt(e.target.value))}
-                    className="w-full h-2 bg-slate-100 rounded-full appearance-none accent-primary cursor-pointer"
+                    className="w-full h-2 bg-surface-elevated rounded-full appearance-none accent-primary cursor-pointer"
                   />
                 ) : (
-                  <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="w-full h-2 bg-surface-elevated rounded-full overflow-hidden">
                     <div className="h-full bg-primary/40 rounded-full" style={{ width: `${((settings.roundDuration - 10000) / 50000) * 100}%` }} />
                   </div>
                 )}
@@ -375,7 +375,7 @@ function Lobby() {
 
               <div>
                 <div className="flex justify-between items-center mb-2">
-                  <label className="text-slate-700 text-sm font-semibold">Clue Reveal Interval</label>
+                  <label className="text-foreground text-sm font-semibold">Clue Reveal Interval</label>
                   <span className="text-primary font-bold">{settings.clueRevealTime / 1000}s</span>
                 </div>
                 {isHost ? (
@@ -386,10 +386,10 @@ function Lobby() {
                     step={1000}
                     value={settings.clueRevealTime}
                     onChange={(e) => handleUpdateSetting('clueRevealTime', parseInt(e.target.value))}
-                    className="w-full h-2 bg-slate-100 rounded-full appearance-none accent-primary cursor-pointer"
+                    className="w-full h-2 bg-surface-elevated rounded-full appearance-none accent-primary cursor-pointer"
                   />
                 ) : (
-                  <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="w-full h-2 bg-surface-elevated rounded-full overflow-hidden">
                     <div
                       className="h-full bg-primary/40 rounded-full"
                       style={{
@@ -400,17 +400,17 @@ function Lobby() {
                     />
                   </div>
                 )}
-                <p className="text-xs text-slate-500 mt-1">Time between each clue reveal. Shorter intervals reveal more clues per round.</p>
+                <p className="text-xs text-foreground-muted mt-1">Time between each clue reveal. Shorter intervals reveal more clues per round.</p>
               </div>
 
               <div>
-                <label htmlFor="difficultyMode" className="block text-slate-700 text-sm font-semibold mb-2">Difficulty</label>
+                <label htmlFor="difficultyMode" className="block text-foreground text-sm font-semibold mb-2">Difficulty</label>
                 {isHost ? (
                   <select
                     id="difficultyMode"
                     value={settings.difficultyMode}
                     onChange={(e) => handleUpdateSetting('difficultyMode', e.target.value)}
-                    className="w-full bg-slate-50 border-0 rounded-md text-slate-900 focus:ring-2 focus:ring-primary py-2.5 px-3"
+                    className="w-full bg-surface-muted border-0 rounded-md text-foreground focus:ring-2 focus:ring-primary py-2.5 px-3"
                   >
                     <option value="any">Any (mix of all difficulties)</option>
                     <option value="easy">Easy</option>
@@ -419,15 +419,15 @@ function Lobby() {
                     <option value="nightmare">Nightmare</option>
                   </select>
                 ) : (
-                  <div className="py-2.5 px-3 bg-slate-50 rounded-lg text-slate-700 capitalize">
+                  <div className="py-2.5 px-3 bg-surface-muted rounded-lg text-foreground capitalize">
                     {settings.difficultyMode === 'any' ? 'Any' : settings.difficultyMode}
                   </div>
                 )}
-                <p className="text-xs text-slate-500 mt-1">Filters which clues are used. &quot;Any&quot; uses every clue regardless of difficulty.</p>
+                <p className="text-xs text-foreground-muted mt-1">Filters which clues are used. &quot;Any&quot; uses every clue regardless of difficulty.</p>
               </div>
 
               <div>
-                <label htmlFor="entityType" className="block text-slate-700 text-sm font-semibold mb-2">
+                <label htmlFor="entityType" className="block text-foreground text-sm font-semibold mb-2">
                   {ENTITY_TYPE_FIELD_LABEL}
                 </label>
                 {isHost ? (
@@ -435,7 +435,7 @@ function Lobby() {
                     id="entityType"
                     value={settings.entityType ?? 'character'}
                     onChange={(e) => handleUpdateSetting('entityType', e.target.value)}
-                    className="w-full bg-slate-50 border-0 rounded-md text-slate-900 focus:ring-2 focus:ring-primary py-2.5 px-3"
+                    className="w-full bg-surface-muted border-0 rounded-md text-foreground focus:ring-2 focus:ring-primary py-2.5 px-3"
                   >
                     {ENTITY_TYPE_OPTIONS.map((opt) => (
                       <option key={opt.value} value={opt.value}>
@@ -444,11 +444,11 @@ function Lobby() {
                     ))}
                   </select>
                 ) : (
-                  <div className="py-2.5 px-3 bg-slate-50 rounded-lg text-slate-700">
+                  <div className="py-2.5 px-3 bg-surface-muted rounded-lg text-foreground">
                     {entityTypeOptionLabel(settings.entityType ?? 'character')}
                   </div>
                 )}
-                <p className="text-xs text-slate-500 mt-1">{ENTITY_TYPE_HINT_LOBBY}</p>
+                <p className="text-xs text-foreground-muted mt-1">{ENTITY_TYPE_HINT_LOBBY}</p>
               </div>
 
               <div className="flex items-center gap-2">
@@ -461,34 +461,34 @@ function Lobby() {
                       onChange={(e) => handleUpdateSetting('strictMode', e.target.checked)}
                       className="rounded accent-primary"
                     />
-                    <label htmlFor="strictMode" className="text-slate-700 text-sm font-medium">Strict Mode</label>
+                    <label htmlFor="strictMode" className="text-foreground text-sm font-medium">Strict Mode</label>
                   </>
                 ) : (
                   <div className="flex items-center gap-2">
-                    <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${settings.strictMode ? 'bg-primary border-primary' : 'border-slate-300 bg-white'}`}>
+                    <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${settings.strictMode ? 'bg-primary border-primary' : 'border-edge bg-surface'}`}>
                       {settings.strictMode && <span className="material-symbols-outlined text-white text-sm">check</span>}
                     </div>
-                    <span className="text-slate-700 text-sm">Strict Mode {settings.strictMode ? '(Enabled)' : '(Disabled)'}</span>
+                    <span className="text-foreground text-sm">Strict Mode {settings.strictMode ? '(Enabled)' : '(Disabled)'}</span>
                   </div>
                 )}
               </div>
-              <p className="text-xs text-slate-500 -mt-2">When enabled, guesses must match the answer more closely.</p>
+              <p className="text-xs text-foreground-muted -mt-2">When enabled, guesses must match the answer more closely.</p>
 
               <div>
-                <label className="block text-slate-700 text-sm font-semibold mb-2">Transparency</label>
+                <label className="block text-foreground text-sm font-semibold mb-2">Transparency</label>
                 {isHost ? (
                   <select
                     value={settings.transparencyMode}
                     onChange={(e) => handleUpdateSetting('transparencyMode', e.target.value)}
-                    className="w-full bg-slate-50 border-0 rounded-md text-slate-900 focus:ring-2 focus:ring-primary py-2.5 px-3"
+                    className="w-full bg-surface-muted border-0 rounded-md text-foreground focus:ring-2 focus:ring-primary py-2.5 px-3"
                   >
                     <option value="full">Full (show what people guessed)</option>
                     <option value="minimal">Minimal (only show that they guessed)</option>
                   </select>
                 ) : (
-                  <div className="py-2.5 px-3 bg-slate-50 rounded-lg text-slate-700 capitalize">{settings.transparencyMode}</div>
+                  <div className="py-2.5 px-3 bg-surface-muted rounded-lg text-foreground capitalize">{settings.transparencyMode}</div>
                 )}
-                <p className="text-xs text-slate-500 mt-1">Full shows guess text; minimal only shows that someone guessed.</p>
+                <p className="text-xs text-foreground-muted mt-1">Full shows guess text; minimal only shows that someone guessed.</p>
               </div>
               </div>
             </section>
@@ -499,12 +499,12 @@ function Lobby() {
       </main>
 
       {isHost && (
-        <div className="sticky bottom-0 p-2 bg-white/80 backdrop-blur-md border-t border-slate-200">
+        <div className="sticky bottom-0 p-2 bg-surface/80 backdrop-blur-md border-t border-edge">
           <div className="max-w-7xl mx-auto flex flex-col sm:flex-row gap-3 sm:justify-end sm:items-center">
             <button
               type="button"
               onClick={handleResetDefaults}
-              className="order-2 sm:order-1 px-5 py-3 rounded-full border-2 border-slate-200 bg-slate-50 text-slate-700 font-semibold hover:bg-slate-100 transition-colors hidden md:block"
+              className="order-2 sm:order-1 px-5 py-3 rounded-full border-2 border-edge bg-surface-muted text-foreground font-semibold hover:bg-surface-elevated transition-colors hidden md:block"
             >
               Reset Defaults
             </button>

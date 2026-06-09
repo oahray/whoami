@@ -242,7 +242,7 @@ function AdminEntityEditor() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background-light font-display flex items-center justify-center">
+      <div className="min-h-screen bg-admin-canvas font-display flex items-center justify-center">
         <div className="flex items-center justify-center py-24">
           <LoadingState label="Loading" layout="inline" />
         </div>
@@ -293,48 +293,48 @@ function AdminEntityEditor() {
         )}
 
         <section className="flex flex-col gap-4 mb-6">
-          <h2 className="text-slate-900 text-xl font-bold tracking-tight px-1">Entity Details</h2>
-          <div className="bg-white rounded-lg p-4 shadow-sm border border-slate-200 flex flex-col gap-4">
+          <h2 className="text-admin-fg text-xl font-bold tracking-tight px-1">Entity Details</h2>
+          <div className="bg-admin-panel rounded-lg p-4 shadow-sm border border-admin-border flex flex-col gap-4">
             <label className="flex flex-col w-full">
-              <p className="text-slate-600 text-sm font-semibold mb-1.5 ml-1">Name *</p>
+              <p className="text-admin-muted text-sm font-semibold mb-1.5 ml-1">Name *</p>
               <input
                 type="text"
                 value={entity.name || ''}
                 onChange={(e) => setEntity({ ...entity, name: e.target.value })}
-                className="w-full rounded-lg border border-slate-200 bg-slate-50 text-slate-900 focus:ring-primary focus:border-primary h-12 px-4 font-medium"
+                className="w-full rounded-lg border border-admin-border bg-admin-muted-surface text-admin-fg focus:ring-primary focus:border-primary h-12 px-4 font-medium"
                 required
               />
             </label>
             <label className="flex flex-col">
-              <p className="text-slate-600 text-sm font-semibold mb-1.5 ml-1">Type *</p>
+              <p className="text-admin-muted text-sm font-semibold mb-1.5 ml-1">Type *</p>
               <select
                 value={entity.type || 'character'}
                 onChange={(e) => setEntity({ ...entity, type: e.target.value as 'character' | 'place' })}
-                className="w-full rounded-lg border border-slate-200 bg-slate-50 text-slate-900 focus:ring-primary focus:border-primary h-12 px-4 font-medium"
+                className="w-full rounded-lg border border-admin-border bg-admin-muted-surface text-admin-fg focus:ring-primary focus:border-primary h-12 px-4 font-medium"
               >
                 <option value="character">Character</option>
                 <option value="place">Place</option>
               </select>
             </label>
             <label className="flex flex-col">
-              <p className="text-slate-600 text-sm font-semibold mb-1.5 ml-1">
-                Aliases <span className="text-slate-400 font-normal">(comma-separated)</span>
+              <p className="text-admin-muted text-sm font-semibold mb-1.5 ml-1">
+                Aliases <span className="text-admin-muted font-normal">(comma-separated)</span>
               </p>
               <input
                 type="text"
                 value={aliasesText}
                 onChange={(e) => setAliasesText(e.target.value)}
                 placeholder="e.g. King David, Abram"
-                className="w-full rounded-lg border border-slate-200 bg-slate-50 text-slate-900 focus:ring-primary focus:border-primary h-12 px-4 font-medium"
+                className="w-full rounded-lg border border-admin-border bg-admin-muted-surface text-admin-fg focus:ring-primary focus:border-primary h-12 px-4 font-medium"
               />
-              <span className="text-slate-500 text-xs mt-1 ml-1">
+              <span className="text-admin-muted text-xs mt-1 ml-1">
                 Alternate names accepted as correct guesses.
               </span>
             </label>
-            <label className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200 mt-2">
+            <label className="flex items-center justify-between p-3 rounded-lg bg-admin-muted-surface border border-admin-border mt-2">
               <div className="flex flex-col">
-                <span className="text-slate-900 font-semibold">Published</span>
-                <span className="text-slate-500 text-xs">{clues.length < 3 ? 'Requires at least 3 clues' : 'Visible to players'}</span>
+                <span className="text-admin-fg font-semibold">Published</span>
+                <span className="text-admin-muted text-xs">{clues.length < 3 ? 'Requires at least 3 clues' : 'Visible to players'}</span>
               </div>
               <input
                 type="checkbox"
@@ -351,22 +351,22 @@ function AdminEntityEditor() {
 
         <section className="flex flex-col gap-4 mb-6">
           <div className="flex items-center justify-between px-1">
-            <h2 className="text-slate-900 text-xl font-bold tracking-tight">Clues</h2>
+            <h2 className="text-admin-fg text-xl font-bold tracking-tight">Clues</h2>
             <span className="text-primary text-sm font-bold bg-primary/10 px-3 py-1 rounded-full">{clues.length} Total</span>
           </div>
 
           {clues.length === 0 && (
-            <p className="text-slate-500 text-center py-8 bg-white rounded-lg border border-slate-200">
+            <p className="text-admin-muted text-center py-8 bg-admin-panel rounded-lg border border-admin-border">
               No clues yet. Add at least 3 clues before publishing.
             </p>
           )}
 
           <div className="space-y-4">
             {clues.map((clue, index) => (
-              <div key={clue.id || index} className="bg-white rounded-lg p-4 shadow-sm border border-slate-200 flex flex-col gap-3">
+              <div key={clue.id || index} className="bg-admin-panel rounded-lg p-4 shadow-sm border border-admin-border flex flex-col gap-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-400 text-xs font-bold uppercase tracking-wider">Clue #{index + 1}</span>
-                  <button type="button" onClick={() => handleDeleteClue(clue.id, index)} className="p-1.5 text-slate-400 hover:text-red-500">
+                  <span className="text-admin-muted text-xs font-bold uppercase tracking-wider">Clue #{index + 1}</span>
+                  <button type="button" onClick={() => handleDeleteClue(clue.id, index)} className="p-1.5 text-admin-muted hover:text-red-500">
                     <span className="material-symbols-outlined text-xl">delete</span>
                   </button>
                 </div>
@@ -376,14 +376,14 @@ function AdminEntityEditor() {
                   placeholder="Enter clue text..."
                   rows={2}
                   required
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 text-slate-900 focus:ring-primary focus:border-primary p-3 min-h-[80px] text-sm leading-relaxed"
+                  className="w-full rounded-lg border border-admin-border bg-admin-muted-surface text-admin-fg focus:ring-primary focus:border-primary p-3 min-h-[80px] text-sm leading-relaxed"
                 />
                 <label className="flex flex-col">
-                  <p className="text-slate-600 text-sm font-semibold mb-1.5 ml-1">Difficulty</p>
+                  <p className="text-admin-muted text-sm font-semibold mb-1.5 ml-1">Difficulty</p>
                   <select
                     value={clue.difficulty ?? ''}
                     onChange={(e) => handleUpdateClue(index, 'difficulty', (e.target.value || null) as Difficulty | null)}
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50 text-slate-900 focus:ring-primary focus:border-primary h-11 px-3 font-medium text-sm"
+                    className="w-full rounded-lg border border-admin-border bg-admin-muted-surface text-admin-fg focus:ring-primary focus:border-primary h-11 px-3 font-medium text-sm"
                   >
                     <option value="">Not set</option>
                     <option value="easy">Easy</option>
@@ -397,7 +397,7 @@ function AdminEntityEditor() {
                   value={clue.citations || ''}
                   onChange={(e) => handleUpdateClue(index, 'citations', e.target.value)}
                   placeholder="e.g., Exodus 2:1; 3:1-5"
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 text-slate-900 focus:ring-primary focus:border-primary p-3 text-sm"
+                  className="w-full rounded-lg border border-admin-border bg-admin-muted-surface text-admin-fg focus:ring-primary focus:border-primary p-3 text-sm"
                 />
               </div>
             ))}
@@ -413,11 +413,11 @@ function AdminEntityEditor() {
           </button>
         </section>
 
-        <div className="hidden md:flex items-center justify-end gap-3 mt-8 pt-6 border-t border-slate-200">
+        <div className="hidden md:flex items-center justify-end gap-3 mt-8 pt-6 border-t border-admin-border">
           <button
             type="button"
             onClick={() => navigate('/entities')}
-            className="py-3 px-5 rounded-lg bg-slate-100 text-slate-700 font-semibold hover:bg-slate-200"
+            className="py-3 px-5 rounded-lg bg-admin-muted-surface text-admin-fg font-semibold hover:bg-admin-muted-surface"
           >
             Back to Entities
           </button>
@@ -433,8 +433,8 @@ function AdminEntityEditor() {
       </div>
 
       {/* Mobile fixed bar above bottom nav */}
-      <div className="fixed left-0 right-0 bottom-20 md:hidden max-w-3xl mx-auto bg-white/95 backdrop-blur-lg border-t border-slate-200 p-4 flex gap-3 z-10">
-        <button type="button" onClick={() => navigate('/entities')} className="flex-1 py-4 px-6 rounded-lg bg-slate-100 text-slate-600 font-bold hover:bg-slate-200">
+      <div className="fixed left-0 right-0 bottom-20 md:hidden max-w-3xl mx-auto bg-admin-panel/95 backdrop-blur-lg border-t border-admin-border p-4 flex gap-3 z-10">
+        <button type="button" onClick={() => navigate('/entities')} className="flex-1 py-4 px-6 rounded-lg bg-admin-muted-surface text-admin-muted font-bold hover:bg-admin-muted-surface">
           Back to Entities
         </button>
         <button

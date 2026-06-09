@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PreferencesProvider } from '../context/PreferencesContext'
+import { stubMatchMedia } from '../test/matchMedia'
 import PreferencesMenu from './PreferencesMenu'
 
 function renderMenu() {
@@ -14,26 +15,25 @@ function renderMenu() {
 describe('PreferencesMenu', () => {
   beforeEach(() => {
     localStorage.clear()
-    vi.stubGlobal(
-      'matchMedia',
-      vi.fn().mockReturnValue({
-        matches: false,
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn()
-      })
-    )
+    document.documentElement.classList.remove('dark')
+    stubMatchMedia()
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
   })
 
   it('opens a dropdown with sound effects setting', () => {
     renderMenu()
     fireEvent.click(screen.getByRole('button', { name: /your preferences/i }))
-    expect(screen.getByRole('dialog', { name: /your preferences/i })).toBeInTheDocument()
     expect(screen.getByRole('checkbox', { name: /sound effects/i })).toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: /^system$/i })).toBeInTheDocument()
   })
 
   it('closes when Escape is pressed', () => {
     renderMenu()
     fireEvent.click(screen.getByRole('button', { name: /your preferences/i }))
+    expect(screen.getByRole('dialog', { name: /your preferences/i })).toBeInTheDocument()
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(screen.queryByRole('dialog', { name: /your preferences/i })).not.toBeInTheDocument()
   })

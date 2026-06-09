@@ -2,6 +2,7 @@ import { useState, FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import LoadingState from '../components/LoadingState'
 import Logo from '../components/Logo'
+import ThemeMenu from '../components/ThemeMenu'
 import { useAuth } from '../context/AuthContext'
 
 function AdminLogin() {
@@ -32,23 +33,27 @@ function AdminLogin() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/10 via-background-light to-indigo-50 font-display flex items-center justify-center p-4">
-      <div className="bg-white p-8 rounded-2xl shadow-xl border border-slate-100 w-full max-w-md">
+    <div className="relative min-h-screen bg-admin-canvas font-display flex items-center justify-center p-4">
+      <div className="absolute top-4 right-4">
+        <ThemeMenu />
+      </div>
+
+      <div className="w-full max-w-md bg-admin-panel border border-admin-border p-8 rounded-2xl shadow-2xl">
         <div className="flex flex-col items-center mb-8">
-          <Logo className="h-24 w-24 object-contain sm:h-28 sm:w-28" title="Who Am I?" />
-          <p className="mt-3 text-primary font-bold text-lg tracking-tight">Who Am I?</p>
-          <h1 className="mt-1 text-xl font-semibold text-slate-700">Admin</h1>
+          <Logo className="h-20 w-20 object-contain" title="Who Am I? Admin" />
+          <p className="mt-3 text-accent font-bold text-lg tracking-tight">WhoAmI Admin</p>
+          <h1 className="mt-1 text-admin-muted text-sm font-medium">Content management</h1>
         </div>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-sm">
+          <div className="mb-4 p-3 bg-red-100 dark:bg-red-950/50 border border-red-400 dark:border-red-800 text-red-700 dark:text-red-200 rounded-lg text-sm">
             {error}
           </div>
         )}
 
         <form onSubmit={handleEmailSignIn} className="space-y-4">
           <div>
-            <label htmlFor="email" className="block text-sm font-semibold text-slate-700 mb-1">
+            <label htmlFor="email" className="block text-sm font-semibold text-admin-fg mb-1">
               Email
             </label>
             <input
@@ -57,13 +62,13 @@ function AdminLogin() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-lg focus:border-primary focus:ring-0 transition-colors text-slate-900 disabled:opacity-60"
+              className="w-full px-4 py-3 bg-admin-muted-surface border border-admin-border rounded-lg focus:border-accent focus:ring-2 focus:ring-accent/20 transition-colors text-admin-fg disabled:opacity-60"
               disabled={loading}
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-semibold text-slate-700 mb-1">
+            <label htmlFor="password" className="block text-sm font-semibold text-admin-fg mb-1">
               Password
             </label>
             <input
@@ -72,7 +77,7 @@ function AdminLogin() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full px-4 py-3 bg-slate-50 border-2 border-slate-100 rounded-lg focus:border-primary focus:ring-0 transition-colors text-slate-900 disabled:opacity-60"
+              className="w-full px-4 py-3 bg-admin-muted-surface border border-admin-border rounded-lg focus:border-accent focus:ring-2 focus:ring-accent/20 transition-colors text-admin-fg disabled:opacity-60"
               disabled={loading}
             />
           </div>
@@ -80,7 +85,7 @@ function AdminLogin() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-primary text-white font-bold py-4 px-4 rounded-lg hover:bg-primary/90 shadow-lg shadow-primary/25 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            className="w-full bg-accent text-white font-bold py-4 px-4 rounded-lg hover:bg-accent/90 shadow-lg shadow-accent/25 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           >
             {loading ? (
               <LoadingState label="Signing in" layout="inline" className="text-white w-full" />

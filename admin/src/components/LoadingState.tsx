@@ -29,17 +29,17 @@ export default function LoadingState({
 }: LoadingStateProps) {
   const textClass =
     layout === 'compact'
-      ? 'text-xs text-slate-500'
+      ? 'text-xs text-admin-muted'
       : layout === 'inline'
         ? 'text-sm font-medium'
-        : 'text-sm font-medium text-slate-600'
+        : 'text-sm font-medium text-admin-muted'
 
   const spinnerClass =
     layout === 'compact'
-      ? 'text-base text-primary'
+      ? 'text-base text-accent'
       : layout === 'inline'
         ? 'text-lg text-current'
-        : 'text-3xl text-primary'
+        : 'text-3xl text-accent'
 
   const layoutClass =
     layout === 'page'

@@ -208,12 +208,12 @@ function PlayCards() {
   const showFooter = (card && !loading && !error) || deckComplete
 
   return (
-    <div className="h-dvh bg-background-light font-display text-slate-900 flex flex-col overflow-hidden antialiased">
-      <header className="shrink-0 border-b border-slate-200 bg-white/95 backdrop-blur-sm px-3 py-2 md:px-4 md:py-3">
+    <div className="h-dvh bg-app-bg font-display text-foreground flex flex-col overflow-hidden antialiased">
+      <header className="shrink-0 border-b border-edge bg-surface/95 backdrop-blur-sm px-3 py-2 md:px-4 md:py-3">
         <div className="max-w-lg mx-auto flex items-center justify-between gap-2 md:gap-3">
           <Link
             to="/play"
-            className="flex size-9 md:size-10 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100 shrink-0"
+            className="flex size-9 md:size-10 items-center justify-center rounded-full text-foreground-muted hover:bg-surface-elevated shrink-0"
             aria-label="Back to setup"
           >
             <span className="material-symbols-outlined">arrow_back</span>
@@ -221,19 +221,19 @@ function PlayCards() {
           <div className="text-center min-w-0 flex-1">
             <p className="text-[10px] font-bold uppercase tracking-widest text-primary">In person</p>
             {deckSession && (
-              <p className="text-slate-600 text-xs truncate">
+              <p className="text-foreground-muted text-xs truncate">
                 {deckComplete ? 'Deck complete' : deckProgressLabel(deckSession)}
               </p>
             )}
             {card && !deckComplete && (
-              <p className="text-slate-500 text-[10px] truncate">
+              <p className="text-foreground-muted text-[10px] truncate">
                 Clue {Math.min(revealedCount, card.clues.length)} of {card.clues.length}
               </p>
             )}
           </div>
           <div className="flex items-center gap-1 shrink-0">
             <SoundToggle />
-            <Link to="/" className="text-slate-500 text-sm font-medium px-2">
+            <Link to="/" className="text-foreground-muted text-sm font-medium px-2">
               Home
             </Link>
           </div>
@@ -263,14 +263,14 @@ function PlayCards() {
 
         {error && !loading && (
           <div className="space-y-3">
-            <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-sm">
+            <div className="p-3 bg-red-100 dark:bg-red-950/60 border border-red-400 dark:border-red-800 text-red-700 dark:text-red-200 rounded-lg text-sm">
               {error}
             </div>
             <button
               type="button"
               onClick={() => void loadCurrentCard()}
               disabled={offline}
-              className="w-full py-3 rounded-lg border-2 border-slate-200 font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              className="w-full py-3 rounded-lg border-2 border-edge font-semibold text-foreground hover:bg-surface-muted disabled:opacity-50"
             >
               Try again
             </button>
@@ -282,17 +282,17 @@ function PlayCards() {
 
         {card && !loading && !error && (
           <>
-            <section className="bg-white rounded-xl p-3 md:p-5 border border-slate-200 shadow-sm text-center shrink-0">
-              <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest mb-1 md:mb-2 capitalize">
+            <section className="bg-surface rounded-xl p-3 md:p-5 border border-edge shadow-sm text-center shrink-0">
+              <p className="text-foreground-muted text-[10px] font-bold uppercase tracking-widest mb-1 md:mb-2 capitalize">
                 {card.entity.type}
               </p>
               {showAnswer ? (
                 <>
-                  <p className="text-slate-900 text-2xl md:text-3xl font-black uppercase tracking-tight leading-tight">
+                  <p className="text-foreground text-2xl md:text-3xl font-black uppercase tracking-tight leading-tight">
                     {card.entity.name}
                   </p>
                   {card.entity.aliases.map((alias) => (
-                    <p key={alias} className="text-slate-600 text-base md:text-lg font-semibold mt-0.5 md:mt-1">
+                    <p key={alias} className="text-foreground-muted text-base md:text-lg font-semibold mt-0.5 md:mt-1">
                       {alias}
                     </p>
                   ))}
@@ -300,7 +300,7 @@ function PlayCards() {
               ) : (
                 <>
                   <p
-                    className="text-slate-400 text-2xl md:text-3xl font-black tracking-widest leading-tight"
+                    className="text-foreground-muted text-2xl md:text-3xl font-black tracking-widest leading-tight"
                     aria-hidden
                   >
                     {IN_PERSON_MASK_PLACEHOLDER}
@@ -308,7 +308,7 @@ function PlayCards() {
                   {card.entity.aliases.map((alias) => (
                     <p
                       key={alias}
-                      className="text-slate-300 text-base md:text-lg font-semibold tracking-widest mt-0.5 md:mt-1"
+                      className="text-foreground-muted text-base md:text-lg font-semibold tracking-widest mt-0.5 md:mt-1"
                       aria-hidden
                     >
                       {IN_PERSON_MASK_PLACEHOLDER}
@@ -323,26 +323,26 @@ function PlayCards() {
               className="flex-1 min-h-0 overflow-y-auto overscroll-contain space-y-2 -mx-1 px-1"
               aria-label="Clues"
             >
-              <h2 className="text-slate-500 text-xs font-bold uppercase tracking-widest px-1 sticky top-0 bg-background-light py-1 z-10">
+              <h2 className="text-foreground-muted text-xs font-bold uppercase tracking-widest px-1 sticky top-0 bg-app-bg py-1 z-10">
                 Clues (read aloud)
               </h2>
               <div className="space-y-2 pb-1">
                 {visibleClues.map((clue) => (
                   <div
                     key={clue.order}
-                    className="bg-white rounded-lg p-3 md:p-4 border border-slate-200 shadow-sm"
+                    className="bg-surface rounded-lg p-3 md:p-4 border border-edge shadow-sm"
                   >
                     <div className="flex items-start gap-2 md:gap-3">
                       <div className="size-8 md:size-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
                         <span className="material-symbols-outlined text-lg md:text-xl">auto_stories</span>
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                        <p className="text-[10px] font-bold text-foreground-muted uppercase tracking-widest">
                           Clue {clue.order}
                         </p>
-                        <p className="text-slate-800 font-medium leading-snug mt-1">{clue.text}</p>
+                        <p className="text-foreground font-medium leading-snug mt-1">{clue.text}</p>
                         {showAnswer && clue.citations && (
-                          <p className="text-slate-500 text-xs mt-1">{clue.citations}</p>
+                          <p className="text-foreground-muted text-xs mt-1">{clue.citations}</p>
                         )}
                       </div>
                     </div>
@@ -356,7 +356,7 @@ function PlayCards() {
 
       {showFooter && (
         <div
-          className="shrink-0 border-t border-slate-200 bg-white px-3 pt-2 pb-2 md:p-3"
+          className="shrink-0 border-t border-edge bg-surface px-3 pt-2 pb-2 md:p-3"
           style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 0.5rem)' }}
         >
           <div className="max-w-lg mx-auto w-full flex flex-col gap-1.5 md:gap-2">
@@ -398,7 +398,7 @@ function PlayCards() {
                       return !v
                     })
                   }}
-                  className="flex-1 py-2.5 md:py-3 rounded-lg border-2 border-slate-200 font-semibold text-slate-800 hover:bg-slate-50"
+                  className="flex-1 py-2.5 md:py-3 rounded-lg border-2 border-edge font-semibold text-foreground hover:bg-surface-muted"
                 >
                   {showAnswer ? 'Hide answer' : 'Reveal answer'}
                 </button>

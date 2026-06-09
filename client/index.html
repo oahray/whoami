@@ -4,6 +4,21 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
     <meta name="theme-color" content="#2b4bee" />
+    <script>
+      (function () {
+        try {
+          var mode = localStorage.getItem('whoami_theme') || 'system';
+          var dark =
+            mode === 'dark' ||
+            (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          if (dark) {
+            document.documentElement.classList.add('dark');
+            var meta = document.querySelector('meta[name="theme-color"]');
+            if (meta) meta.setAttribute('content', '#101322');
+          }
+        } catch (e) {}
+      })();
+    </script>
     <meta name="description" content="A real-time multiplayer Bible character guessing game." />
 
     <title>Who Am I? - Bible Quiz Game</title>

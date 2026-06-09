@@ -19,7 +19,7 @@ export default function AdminLegacyRedirect() {
   }, [location.pathname, location.search, location.hash])
 
   return (
-    <div className="min-h-screen bg-background-light flex items-center justify-center">
+    <div className="min-h-screen bg-app-bg flex items-center justify-center">
       <LoadingState label="Opening admin" layout="page" />
     </div>
   )

@@ -143,19 +143,19 @@ function PlaySetup() {
     IN_PERSON_DIFFICULTY_OPTIONS.every((opt) => (eligibility.modes[opt.value] ?? 0) === 0)
 
   return (
-    <div className="min-h-screen bg-background-light font-display text-slate-900 antialiased">
-      <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/95 backdrop-blur-sm">
+    <div className="min-h-screen bg-app-bg font-display text-foreground antialiased">
+      <header className="sticky top-0 z-10 border-b border-edge bg-surface/95 backdrop-blur-sm">
         <div className="max-w-lg mx-auto flex items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3">
           <Link
             to="/"
-            className="flex size-9 md:size-10 shrink-0 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100"
+            className="flex size-9 md:size-10 shrink-0 items-center justify-center rounded-full text-foreground-muted hover:bg-surface-elevated"
             aria-label="Back to home"
           >
             <span className="material-symbols-outlined">arrow_back</span>
           </Link>
           <div className="min-w-0 flex-1">
             <h1 className="text-lg font-bold tracking-tight">Play in person</h1>
-            <p className="text-slate-500 text-xs truncate">One phone · read clues aloud</p>
+            <p className="text-foreground-muted text-xs truncate">One phone · read clues aloud</p>
           </div>
           <div className="flex items-center gap-1 shrink-0">
             <PreferencesMenu />
@@ -179,27 +179,27 @@ function PlaySetup() {
         )}
 
         {error && (
-          <div className="p-3 bg-red-100 border border-red-400 text-red-700 rounded-lg text-sm">
+          <div className="p-3 bg-red-100 dark:bg-red-950/60 border border-red-400 dark:border-red-800 text-red-700 dark:text-red-200 rounded-lg text-sm">
             {error}
           </div>
         )}
 
         {!loading && !error && datasets.length === 0 && (
-          <p className="text-slate-600 text-sm text-center py-8">No content is available right now.</p>
+          <p className="text-foreground-muted text-sm text-center py-8">No content is available right now.</p>
         )}
 
         {!loading && datasets.length > 0 && (
-          <section className="bg-white rounded-lg border border-slate-200 shadow-sm p-4 md:p-5 space-y-4 md:space-y-5">
+          <section className="bg-surface rounded-lg border border-edge shadow-sm p-4 md:p-5 space-y-4 md:space-y-5">
             {showDatasetPicker ? (
               <div>
-                <label htmlFor="playDataset" className="block text-slate-700 text-sm font-semibold mb-2">
+                <label htmlFor="playDataset" className="block text-foreground text-sm font-semibold mb-2">
                   Content
                 </label>
                 <select
                   id="playDataset"
                   value={datasetId}
                   onChange={(e) => setDatasetId(e.target.value)}
-                  className="w-full bg-slate-50 border-0 rounded-lg text-slate-900 focus:ring-2 focus:ring-primary py-2.5 px-3"
+                  className="w-full bg-surface-muted border-0 rounded-lg text-foreground focus:ring-2 focus:ring-primary py-2.5 px-3"
                 >
                   {datasets.map((d) => (
                     <option key={d.id} value={d.id}>
@@ -208,20 +208,20 @@ function PlaySetup() {
                   ))}
                 </select>
                 {selectedDataset?.description && (
-                  <p className="text-xs text-slate-500 mt-1">{selectedDataset.description}</p>
+                  <p className="text-xs text-foreground-muted mt-1">{selectedDataset.description}</p>
                 )}
               </div>
             ) : (
               selectedDataset && (
                 <div>
-                  <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Content</p>
-                  <p className="text-slate-900 font-bold mt-1">{selectedDataset.name}</p>
+                  <p className="text-foreground-muted text-xs font-semibold uppercase tracking-wider">Content</p>
+                  <p className="text-foreground font-bold mt-1">{selectedDataset.name}</p>
                 </div>
               )
             )}
 
             <div>
-              <label htmlFor="playEntityType" className="block text-slate-700 text-sm font-semibold mb-2">
+              <label htmlFor="playEntityType" className="block text-foreground text-sm font-semibold mb-2">
                 {ENTITY_TYPE_FIELD_LABEL}
               </label>
               <select
@@ -229,7 +229,7 @@ function PlaySetup() {
                 value={entityType}
                 onChange={(e) => setEntityType(e.target.value as EntityTypeFilter)}
                 disabled={eligibilityLoading || Boolean(noPlayableModes)}
-                className="w-full bg-slate-50 border-0 rounded-lg text-slate-900 focus:ring-2 focus:ring-primary py-2.5 px-3 disabled:opacity-60"
+                className="w-full bg-surface-muted border-0 rounded-lg text-foreground focus:ring-2 focus:ring-primary py-2.5 px-3 disabled:opacity-60"
               >
                 {ENTITY_TYPE_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -237,11 +237,11 @@ function PlaySetup() {
                   </option>
                 ))}
               </select>
-              <p className="text-xs text-slate-500 mt-1">{ENTITY_TYPE_HINT_IN_PERSON}</p>
+              <p className="text-xs text-foreground-muted mt-1">{ENTITY_TYPE_HINT_IN_PERSON}</p>
             </div>
 
             <div>
-              <label htmlFor="playDifficulty" className="block text-slate-700 text-sm font-semibold mb-2">
+              <label htmlFor="playDifficulty" className="block text-foreground text-sm font-semibold mb-2">
                 Difficulty
               </label>
               <select
@@ -249,7 +249,7 @@ function PlaySetup() {
                 value={difficulty}
                 onChange={(e) => setDifficulty(e.target.value as GameDifficultyMode)}
                 disabled={eligibilityLoading || Boolean(noPlayableModes)}
-                className="w-full bg-slate-50 border-0 rounded-lg text-slate-900 focus:ring-2 focus:ring-primary py-2.5 px-3 disabled:opacity-60"
+                className="w-full bg-surface-muted border-0 rounded-lg text-foreground focus:ring-2 focus:ring-primary py-2.5 px-3 disabled:opacity-60"
               >
                 {IN_PERSON_DIFFICULTY_OPTIONS.map((opt) => {
                   const count = eligibility?.modes[opt.value] ?? 0
@@ -272,7 +272,7 @@ function PlaySetup() {
                 </div>
               )}
               {!eligibilityLoading && eligibility && selectedCount > 0 && (
-                <p className="text-xs text-slate-500 mt-1">
+                <p className="text-xs text-foreground-muted mt-1">
                   {entityTypeCountLabel(entityType, selectedCount)}. Clues are shuffled every card.
                 </p>
               )}

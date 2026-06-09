@@ -29,10 +29,10 @@ export default function LoadingState({
 }: LoadingStateProps) {
   const textClass =
     layout === 'compact'
-      ? 'text-xs text-slate-500'
+      ? 'text-xs text-foreground-muted'
       : layout === 'inline'
         ? 'text-sm font-medium'
-        : 'text-sm font-medium text-slate-600'
+        : 'text-sm font-medium text-foreground-muted'
 
   const spinnerClass =
     layout === 'compact'

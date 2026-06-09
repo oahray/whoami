@@ -1,5 +1,6 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import dotenv from 'dotenv'
+import { createSupabaseClient } from './createSupabaseClient.js'
 
 dotenv.config()
 
@@ -24,12 +25,7 @@ function getClient(): SupabaseClient {
     throw new Error('Missing Supabase environment variables')
   }
 
-  cached = createClient(supabaseUrl, supabaseServiceKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  })
+  cached = createSupabaseClient(supabaseUrl, supabaseServiceKey)
   return cached
 }
 

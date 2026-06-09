@@ -35,7 +35,7 @@ function PreferencesMenu({ className = '' }: PreferencesMenuProps) {
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="flex size-9 md:size-10 items-center justify-center rounded-full text-slate-600 hover:bg-slate-100"
+        className="flex size-9 md:size-10 items-center justify-center rounded-full text-foreground-muted hover:bg-surface-muted"
         aria-label="Your preferences"
         aria-expanded={open}
         aria-controls={menuId}
@@ -48,9 +48,9 @@ function PreferencesMenu({ className = '' }: PreferencesMenuProps) {
           id={menuId}
           role="dialog"
           aria-label="Your preferences"
-          className="absolute right-0 top-full z-20 mt-2 w-72 max-w-[calc(100vw-1.5rem)] rounded-lg border border-slate-200 bg-white p-4 shadow-lg"
+          className="absolute right-0 top-full z-20 mt-2 w-72 max-w-[calc(100vw-1.5rem)] rounded-lg border border-edge bg-surface p-4 shadow-lg"
         >
-          <h2 className="text-slate-900 text-sm font-bold mb-3">Your preferences</h2>
+          <h2 className="text-foreground text-sm font-bold mb-3">Your preferences</h2>
           <PreferencesForm idPrefix={menuId} />
         </div>
       )}
