@@ -33,7 +33,7 @@ function AdminLogin() {
   }
 
   return (
-    <div className="relative min-h-screen bg-admin-canvas font-display flex items-center justify-center p-4">
+    <div className="relative min-h-screen bg-admin-canvas admin-login-pattern font-display flex items-center justify-center p-4">
       <div className="absolute top-4 right-4">
         <ThemeMenu />
       </div>
