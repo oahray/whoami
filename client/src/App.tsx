@@ -2,6 +2,7 @@ import { lazy, ReactNode, Suspense } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { GameProvider } from './context/GameContext'
+import { PreferencesProvider } from './context/PreferencesContext'
 import { AdminDatasetProvider } from './context/AdminDatasetContext'
 import Home from './pages/Home'
 import About from './pages/About'
@@ -33,9 +34,10 @@ function AdminRoute({ children }: { children: ReactNode }) {
 function App() {
   return (
     <AuthProvider>
-      <GameProvider>
-        <UpdatePrompt />
-        <BrowserRouter>
+      <PreferencesProvider>
+        <GameProvider>
+          <UpdatePrompt />
+          <BrowserRouter>
           <div className="flex min-h-screen flex-col">
             <ReconnectingIndicator />
             <div className="flex flex-1 flex-col">
@@ -116,8 +118,9 @@ function App() {
               </Suspense>
             </div>
           </div>
-        </BrowserRouter>
-      </GameProvider>
+          </BrowserRouter>
+        </GameProvider>
+      </PreferencesProvider>
     </AuthProvider>
   )
 }

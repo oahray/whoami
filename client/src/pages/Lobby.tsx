@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import PreferencesPanel from '../components/PreferencesPanel'
 import {
   ENTITY_TYPE_FIELD_LABEL,
   ENTITY_TYPE_HINT_LOBBY,
@@ -487,6 +488,8 @@ function Lobby() {
               </div>
             </section>
           )}
+
+          <PreferencesPanel />
         </div>
 
       </main>

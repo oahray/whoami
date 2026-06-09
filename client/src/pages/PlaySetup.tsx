@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import LoadingState from '../components/LoadingState'
+import PreferencesPanel from '../components/PreferencesPanel'
 import { API_BASE_URL } from '../lib/apiBase'
 import {
   fetchInPersonEligibility,
@@ -296,6 +297,8 @@ function PlaySetup() {
             </button>
           </section>
         )}
+
+        {!loading && datasets.length > 0 && <PreferencesPanel />}
       </main>
     </div>
   )
