@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import PreferencesPanel from '../components/PreferencesPanel'
+import { unlockAudio } from '../lib/sounds'
 import {
   ENTITY_TYPE_FIELD_LABEL,
   ENTITY_TYPE_HINT_LOBBY,
@@ -99,6 +100,7 @@ function Lobby() {
       setError('Need at least 2 players to start')
       return
     }
+    unlockAudio()
     emit('START_GAME', {})
   }
 

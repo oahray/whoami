@@ -13,6 +13,7 @@ import {
 } from '../lib/inPersonDeck'
 import { DEFAULT_ENTITY_TYPE_FILTER, type EntityTypeFilter } from '../lib/entityTypeFilter'
 import { IN_PERSON_MASK_PLACEHOLDER } from '../lib/inPersonMask'
+import { playSound, unlockAudio } from '../lib/sounds'
 import type { InPersonCard } from '../types'
 
 function PlayCards() {
@@ -81,6 +82,10 @@ function PlayCards() {
         }
         const data = (await res.json()) as InPersonCard
         setCard(data)
+        const sessionAfterLoad = syncDeckSession()
+        if (sessionAfterLoad?.index === 0) {
+          playSound('round-start')
+        }
       } catch (err) {
         setCard(null)
         setError(err instanceof Error ? err.message : 'Failed to load card')
@@ -88,7 +93,7 @@ function PlayCards() {
         setLoading(false)
       }
     },
-    [datasetId, difficulty, entityType]
+    [datasetId, difficulty, entityType, syncDeckSession]
   )
 
   const loadCurrentCard = useCallback(async () => {
@@ -170,6 +175,7 @@ function PlayCards() {
 
     if (nextIndex >= session.entityIds.length) {
       setDeckComplete(true)
+      playSound('round-end')
       return
     }
 
@@ -381,7 +387,13 @@ function PlayCards() {
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => setShowAnswer((v) => !v)}
+                  onClick={() => {
+                    unlockAudio()
+                    setShowAnswer((v) => {
+                      if (!v) playSound('card-flip')
+                      return !v
+                    })
+                  }}
                   className="flex-1 py-2.5 md:py-3 rounded-lg border-2 border-slate-200 font-semibold text-slate-800 hover:bg-slate-50"
                 >
                   {showAnswer ? 'Hide answer' : 'Reveal answer'}

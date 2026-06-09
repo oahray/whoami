@@ -1,5 +1,6 @@
 import { createContext, useState, useEffect, useRef, ReactNode } from 'react'
 import { useSocket } from '../hooks/useSocket'
+import { playSound } from '../lib/sounds'
 import { getErrorMessage, isFatalError } from '../utils/errorMessages'
 
 const RECONNECT_GRACE_MS = 5 * 60 * 1000
@@ -159,6 +160,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         }
       }
       setError(null)
+      playSound('success-small')
     }
 
     const handlePlayerJoined = (data: { id: string; nickname: string }) => {
@@ -263,6 +265,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         serverStartTime: data.serverStartTime
       })
       setError(null)
+      playSound('round-start')
     }
 
     const handleClueRevealed = (data: { clue: { order: number; text: string } }) => {
@@ -276,6 +279,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
           cluesRevealed: [...prev.cluesRevealed, data.clue]
         }
       })
+      if (data.clue.order > 1) {
+        playSound('clue-reveal')
+      }
     }
 
     const handlePlayerCorrect = (data: { nickname: string; position: number; timeElapsedMs: number }) => {
@@ -283,8 +289,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       if (currentPlayer && data.nickname === currentPlayer.nickname) {
         setGameState(prev => prev ? { ...prev, isLocked: true } : null)
       }
+      playSound('success-small')
     }
-
 
     const handleRoundEnded = (data: any) => {
       setGameState(prev => prev ? {
@@ -305,6 +311,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           cluesRevealed: []
         } : null)
       }, 5000)
+      playSound('round-end')
     }
 
     const handleGameEnded = (data: { finalScoreboard: Array<{ playerId: string; nickname: string; score: number }> }) => {
@@ -315,11 +322,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
         isLocked: false,
         currentScoreboard: data.finalScoreboard
       })
+      playSound('game-win')
     }
 
     const handleRoomError = (data: { code: string; message: string }) => {
       const userMessage = getErrorMessage(data.code, data.message)
       setError(userMessage)
+      playSound('ui-error')
       if (isFatalError(data.code)) {
         localStorage.removeItem('whoami_room')
       }

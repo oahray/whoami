@@ -14,6 +14,7 @@ describe('PlayCards', () => {
     saveDeckSession({
       datasetId: 'ds-1',
       difficulty: 'any',
+      entityType: 'character',
       entityIds: ['ent-1', 'ent-2'],
       index: 0
     })
@@ -94,6 +95,7 @@ describe('PlayCards', () => {
     saveDeckSession({
       datasetId: 'ds-1',
       difficulty: 'any',
+      entityType: 'character',
       entityIds: ['ent-1'],
       index: 0
     })

@@ -19,6 +19,7 @@ import {
   type EntityTypeFilter
 } from '../lib/entityTypeFilter'
 import { fetchInPersonDeck } from '../lib/inPersonDeck'
+import { unlockAudio } from '../lib/sounds'
 import type { GameDifficultyMode, PublicDataset } from '../types'
 
 function PlaySetup() {
@@ -124,6 +125,7 @@ function PlaySetup() {
     if (!canStart) return
     setStarting(true)
     setError(null)
+    unlockAudio()
     try {
       await fetchInPersonDeck(datasetId, difficulty, entityType)
       const params = new URLSearchParams({ datasetId, difficulty, entityType })
