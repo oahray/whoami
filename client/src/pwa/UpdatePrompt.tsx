@@ -14,7 +14,7 @@ import { useRegisterSW } from './registerSW'
  *      show a small bottom-sheet giving them a one-tap "Update".
  *
  * If you want a no-prompt experience for admins or non-game routes you can
- * call `updateServiceWorker(true)` directly — that triggers the reload.
+ * call `updateServiceWorker(true)` directly - that triggers the reload.
  */
 export default function UpdatePrompt() {
   const { gameState } = useGame()

@@ -10,8 +10,8 @@ import { Workbox } from 'workbox-window'
  * directly is just as ergonomic and keeps everything explicit.
  *
  * The plugin still produces:
- *   - `/sw.js`        — the generated service worker
- *   - `/manifest.webmanifest` — auto-injected via index.html
+ *   - `/sw.js`        - the generated service worker
+ *   - `/manifest.webmanifest` - auto-injected via index.html
  *   - precached static assets (icons, splash screens, JS/CSS bundles)
  */
 

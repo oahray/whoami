@@ -8,7 +8,7 @@ let cached: SupabaseClient | null = null
 /**
  * Lazily build the Supabase client. Construction (and env validation) is
  * deferred until the first time the exported `supabase` proxy is touched so
- * that importing this module has no side effects — modules that transitively
+ * that importing this module has no side effects - modules that transitively
  * pull this in (e.g. game/roundState.ts → db/entities.ts → here) can be
  * loaded in tests without a real Supabase configuration. Calling code that
  * actually needs the client (e.g. `supabase.from('entities')…`) will still

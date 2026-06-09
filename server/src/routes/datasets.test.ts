@@ -34,7 +34,7 @@ const ROW_BIBLE = {
 const ROW_HISTORY = {
   id: 'ds-2',
   name: 'Org History',
-  source: 'JW.org',
+  source: 'Wiki',
   description: 'Modern history',
   is_official: false,
   is_enabled: true,

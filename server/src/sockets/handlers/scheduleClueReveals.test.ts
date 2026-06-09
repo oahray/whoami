@@ -83,7 +83,7 @@ describe('scheduleClueReveals', () => {
     expect(room.currentRound!.revealedClueCount).toBe(5)
     expect(emit).toHaveBeenLastCalledWith('CLUE_REVEALED', { clue: { order: 5, text: 'Clue 5' } })
 
-    // No clue 6 — even if more time passes, no further emits
+    // No clue 6 - even if more time passes, no further emits
     await vi.advanceTimersByTimeAsync(10000)
     expect(emit).toHaveBeenCalledTimes(4)
   })

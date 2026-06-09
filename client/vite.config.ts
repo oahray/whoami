@@ -18,7 +18,7 @@ export default defineConfig({
       registerType: 'prompt',
       /**
        * We register the SW manually via workbox-window in src/pwa/registerSW.ts
-       * rather than using the plugin's virtual module — gives us a stable React
+       * rather than using the plugin's virtual module - gives us a stable React
        * hook without depending on Vite-version-coupled virtual module support.
        */
       injectRegister: false,
@@ -61,7 +61,7 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
         /**
          * Single-page app navigation: serve `index.html` for any deep link.
-         * The denylist is critical — these paths must NOT be intercepted by
+         * The denylist is critical - these paths must NOT be intercepted by
          * the SW because they are server-side routes (Supabase auth, REST API,
          * Socket.IO). Letting the SW serve `index.html` for them would break
          * authentication and real-time gameplay.

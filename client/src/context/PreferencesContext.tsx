@@ -18,7 +18,7 @@ type PreferencesContextValue = {
   /** User wants sound effects when the system allows them. */
   sfxEnabled: boolean
   setSfxEnabled: (enabled: boolean) => void
-  /** System prefers reduced motion — SFX stay off even if sfxEnabled is true. */
+  /** System prefers reduced motion; SFX stay off even if sfxEnabled is true. */
   reducedMotion: boolean
   /** Effective gate for playback (phase 2+). */
   sfxAllowed: boolean

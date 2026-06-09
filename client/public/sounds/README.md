@@ -1,6 +1,6 @@
 # Sound effects (MP3)
 
-Drop one MP3 per file below. The app loads them from `/sounds/<name>.mp3`. **Missing files are skipped silently** — add files when ready and they start playing automatically (with sound effects enabled in Your preferences).
+Drop one MP3 per file below. The app loads them from `/sounds/<name>.mp3`. Missing files are skipped. Add files when ready; they play when sound effects are on in Your preferences.
 
 | File | Used for |
 |------|----------|

@@ -5,11 +5,9 @@ export const DEFAULT_ENTITY_TYPE_FILTER: EntityTypeFilter = 'character'
 /** User-facing label for the entity-type setting. */
 export const ENTITY_TYPE_FIELD_LABEL = 'Card type'
 
-export const ENTITY_TYPE_HINT_IN_PERSON =
-  'Characters, places, or both can appear in your deck.'
+export const ENTITY_TYPE_HINT_IN_PERSON = 'Characters, places, or both in the deck.'
 
-export const ENTITY_TYPE_HINT_LOBBY =
-  'Characters, places, or both can appear each round.'
+export const ENTITY_TYPE_HINT_LOBBY = 'Characters, places, or both each round.'
 
 export const ENTITY_TYPE_OPTIONS: { value: EntityTypeFilter; label: string }[] = [
   { value: 'character', label: 'Characters' },

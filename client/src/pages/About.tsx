@@ -29,7 +29,7 @@ function About() {
           </div>
           <p className="text-slate-700 leading-relaxed">
             A real-time quiz game in the classic &quot;Who am I?&quot; style. Clues describe a biblical
-            character or place; players guess the answer. The host reveals clues over time — quicker
+            character or place; players guess the answer. The host reveals clues over time. Quicker
             guesses earn more points when you play online.
           </p>
         </section>
@@ -60,15 +60,15 @@ function About() {
             <h2 className="text-lg font-bold text-slate-900">Play in person</h2>
           </div>
           <p className="text-slate-700 text-sm leading-relaxed">
-            No room code and no scoring on the server — one person holds the phone and reads clues aloud
-            while everyone else guesses in the room. The app loads the same published clue content from
-            our database whenever you are online.
+            No room code and no scoring on the server. One person holds the phone and reads clues aloud
+            while everyone else guesses in the room. The app loads published clue content from our
+            database when you are online.
           </p>
           <p className="text-slate-600 text-xs">
             <Link to="/play" className="text-primary font-semibold hover:text-primary/80">
               Start in-person mode
             </Link>{' '}
-            from the home screen — no room code needed.
+            from the home screen. No room code needed.
           </p>
         </section>
 
@@ -93,7 +93,7 @@ function About() {
               <p className="mt-1 text-slate-600">
                 Tap <span className="font-medium">Share</span> in the toolbar, then{' '}
                 <span className="font-medium">Add to Home Screen</span>. Safari does not show an
-                automatic install banner — that step is always manual.
+                automatic install banner, so you add it from Share every time.
               </p>
             </div>
           </div>
@@ -114,8 +114,8 @@ function About() {
             are available in the lobby.
           </p>
           <p className="text-slate-700 text-sm leading-relaxed">
-            Nicknames are not accounts — they are only used for the current session in a room. No
-            password is required to play.
+            Nicknames are not accounts. They only identify you in the current room. No password is
+            required to play.
           </p>
         </section>
 

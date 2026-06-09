@@ -320,7 +320,7 @@ function PlayCards() {
               aria-label="Clues"
             >
               <h2 className="text-slate-500 text-xs font-bold uppercase tracking-widest px-1 sticky top-0 bg-background-light py-1 z-10">
-                Clues — read aloud
+                Clues (read aloud)
               </h2>
               <div className="space-y-2 pb-1">
                 {visibleClues.map((clue) => (

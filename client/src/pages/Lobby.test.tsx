@@ -135,7 +135,7 @@ describe('Lobby', () => {
   it('shows a dataset picker when there are 2+ enabled datasets', async () => {
     mockDatasetsFetch([
       { id: 'ds-1', name: 'Bible', source: 'NWT', description: null, is_default: true },
-      { id: 'ds-2', name: 'Org History', source: 'JW.org', description: null, is_default: false }
+      { id: 'ds-2', name: 'Org History', source: 'Wiki', description: null, is_default: false }
     ])
 
     renderWithPreferences(
@@ -150,13 +150,13 @@ describe('Lobby', () => {
     })
 
     expect(screen.getByLabelText('Content')).toBeInTheDocument()
-    expect(screen.getByRole('option', { name: /Org History — JW\.org/ })).toBeInTheDocument()
+    expect(screen.getByRole('option', { name: /Org History \(Wiki\)/ })).toBeInTheDocument()
   })
 
   it('emits UPDATE_SETTINGS with datasetId when host changes the picker', async () => {
     mockDatasetsFetch([
       { id: 'ds-1', name: 'Bible', source: 'NWT', description: null, is_default: true },
-      { id: 'ds-2', name: 'Org History', source: 'JW.org', description: null, is_default: false }
+      { id: 'ds-2', name: 'Org History', source: 'Wiki', description: null, is_default: false }
     ])
 
     const emit = vi.fn()

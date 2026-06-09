@@ -243,9 +243,9 @@ export interface DatasetUpdateInput {
 
 /**
  * Update dataset flags / metadata with two invariants enforced in app code:
- *   1. At least one dataset must remain enabled — disabling the last enabled
+ *   1. At least one dataset must remain enabled - disabling the last enabled
  *      dataset is rejected.
- *   2. At most one dataset may be `is_default` — setting `is_default = true`
+ *   2. At most one dataset may be `is_default` - setting `is_default = true`
  *      clears the flag on every other dataset in the same transaction.
  */
 export async function updateDatasetFlags(

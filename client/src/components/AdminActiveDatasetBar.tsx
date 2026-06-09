@@ -5,7 +5,7 @@ import { useAdminDataset } from '../context/AdminDatasetContext'
 const COLLAPSED_STORAGE_KEY = 'whoami_admin_dataset_bar_collapsed'
 
 type AdminActiveDatasetBarProps = {
-  /** When true, user is on the all-datasets management screen — hide this bar. */
+  /** When true, user is on the all-datasets management screen; hide this bar. */
   hidden?: boolean
 }
 

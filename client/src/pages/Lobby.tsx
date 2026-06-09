@@ -286,12 +286,12 @@ function Lobby() {
                       className="w-full bg-slate-50 border-0 rounded-lg text-slate-900 focus:ring-2 focus:ring-primary py-2.5 px-3"
                     >
                       <option value="">
-                        Default ({datasets.find((d) => d.is_default)?.name ?? datasets[0]?.name ?? '—'})
+                        Default ({datasets.find((d) => d.is_default)?.name ?? datasets[0]?.name ?? '-'})
                       </option>
                       {datasets.map((d) => (
                         <option key={d.id} value={d.id}>
                           {d.name}
-                          {d.source ? ` — ${d.source}` : ''}
+                          {d.source ? ` (${d.source})` : ''}
                         </option>
                       ))}
                     </select>
@@ -300,7 +300,7 @@ function Lobby() {
                       {datasets.find((d) => d.id === settings.datasetId)?.name ??
                         datasets.find((d) => d.is_default)?.name ??
                         datasets[0]?.name ??
-                        '—'}
+                        '-'}
                     </div>
                   )}
                   {(() => {

@@ -103,7 +103,7 @@ export function playSound(id: SoundId): void {
           lastPlayedAt.set(id, Date.now())
         })
         .catch(() => {
-          // Autoplay blocked or missing file — do not throw
+          // Autoplay blocked or missing file; ignore
         })
     }
   } catch {
