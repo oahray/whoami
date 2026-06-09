@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import PreferencesPanel from '../components/PreferencesPanel'
+import PreferencesMenu from '../components/PreferencesMenu'
 import { unlockAudio } from '../lib/sounds'
 import {
   ENTITY_TYPE_FIELD_LABEL,
@@ -144,13 +144,16 @@ function Lobby() {
           <span className="material-symbols-outlined">arrow_back</span>
         </button>
         <h1 className="text-slate-900 text-lg font-bold leading-tight tracking-tight flex-1 text-center">Room Lobby <span className="text-sm text-slate-500">({roomCode})</span></h1>
-        <button
-          type="button"
-          onClick={handleLeaveRoom}
-          className="text-red-500 text-sm font-bold shrink-0 md:px-4 md:py-2 md:rounded-full md:bg-slate-100 md:text-slate-700 md:hover:bg-slate-200 md:font-semibold"
-        >
-          Leave Room
-        </button>
+        <div className="flex items-center gap-1 shrink-0">
+          <PreferencesMenu />
+          <button
+            type="button"
+            onClick={handleLeaveRoom}
+            className="text-red-500 text-sm font-bold md:px-4 md:py-2 md:rounded-full md:bg-slate-100 md:text-slate-700 md:hover:bg-slate-200 md:font-semibold"
+          >
+            Leave Room
+          </button>
+        </div>
       </header>
 
       <main className="p-4 md:p-6 lg:p-8 max-w-7xl w-full mx-auto flex flex-col gap-6 flex-1">
@@ -491,7 +494,6 @@ function Lobby() {
             </section>
           )}
 
-          <PreferencesPanel />
         </div>
 
       </main>

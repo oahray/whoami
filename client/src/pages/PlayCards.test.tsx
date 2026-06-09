@@ -1,8 +1,22 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { PreferencesProvider } from '../context/PreferencesContext'
 import { saveDeckSession } from '../lib/inPersonDeck'
 import PlayCards from './PlayCards'
+
+function renderPlayCards(initialEntry: string) {
+  return render(
+    <PreferencesProvider>
+      <MemoryRouter initialEntries={[initialEntry]}>
+        <Routes>
+          <Route path="/play/cards" element={<PlayCards />} />
+          <Route path="/play" element={<div>Setup</div>} />
+        </Routes>
+      </MemoryRouter>
+    </PreferencesProvider>
+  )
+}
 
 describe('PlayCards', () => {
   beforeEach(() => {
@@ -37,13 +51,7 @@ describe('PlayCards', () => {
       { order: 2, text: 'Second clue', citations: 'Exodus 3:1' }
     ])
 
-    render(
-      <MemoryRouter initialEntries={['/play/cards?datasetId=ds-1&difficulty=any']}>
-        <Routes>
-          <Route path="/play/cards" element={<PlayCards />} />
-        </Routes>
-      </MemoryRouter>
-    )
+    renderPlayCards('/play/cards?datasetId=ds-1&difficulty=any')
 
     await waitFor(() => {
       expect(screen.getByText('First clue')).toBeInTheDocument()
@@ -64,13 +72,7 @@ describe('PlayCards', () => {
       { order: 2, text: 'Second clue', citations: null }
     ])
 
-    render(
-      <MemoryRouter initialEntries={['/play/cards?datasetId=ds-1&difficulty=any']}>
-        <Routes>
-          <Route path="/play/cards" element={<PlayCards />} />
-        </Routes>
-      </MemoryRouter>
-    )
+    renderPlayCards('/play/cards?datasetId=ds-1&difficulty=any')
 
     await waitFor(() => {
       expect(screen.getByText('First clue')).toBeInTheDocument()
@@ -102,13 +104,7 @@ describe('PlayCards', () => {
 
     mockEntityCard('ent-1', 'Moses', [{ order: 1, text: 'Only clue', citations: null }])
 
-    render(
-      <MemoryRouter initialEntries={['/play/cards?datasetId=ds-1&difficulty=any']}>
-        <Routes>
-          <Route path="/play/cards" element={<PlayCards />} />
-        </Routes>
-      </MemoryRouter>
-    )
+    renderPlayCards('/play/cards?datasetId=ds-1&difficulty=any')
 
     await waitFor(() => {
       expect(screen.getByText('Only clue')).toBeInTheDocument()
@@ -130,14 +126,7 @@ describe('PlayCards', () => {
       useNavigate: () => mockNavigate
     }))
 
-    render(
-      <MemoryRouter initialEntries={['/play/cards?datasetId=ds-1']}>
-        <Routes>
-          <Route path="/play/cards" element={<PlayCards />} />
-          <Route path="/play" element={<div>Setup</div>} />
-        </Routes>
-      </MemoryRouter>
-    )
+    renderPlayCards('/play/cards?datasetId=ds-1')
 
     await waitFor(() => {
       expect(screen.getByText('Setup')).toBeInTheDocument()
@@ -151,13 +140,7 @@ describe('PlayCards', () => {
       json: async () => ({ error: 'Card not found', code: 'ENTITY_NOT_FOUND' })
     } as Response)
 
-    render(
-      <MemoryRouter initialEntries={['/play/cards?datasetId=ds-1']}>
-        <Routes>
-          <Route path="/play/cards" element={<PlayCards />} />
-        </Routes>
-      </MemoryRouter>
-    )
+    renderPlayCards('/play/cards?datasetId=ds-1')
 
     await waitFor(() => {
       expect(screen.getByText(/card not found/i)).toBeInTheDocument()

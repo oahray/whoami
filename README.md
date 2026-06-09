@@ -110,9 +110,10 @@ npm run dev:server
 
 ## Upcoming features
 - [Settings in the app (existing + planned)
-- Dataset purge & maintenance windows (planned)](docs/dataset-purge-and-maintenance.md)
+- Dataset purge & maintenance windows (planned)
 - Sound effects (planned)
 - In-person card flip animation (planned)
+- Public rooms (planned; after traction)
 
 ## License
 

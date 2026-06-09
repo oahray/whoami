@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import LoadingState from '../components/LoadingState'
+import SoundToggle from '../components/SoundToggle'
 import { API_BASE_URL } from '../lib/apiBase'
 import {
   currentEntityId,
@@ -230,9 +231,12 @@ function PlayCards() {
               </p>
             )}
           </div>
-          <Link to="/" className="text-slate-500 text-sm font-medium shrink-0">
-            Home
-          </Link>
+          <div className="flex items-center gap-1 shrink-0">
+            <SoundToggle />
+            <Link to="/" className="text-slate-500 text-sm font-medium px-2">
+              Home
+            </Link>
+          </div>
         </div>
       </header>
 

@@ -1,5 +1,6 @@
 import { createContext, useState, useEffect, useRef, ReactNode } from 'react'
 import { useSocket } from '../hooks/useSocket'
+import { INTER_ROUND_DELAY_MS } from '../lib/gameTiming'
 import { playSound } from '../lib/sounds'
 import { getErrorMessage, isFatalError } from '../utils/errorMessages'
 
@@ -310,7 +311,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           isLocked: false,
           cluesRevealed: []
         } : null)
-      }, 5000)
+      }, INTER_ROUND_DELAY_MS)
       playSound('round-end')
     }
 

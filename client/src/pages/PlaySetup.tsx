@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import LoadingState from '../components/LoadingState'
-import PreferencesPanel from '../components/PreferencesPanel'
+import PreferencesMenu from '../components/PreferencesMenu'
 import { API_BASE_URL } from '../lib/apiBase'
 import {
   fetchInPersonEligibility,
@@ -157,9 +157,12 @@ function PlaySetup() {
             <h1 className="text-lg font-bold tracking-tight">Play in person</h1>
             <p className="text-slate-500 text-xs truncate">One phone · read clues aloud</p>
           </div>
-          <Link to="/about" className="text-primary text-sm font-semibold shrink-0">
-            Help
-          </Link>
+          <div className="flex items-center gap-1 shrink-0">
+            <PreferencesMenu />
+            <Link to="/about" className="text-primary text-sm font-semibold px-2">
+              Help
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -300,7 +303,6 @@ function PlaySetup() {
           </section>
         )}
 
-        {!loading && datasets.length > 0 && <PreferencesPanel />}
       </main>
     </div>
   )
