@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import LoadingState from '../components/LoadingState'
+import MaintenanceBanner from '../components/MaintenanceBanner'
 import PreferencesMenu from '../components/PreferencesMenu'
+import { useMaintenanceStatus } from '../hooks/useMaintenanceStatus'
+import { isMaintenanceBlockingNewGames } from '../lib/maintenance'
 import { API_BASE_URL } from '../lib/apiBase'
 import {
   fetchInPersonEligibility,
@@ -24,6 +27,8 @@ import type { GameDifficultyMode, PublicDataset } from '../types'
 
 function PlaySetup() {
   const navigate = useNavigate()
+  const { status: maintenanceStatus } = useMaintenanceStatus()
+  const maintenanceBlocking = isMaintenanceBlockingNewGames(maintenanceStatus)
   const [datasets, setDatasets] = useState<PublicDataset[]>([])
   const [datasetId, setDatasetId] = useState('')
   const [entityType, setEntityType] = useState<EntityTypeFilter>(DEFAULT_ENTITY_TYPE_FILTER)
@@ -45,6 +50,7 @@ function PlaySetup() {
     !offline &&
     !starting &&
     !eligibilityLoading &&
+    !maintenanceBlocking &&
     selectedCount > 0
 
   useEffect(() => {
@@ -167,6 +173,7 @@ function PlaySetup() {
       </header>
 
       <main className="max-w-lg mx-auto px-3 py-4 pb-8 md:px-4 md:py-6 md:pb-10 space-y-3 md:space-y-4">
+        <MaintenanceBanner status={maintenanceStatus} />
         {offline && (
           <div className="p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-lg text-sm flex gap-2">
             <span className="material-symbols-outlined text-lg shrink-0">wifi_off</span>

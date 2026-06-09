@@ -12,6 +12,7 @@ import {
 import { ROUND_START_DELAY_MS } from '../../game/config.js'
 import { broadcastRoundEnd, scheduleClueReveals } from './utils.js'
 import { safeTimer } from '../dispatch.js'
+import { getMaintenanceBlock } from '../../db/maintenance.js'
 import { logger } from '../../utils/logger.js'
 
 function buildCurrentScoreboard(room: RoomState) {
@@ -64,6 +65,16 @@ export async function handleStartGame(io: Server, socket: Socket, _payload: any)
       socket.emit('ROOM_ERROR', {
         code: 'INSUFFICIENT_PLAYERS',
         message: 'Need at least 2 players to start'
+      })
+      return
+    }
+
+    const maintenance = await getMaintenanceBlock()
+    if (maintenance) {
+      socket.emit('ROOM_ERROR', {
+        code: maintenance.code,
+        message: maintenance.message,
+        maintenanceEndsAt: maintenance.endsAt
       })
       return
     }

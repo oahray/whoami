@@ -11,8 +11,8 @@
     "seed": "tsx src/scripts/seed.ts",
     "db:create-default-dataset": "tsx src/scripts/createDefaultDataset.ts",
     "db:migrate": "supabase db push",
-    "db:migrate:up": "supabase migrate up",
-    "db:migrate:down": "supabase migrate down",
+    "db:migrate:up": "supabase migration up",
+    "db:migrate:down": "supabase migration down",
     "db:reset": "supabase db reset"
   },
   "dependencies": {

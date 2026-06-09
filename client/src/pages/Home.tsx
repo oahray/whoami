@@ -7,9 +7,12 @@ import { getErrorMessage, isFatalError } from '../utils/errorMessages'
 import IosInstallHint from '../components/IosInstallHint'
 import LoadingState from '../components/LoadingState'
 import Logo from '../components/Logo'
+import MaintenanceBanner from '../components/MaintenanceBanner'
+import { useMaintenanceStatus } from '../hooks/useMaintenanceStatus'
 
 function Home() {
   const navigate = useNavigate()
+  const { status: maintenanceStatus } = useMaintenanceStatus()
   const location = useLocation()
   const { socket, emit, connected } = useSocket()
   const { roomCode, error, setError, setRoomCode } = useGame()
@@ -161,6 +164,9 @@ function Home() {
         </div>
 
         <div className="w-full max-w-md bg-surface rounded-xl shadow-2xl border border-edge py-8 px-5 flex flex-col gap-6">
+          {maintenanceStatus.phase !== 'none' && (
+            <MaintenanceBanner status={maintenanceStatus} />
+          )}
           <form onSubmit={handleJoinRoom} className="flex flex-col gap-6">
             <div className="flex flex-col gap-2">
               <label className="text-foreground text-sm font-semibold ml-1">Your Nickname</label>

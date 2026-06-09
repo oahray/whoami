@@ -4,6 +4,8 @@ import LoadingState from '../components/LoadingState'
 import { useAuth } from '../context/AuthContext'
 import { useAdminDataset } from '../context/AdminDatasetContext'
 import { AdminLayout } from '../components/AdminLayout'
+import DatasetDangerZone from '../components/DatasetDangerZone'
+import MaintenancePanel from '../components/MaintenancePanel'
 import type { Stats } from '../types'
 
 const API_BASE_URL = import.meta.env.VITE_SOCKET_URL?.replace('ws://', 'http://').replace('wss://', 'https://') || 'http://localhost:3001'
@@ -234,6 +236,12 @@ function AdminDashboard() {
             </div>
           </div>
         </div>
+      </section>
+
+      <section className="mt-6">
+        <MaintenancePanel />
+
+        {activeDatasetId && <DatasetDangerZone datasetId={activeDatasetId} />}
       </section>
     </AdminLayout>
   )

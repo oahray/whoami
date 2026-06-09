@@ -6,6 +6,13 @@ import PlaySetup from './PlaySetup'
 
 const mockNavigate = vi.fn()
 
+vi.mock('../hooks/useMaintenanceStatus', () => ({
+  useMaintenanceStatus: () => ({
+    status: { phase: 'none', endsAt: null, startsAt: null },
+    loading: false
+  })
+}))
+
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual<typeof import('react-router-dom')>('react-router-dom')
   return {

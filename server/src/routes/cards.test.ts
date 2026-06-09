@@ -8,6 +8,10 @@ vi.mock('../db/supabase.js', () => ({
   }
 }))
 
+vi.mock('../db/maintenance.js', () => ({
+  getMaintenanceBlock: vi.fn().mockResolvedValue(null)
+}))
+
 import { supabase } from '../db/supabase.js'
 import cardsRouter from './cards.js'
 import {

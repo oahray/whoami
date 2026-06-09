@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import LoadingState from '../components/LoadingState'
 import { useAuth } from '../context/AuthContext'
 import { useAdminDataset } from '../context/AdminDatasetContext'
 import { AdminLayout } from '../components/AdminLayout'
+import { parseBulkImportJson } from '../lib/bulkImportParse'
 
 const API_BASE_URL = import.meta.env.VITE_SOCKET_URL?.replace('ws://', 'http://').replace('wss://', 'https://') || 'http://localhost:3001'
 
@@ -11,7 +12,9 @@ function AdminBulkImport() {
   const { getAccessToken } = useAuth()
   const navigate = useNavigate()
   const { selectedDatasetId, selectedDataset } = useAdminDataset()
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [jsonInput, setJsonInput] = useState('')
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<any>(null)
   const [error, setError] = useState('')
@@ -22,12 +25,7 @@ function AdminBulkImport() {
       setError('')
       setResult(null)
 
-      const parsed = JSON.parse(jsonInput)
-      if (!Array.isArray(parsed)) {
-        setError('JSON must be an array of entities')
-        setLoading(false)
-        return
-      }
+      const parsed = parseBulkImportJson(jsonInput)
 
       const token = await getAccessToken()
       if (!token) {
@@ -70,10 +68,37 @@ function AdminBulkImport() {
     }
   }
 
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    if (!file.name.toLowerCase().endsWith('.json') && file.type !== 'application/json') {
+      setError('Please choose a .json file')
+      return
+    }
+
+    try {
+      const text = await file.text()
+      parseBulkImportJson(text)
+      setJsonInput(text)
+      setUploadedFileName(file.name)
+      setResult(null)
+      setError('')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Invalid JSON file')
+      setUploadedFileName(null)
+    }
+  }
+
   const handleClear = () => {
     setJsonInput('')
+    setUploadedFileName(null)
     setResult(null)
     setError('')
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
   }
 
   const exampleJson = `[
@@ -139,18 +164,40 @@ function AdminBulkImport() {
             </div>
           </section>
 
-          {/* Paste area + actions */}
+          {/* Paste / upload + actions */}
           <section className="order-1 lg:order-2 flex flex-col">
-            <h3 className="text-admin-fg text-lg font-bold mb-3">Paste JSON Data</h3>
-            <div className="flex items-center justify-between gap-2 mb-2">
-              <button
-                type="button"
-                onClick={() => setJsonInput(exampleJson)}
-                className="text-admin-muted text-sm font-medium flex items-center gap-1.5 py-2 px-3 rounded-lg bg-admin-muted-surface hover:bg-admin-muted-surface transition-colors"
-              >
-                <span className="material-symbols-outlined text-lg">data_object</span>
-                Load Example
-              </button>
+            <h3 className="text-admin-fg text-lg font-bold mb-3">Import JSON</h3>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json,application/json"
+              onChange={(e) => void handleFileChange(e)}
+              className="sr-only"
+              aria-hidden
+            />
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="text-admin-fg text-sm font-medium flex items-center gap-1.5 py-2 px-3 rounded-lg border border-admin-border bg-admin-panel hover:bg-admin-muted-surface transition-colors"
+                >
+                  <span className="material-symbols-outlined text-lg">upload_file</span>
+                  Upload JSON file
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setJsonInput(exampleJson)
+                    setUploadedFileName(null)
+                    setError('')
+                  }}
+                  className="text-admin-muted text-sm font-medium flex items-center gap-1.5 py-2 px-3 rounded-lg bg-admin-muted-surface hover:bg-admin-muted-surface transition-colors"
+                >
+                  <span className="material-symbols-outlined text-lg">data_object</span>
+                  Load example
+                </button>
+              </div>
               <button
                 type="button"
                 onClick={handleClear}
@@ -160,10 +207,20 @@ function AdminBulkImport() {
                 Clear
               </button>
             </div>
+            {uploadedFileName && (
+              <p className="text-admin-muted text-xs mb-2 flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-sm">description</span>
+                Loaded from <span className="font-medium text-admin-fg">{uploadedFileName}</span>
+              </p>
+            )}
+            <label className="text-admin-muted text-sm font-semibold mb-1.5">Or paste JSON</label>
             <textarea
               value={jsonInput}
-              onChange={(e) => setJsonInput(e.target.value)}
-              placeholder='[{"name": "...", "type": "character", "clues": [{"text": "..."}]}]'
+              onChange={(e) => {
+                setJsonInput(e.target.value)
+                setUploadedFileName(null)
+              }}
+              placeholder='[{"name": "...", "type": "character", "clues": [{"text": "..."}]}] or {"entities": [...]}'
               className="w-full min-h-[240px] md:min-h-[280px] lg:min-h-[320px] flex-1 bg-admin-muted-surface border border-admin-border rounded-lg p-4 font-mono text-sm focus:ring-2 focus:ring-primary focus:border-primary text-admin-fg placeholder-admin-muted resize-y"
             />
 

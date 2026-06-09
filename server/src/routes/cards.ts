@@ -8,6 +8,7 @@ import {
   getRandomInPersonCard,
   InPersonPlayError
 } from '../game/inPersonPlay.js'
+import { getMaintenanceBlock } from '../db/maintenance.js'
 import { logger } from '../utils/logger.js'
 
 const router = Router()
@@ -58,6 +59,15 @@ router.get('/cards/eligibility', async (req, res) => {
 
 router.get('/cards/deck', async (req, res) => {
   try {
+    const maintenance = await getMaintenanceBlock()
+    if (maintenance) {
+      return res.status(503).json({
+        error: maintenance.message,
+        code: maintenance.code,
+        maintenanceEndsAt: maintenance.endsAt
+      })
+    }
+
     const datasetId = parseDatasetId(req.query.datasetId)
     if (!datasetId) {
       return res.status(400).json({ error: 'datasetId is required' })
