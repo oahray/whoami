@@ -236,6 +236,12 @@ function Home() {
 
         <div className="mt-6 flex flex-col items-center gap-2">
           <Link
+            to="/solo"
+            className="text-white font-semibold text-sm hover:text-white/90 underline underline-offset-2"
+          >
+            Solo mode
+          </Link>
+          <Link
             to="/play"
             className="text-white font-semibold text-sm hover:text-white/90 underline underline-offset-2"
           >
