@@ -70,4 +70,75 @@ describe('SoloGame', () => {
 
     expect(screen.getByRole('heading', { name: /endurance complete/i })).toBeInTheDocument()
   })
+
+  it('restarts with the same setup when Try again is pressed', async () => {
+    saveSoloSession({
+      datasetId: 'ds-1',
+      difficulty: 'any',
+      entityType: 'character',
+      variation: 'challenge',
+      roundDurationMs: 100,
+      clueRevealIntervalMs: 100,
+      entityIds: ['ent-1'],
+      index: 0,
+      correctCount: 0,
+      activeElapsedMs: 0
+    })
+    vi.useFakeTimers()
+
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const url = String(input)
+      if (url.includes('/cards/deck')) {
+        return {
+          ok: true,
+          json: async () => ({ entityIds: ['ent-2', 'ent-3'] })
+        } as Response
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          entity: {
+            id: url.includes('ent-2') ? 'ent-2' : 'ent-1',
+            name: url.includes('ent-2') ? 'Aaron' : 'Moses',
+            type: 'character',
+            aliases: []
+          },
+          clues: [{ order: 1, text: url.includes('ent-2') ? 'New clue' : 'A clue', citations: null }]
+        })
+      } as Response
+    })
+
+    render(
+      <PreferencesProvider>
+        <MemoryRouter initialEntries={['/solo/play']}>
+          <Routes>
+            <Route path="/solo/play" element={<SoloGame />} />
+            <Route path="/solo" element={<div>Solo setup</div>} />
+          </Routes>
+        </MemoryRouter>
+      </PreferencesProvider>
+    )
+
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(200)
+    })
+    fireEvent.click(screen.getByRole('button', { name: /next round/i }))
+
+    expect(screen.getByRole('heading', { name: /challenge complete/i })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /new setup/i })).toHaveAttribute('href', '/solo')
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /try again/i }))
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(screen.getByText('New clue')).toBeInTheDocument()
+    expect(screen.queryByText('Solo setup')).not.toBeInTheDocument()
+  })
 })
