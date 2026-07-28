@@ -141,15 +141,16 @@ describe('Home', () => {
     )
   })
 
-  it('links to party mode and about', () => {
+  it('links to solo mode, pass & play and about', () => {
     render(
       <MemoryRouter>
         <Home />
       </MemoryRouter>
     )
 
-    expect(screen.getByRole('link', { name: /party mode/i })).toHaveAttribute('href', '/play')
-    expect(screen.getByRole('link', { name: /about & how to play/i })).toHaveAttribute('href', '/about')
+    expect(screen.getByRole('link', { name: /^solo$/i })).toHaveAttribute('href', '/solo')
+    expect(screen.getByRole('link', { name: /pass & play/i })).toHaveAttribute('href', '/play')
+    expect(screen.getByRole('link', { name: /^about$/i })).toHaveAttribute('href', '/about')
   })
 
   it('surfaces a kick message stashed in sessionStorage and clears it after showing', () => {

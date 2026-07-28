@@ -36,6 +36,23 @@ function About() {
 
         <section className="bg-surface rounded-lg border border-edge shadow-sm p-5 space-y-3">
           <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-primary">person</span>
+            <h2 className="text-lg font-bold text-foreground">Solo mode</h2>
+          </div>
+          <p className="text-foreground text-sm leading-relaxed">
+            Play on your own to set personal bests on this device. Take on a 10-round Solo challenge
+            for the best accuracy and time, or see how long your streak lasts in Endurance.
+          </p>
+          <p className="text-foreground-muted text-xs">
+            <Link to="/solo" className="text-primary font-semibold hover:text-primary/80">
+              Start solo mode
+            </Link>{' '}
+            from the home screen. No room code needed.
+          </p>
+        </section>
+
+        <section className="bg-surface rounded-lg border border-edge shadow-sm p-5 space-y-3">
+          <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-primary">wifi</span>
             <h2 className="text-lg font-bold text-foreground">Play online</h2>
           </div>
@@ -57,7 +74,7 @@ function About() {
         <section className="bg-surface rounded-lg border border-edge shadow-sm p-5 space-y-3">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-primary">groups</span>
-            <h2 className="text-lg font-bold text-foreground">Party mode</h2>
+            <h2 className="text-lg font-bold text-foreground">Pass &amp; play</h2>
           </div>
           <p className="text-foreground text-sm leading-relaxed">
             No room code and no scoring on the server. One person holds the phone and reads clues aloud
@@ -66,7 +83,7 @@ function About() {
           </p>
           <p className="text-foreground-muted text-xs">
             <Link to="/play" className="text-primary font-semibold hover:text-primary/80">
-              Start party mode
+              Start pass &amp; play
             </Link>{' '}
             from the home screen. No room code needed.
           </p>

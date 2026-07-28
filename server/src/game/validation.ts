@@ -2,18 +2,26 @@ function normalizeString(str: string): string {
   return str.toLowerCase().trim().replace(/\s+/g, ' ')
 }
 
+/** Drop clarifying qualifiers like `(Jesus' brother)`. */
+function stripParentheticals(value: string): string {
+  return value.replace(/\([^)]*\)/g, ' ')
+}
+
 function normalizeStringLenient(str: string): string {
-  let normalized = str
+  return stripParentheticals(str)
     .toLowerCase()
     .trim()
-    .replace(/['-]/g, ' ')
+    .replace(/['\u2019\-–—]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
+    .split(/\s+/)
+    .filter((word) => word.length > 0 && !['the', 'a', 'an'].includes(word))
+    .join(' ')
+}
 
-  const words = normalized.split(/\s+/)
-  const filteredWords = words.filter(word => !['the', 'a', 'an'].includes(word))
-
-  return filteredWords.join(' ')
+/** Same as lenient, but with spaces removed so `MaryMagdalene` matches `Mary-Magdalene`. */
+function normalizeStringCompact(str: string): string {
+  return normalizeStringLenient(str).replace(/\s+/g, '')
 }
 
 function matchesAnswer(input: string, answer: string, strictMode: boolean): boolean {
@@ -22,14 +30,19 @@ function matchesAnswer(input: string, answer: string, strictMode: boolean): bool
   if (strictMode) {
     return normalizeString(input) === normalizeString(answer)
   }
-  return normalizeStringLenient(input) === normalizeStringLenient(answer)
+
+  const left = normalizeStringLenient(input)
+  const right = normalizeStringLenient(answer)
+  if (!left || !right) return false
+  if (left === right) return true
+  return normalizeStringCompact(input) === normalizeStringCompact(answer)
 }
 
 /**
  * Validate a guess against the canonical entity name and any aliases.
  * Aliases are matched with the same normalization rules as the canonical
  * answer (case-insensitive in both modes; lenient mode also strips quotes,
- * hyphens, and "the/a/an").
+ * hyphens, parentheticals, and "the/a/an").
  */
 export function validateGuess(
   input: string,
