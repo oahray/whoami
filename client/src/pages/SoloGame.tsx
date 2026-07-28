@@ -2,11 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import LoadingState from '../components/LoadingState'
 import SoundToggle from '../components/SoundToggle'
+import { useVisualViewportLock } from '../hooks/useVisualViewportLock'
 import { API_BASE_URL } from '../lib/apiBase'
 import { validateGuess } from '../lib/guessValidation'
 import {
   clearSoloSession,
   continueEndurancePool,
+  createSoloSession,
   formatSoloTime,
   getSoloRecord,
   loadSoloSession,
@@ -31,8 +33,11 @@ function SoloGame() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<{ record: SoloRecord; isPersonalBest: boolean } | null>(null)
+  const [restarting, setRestarting] = useState(false)
   const roundStartedAt = useRef(0)
   const activeSession = useRef<SoloSession | null>(null)
+  const guessInputRef = useRef<HTMLInputElement | null>(null)
+  const viewportStyle = useVisualViewportLock()
 
   const loadCard = useCallback(async (nextSession: SoloSession) => {
     const entityId = nextSession.entityIds[nextSession.index]
@@ -143,6 +148,50 @@ function SoloGame() {
     return () => window.clearTimeout(timeout)
   }, [status, advance])
 
+  useEffect(() => {
+    if (status !== 'active' || loading || !card) return
+    guessInputRef.current?.focus({ preventScroll: true })
+  }, [status, loading, card?.entity.id])
+
+  const tryAgain = async () => {
+    if (!session || restarting) return
+    setRestarting(true)
+    setError(null)
+    try {
+      const query = new URLSearchParams({
+        datasetId: session.datasetId,
+        difficulty: session.difficulty,
+        entityType: session.entityType
+      })
+      const response = await fetch(`${API_BASE_URL}/cards/deck?${query}`)
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}))
+        throw new Error(body.error ?? `Failed to load cards (${response.status})`)
+      }
+      const { entityIds } = (await response.json()) as { entityIds: string[] }
+      const nextSession = createSoloSession(
+        {
+          datasetId: session.datasetId,
+          difficulty: session.difficulty,
+          entityType: session.entityType,
+          variation: session.variation,
+          roundDurationMs: session.roundDurationMs,
+          clueRevealIntervalMs: session.clueRevealIntervalMs
+        },
+        entityIds
+      )
+      saveSoloSession(nextSession)
+      activeSession.current = nextSession
+      setSession(nextSession)
+      setResult(null)
+      await loadCard(nextSession)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to restart')
+    } finally {
+      setRestarting(false)
+    }
+  }
+
   const submitGuess = () => {
     if (!card || status !== 'active' || !guess.trim()) return
     if (!validateGuess(guess, card.entity.name, card.entity.aliases)) {
@@ -172,9 +221,21 @@ function SoloGame() {
           </div>
           {result.isPersonalBest && <p className="rounded-lg bg-green-50 p-3 text-sm font-semibold text-green-800">New personal best on this device!</p>}
           {!result.isPersonalBest && <p className="text-sm text-foreground-muted">Personal best: {getSoloRecord(session)?.correctCount ?? 0} correct.</p>}
+          {error && (
+            <p className="rounded-lg border border-red-400 bg-red-100 p-3 text-sm text-red-700">{error}</p>
+          )}
           <div className="grid grid-cols-2 gap-3">
-            <Link to="/solo" className="rounded-lg border-2 border-edge py-3 font-semibold">New setup</Link>
-            <button type="button" onClick={() => navigate('/solo')} className="rounded-lg bg-primary py-3 font-bold text-white">Try again</button>
+            <Link to="/solo" className="rounded-lg border-2 border-edge py-3 font-semibold">
+              New setup
+            </Link>
+            <button
+              type="button"
+              onClick={() => void tryAgain()}
+              disabled={restarting}
+              className="rounded-lg bg-primary py-3 font-bold text-white disabled:opacity-50"
+            >
+              {restarting ? 'Starting…' : 'Try again'}
+            </button>
           </div>
         </main>
       </div>
@@ -189,7 +250,10 @@ function SoloGame() {
   const visibleClues = card?.clues.slice(0, revealedCount) ?? []
 
   return (
-    <div className="h-dvh overflow-hidden bg-app-bg font-display text-foreground flex flex-col">
+    <div
+      className="min-h-dvh overflow-hidden bg-app-bg font-display text-foreground flex flex-col"
+      style={viewportStyle}
+    >
       <header className="shrink-0 border-b border-edge bg-surface px-3 py-2">
         <div className="max-w-lg mx-auto flex items-center gap-3">
           <Link to="/solo" aria-label="Back to solo setup" className="flex size-10 items-center justify-center rounded-full text-foreground-muted hover:bg-surface-elevated"><span className="material-symbols-outlined">arrow_back</span></Link>
@@ -226,9 +290,24 @@ function SoloGame() {
         )}
       </main>
       {card && status === 'active' && (
-        <footer className="shrink-0 border-t border-edge bg-surface p-3">
+        <footer
+          className="shrink-0 border-t border-edge bg-surface px-3 pt-3"
+          style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))' }}
+        >
           <div className="max-w-lg mx-auto flex gap-2">
-            <input value={guess} onChange={(event) => setGuess(event.target.value)} onKeyDown={(event) => event.key === 'Enter' && submitGuess()} placeholder="Enter your guess…" autoFocus autoComplete="off" className="min-w-0 flex-1 rounded-lg bg-surface-muted px-3 py-3 font-medium" />
+            <input
+              ref={guessInputRef}
+              type="text"
+              value={guess}
+              onChange={(event) => setGuess(event.target.value)}
+              onKeyDown={(event) => event.key === 'Enter' && submitGuess()}
+              placeholder="Enter your guess…"
+              enterKeyHint="go"
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
+              className="min-w-0 flex-1 rounded-lg bg-surface-muted px-3 py-3 text-base font-medium"
+            />
             <button type="button" onClick={submitGuess} disabled={!guess.trim()} className="rounded-lg bg-primary px-4 font-bold text-white disabled:opacity-50">Guess</button>
           </div>
           {feedback && <p className="mt-2 text-center text-sm font-medium text-foreground-muted">{feedback}</p>}

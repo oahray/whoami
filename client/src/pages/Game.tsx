@@ -5,6 +5,7 @@ import SoundToggle from '../components/SoundToggle'
 import { INTER_ROUND_DELAY_MS } from '../lib/gameTiming'
 import { useGame } from '../hooks/useGame'
 import { useSocket } from '../hooks/useSocket'
+import { useVisualViewportLock } from '../hooks/useVisualViewportLock'
 
 /**
  * Sort a scoreboard descending and assign competition rankings (1, 1, 3, ...)
@@ -49,41 +50,11 @@ function Game() {
   const guessInputRef = useRef<HTMLInputElement | null>(null)
   const cluesScrollRef = useRef<HTMLDivElement | null>(null)
   const guessesScrollRef = useRef<HTMLDivElement | null>(null)
+  const viewportStyle = useVisualViewportLock()
   const isFinalScoresView = gameState?.roundNumber === 0
   const canGuess = !!gameState && !isFinalScoresView && (currentPhase === 'active' || currentPhase === 'clue_revealed')
   const preGuessPhase = !!gameState && !isFinalScoresView && currentPhase === 'starting'
   const hasStoredRoom = typeof window !== 'undefined' && !!localStorage.getItem('whoami_room')
-
-  /**
-   * Track the on-screen keyboard so the game layout shrinks above it.
-   *
-   * iOS Safari does not resize the layout viewport when the keyboard opens
-   * (it only shrinks the *visual* viewport), so a layout pinned with
-   * `position: fixed; inset: 0` would still extend behind the keyboard,
-   * hiding the guess input. By measuring `window.innerHeight - visualViewport.height`
-   * we get the keyboard's height (0 when closed) and expose it as
-   * `--keyboard-inset`. The page container uses this as its bottom padding,
-   * so the inner flex column always fits exactly above the keyboard with no
-   * gap and no off-screen clipping.
-   */
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.visualViewport) return
-    const vv = window.visualViewport
-    const update = () => {
-      const inset = Math.max(0, window.innerHeight - vv.height - (vv.offsetTop || 0))
-      document.documentElement.style.setProperty('--keyboard-inset', `${inset}px`)
-    }
-    update()
-    vv.addEventListener('resize', update)
-    vv.addEventListener('scroll', update)
-    window.addEventListener('resize', update)
-    return () => {
-      vv.removeEventListener('resize', update)
-      vv.removeEventListener('scroll', update)
-      window.removeEventListener('resize', update)
-      document.documentElement.style.removeProperty('--keyboard-inset')
-    }
-  }, [])
 
   useEffect(() => {
     if (!roomCode && !isReconnecting && !hasStoredRoom) {
@@ -315,8 +286,8 @@ function Game() {
 
   return (
     <div
-      className="bg-app-bg font-display text-foreground flex flex-col fixed inset-0 lg:static lg:min-h-screen"
-      style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), var(--keyboard-inset, 0px))' }}
+      className="bg-app-bg font-display text-foreground flex flex-col lg:min-h-screen"
+      style={viewportStyle}
     >
       <div
         className="w-full max-w-[430px] lg:max-w-7xl mx-auto flex-1 min-h-0 flex flex-col bg-surface lg:bg-transparent lg:shadow-none overflow-hidden"
@@ -533,7 +504,10 @@ function Game() {
         </main>
 
         {!gameState.isLocked && canGuess && (
-          <div className="shrink-0 bg-surface border-t border-edge px-3 py-2 lg:px-8 lg:py-4">
+          <div
+            className="shrink-0 bg-surface border-t border-edge px-3 py-2 lg:px-8 lg:py-4"
+            style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom, 0px))' }}
+          >
             <div className="flex gap-2 lg:gap-3 max-w-7xl mx-auto">
               <div className="relative flex-1 min-w-0">
                 <input
