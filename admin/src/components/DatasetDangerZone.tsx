@@ -216,7 +216,9 @@ export default function DatasetDangerZone({ datasetId }: DatasetDangerZoneProps)
               I have exported a backup of this dataset
             </label>
             <label className="flex flex-col gap-1.5 mb-4">
-              <span className="text-admin-muted text-sm">Type <code>purge</code> to confirm</span>
+              <span className="text-admin-muted text-sm">
+                Type <code className="text-red-600 dark:text-red-400 font-semibold">purge</code> to confirm
+              </span>
               <input
                 type="text"
                 value={confirmText}

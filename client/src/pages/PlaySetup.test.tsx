@@ -96,6 +96,60 @@ describe('PlaySetup', () => {
     expect(deck).toContain('ent-1')
   })
 
+  it('keeps card type selectable when the current type has no playable content', async () => {
+    let eligibilityCalls = 0
+
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const url = String(input)
+      if (url.includes('/datasets')) {
+        return {
+          ok: true,
+          json: async () => [
+            {
+              id: 'ds-1',
+              name: 'Bible',
+              source: null,
+              description: null,
+              is_default: true
+            }
+          ]
+        } as Response
+      }
+      if (url.includes('/cards/eligibility')) {
+        eligibilityCalls += 1
+        const entityType = new URL(url, 'http://localhost').searchParams.get('entityType')
+        const modes =
+          entityType === 'place'
+            ? { any: 3, easy: 3, medium: 3, hard: 3, nightmare: 3 }
+            : { any: 0, easy: 0, medium: 0, hard: 0, nightmare: 0 }
+        return {
+          ok: true,
+          json: async () => ({ modes })
+        } as Response
+      }
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+
+    renderWithPreferences(
+      <MemoryRouter>
+        <PlaySetup />
+      </MemoryRouter>
+    )
+
+    const entityTypeSelect = await screen.findByLabelText(/card type/i)
+    await waitFor(() => {
+      expect(screen.getByText(/not enough clues for this card type/i)).toBeInTheDocument()
+    })
+    expect(entityTypeSelect).not.toBeDisabled()
+
+    fireEvent.change(entityTypeSelect, { target: { value: 'place' } })
+
+    await waitFor(() => {
+      expect(eligibilityCalls).toBeGreaterThanOrEqual(2)
+      expect(screen.getByRole('button', { name: /start cards/i })).not.toBeDisabled()
+    })
+  })
+
   it('shows offline message when navigator is offline', async () => {
     Object.defineProperty(navigator, 'onLine', { value: false, configurable: true })
 
