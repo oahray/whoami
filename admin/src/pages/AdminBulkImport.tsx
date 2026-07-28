@@ -55,7 +55,12 @@ function AdminBulkImport() {
       const data = await response.json()
 
       if (!response.ok) {
-        setError(data.error || 'Import failed')
+        const message =
+          response.status === 413
+            ? data.message ||
+              'Import file is too large. Split the dataset into smaller JSON files and import in batches.'
+            : data.error || data.message || 'Import failed'
+        setError(message)
         setLoading(false)
         return
       }
