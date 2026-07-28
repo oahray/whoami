@@ -4,12 +4,20 @@ import LoadingState from '../components/LoadingState'
 import SoundToggle from '../components/SoundToggle'
 import { API_BASE_URL } from '../lib/apiBase'
 import {
+  advanceToNextDeck,
+  currentDeckEntityIds,
   currentEntityId,
   deckProgressLabel,
   fetchInPersonDeck,
+  hasNextDeck,
   isDeckExhausted,
+  isSessionComplete,
   loadDeckSession,
+  remainingEntityCount,
   saveDeckSession,
+  snapshotForIndex,
+  updateCardSnapshot,
+  type InPersonCardSnapshot,
   type InPersonDeckSession
 } from '../lib/inPersonDeck'
 import { DEFAULT_ENTITY_TYPE_FILTER, type EntityTypeFilter } from '../lib/entityTypeFilter'
@@ -28,10 +36,11 @@ function PlayCards() {
   const [card, setCard] = useState<InPersonCard | null>(null)
   const [deckSession, setDeckSession] = useState<InPersonDeckSession | null>(null)
   const [deckComplete, setDeckComplete] = useState(false)
+  const [sessionComplete, setSessionComplete] = useState(false)
   const [revealedCount, setRevealedCount] = useState(1)
   const [showAnswer, setShowAnswer] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [reshuffling, setReshuffling] = useState(false)
+  const [loadingDeck, setLoadingDeck] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [offline, setOffline] = useState(
     typeof navigator !== 'undefined' ? !navigator.onLine : false
@@ -48,13 +57,52 @@ function PlayCards() {
     return session
   }, [datasetId, difficulty, entityType])
 
+  const applySnapshot = useCallback((snapshot: InPersonCardSnapshot) => {
+    setCard(snapshot.card)
+    setRevealedCount(snapshot.revealedCount)
+    setShowAnswer(snapshot.showAnswer)
+    setDeckComplete(false)
+    setSessionComplete(false)
+    setError(null)
+  }, [])
+
+  const persistSnapshot = useCallback(
+    (
+      session: InPersonDeckSession,
+      snapshotCard: InPersonCard,
+      snapshotRevealed: number,
+      snapshotShowAnswer: boolean
+    ) => {
+      const updated = updateCardSnapshot(session, {
+        card: snapshotCard,
+        revealedCount: snapshotRevealed,
+        showAnswer: snapshotShowAnswer
+      })
+      saveDeckSession(updated)
+      setDeckSession(updated)
+      return updated
+    },
+    []
+  )
+
   const loadCardForEntity = useCallback(
-    async (entityId: string) => {
+    async (
+      entityId: string,
+      session: InPersonDeckSession,
+      snapshot?: InPersonCardSnapshot | null
+    ) => {
       if (!datasetId) {
         setError('Missing content selection. Go back and choose a dataset.')
         setLoading(false)
         return
       }
+
+      if (snapshot) {
+        applySnapshot(snapshot)
+        setLoading(false)
+        return
+      }
+
       if (!navigator.onLine) {
         setOffline(true)
         setError('Internet required to load cards.')
@@ -67,6 +115,7 @@ function PlayCards() {
       setShowAnswer(false)
       setRevealedCount(1)
       setDeckComplete(false)
+      setSessionComplete(false)
 
       const params = new URLSearchParams({ datasetId, difficulty, entityType })
       try {
@@ -83,8 +132,14 @@ function PlayCards() {
         }
         const data = (await res.json()) as InPersonCard
         setCard(data)
-        const sessionAfterLoad = syncDeckSession()
-        if (sessionAfterLoad?.index === 0) {
+        const updated = updateCardSnapshot(session, {
+          card: data,
+          revealedCount: 1,
+          showAnswer: false
+        })
+        saveDeckSession(updated)
+        setDeckSession(updated)
+        if (session.index === 0) {
           playSound('round-start')
         }
       } catch (err) {
@@ -94,7 +149,7 @@ function PlayCards() {
         setLoading(false)
       }
     },
-    [datasetId, difficulty, entityType, syncDeckSession]
+    [datasetId, difficulty, entityType, applySnapshot]
   )
 
   const loadCurrentCard = useCallback(async () => {
@@ -103,17 +158,29 @@ function PlayCards() {
       navigate('/play', { replace: true })
       return
     }
-    if (isDeckExhausted(session)) {
+
+    if (isSessionComplete(session)) {
+      setSessionComplete(true)
       setDeckComplete(true)
       setLoading(false)
       return
     }
+
+    if (isDeckExhausted(session)) {
+      setDeckComplete(true)
+      setSessionComplete(false)
+      setLoading(false)
+      return
+    }
+
     const entityId = currentEntityId(session)
     if (!entityId) {
       navigate('/play', { replace: true })
       return
     }
-    await loadCardForEntity(entityId)
+
+    const snapshot = snapshotForIndex(session, session.index)
+    await loadCardForEntity(entityId, session, snapshot)
   }, [syncDeckSession, navigate, loadCardForEntity])
 
   useEffect(() => {
@@ -151,42 +218,93 @@ function PlayCards() {
 
   const visibleClues = card?.clues.slice(0, revealedCount) ?? []
   const canRevealMore = card ? revealedCount < card.clues.length : false
+  const canGoBack = deckSession !== null && deckSession.index > 0 && !deckComplete
   const canAdvanceDeck =
     deckSession !== null &&
     !deckComplete &&
-    deckSession.index < deckSession.entityIds.length
+    deckSession.index < currentDeckEntityIds(deckSession).length
+
+  const handleToggleAnswer = () => {
+    if (!deckSession || !card) return
+    unlockAudio()
+    const next = !showAnswer
+    if (next) playSound('card-flip')
+    setShowAnswer(next)
+    persistSnapshot(deckSession, card, revealedCount, next)
+  }
 
   const handleNextClue = () => {
-    if (card && revealedCount < card.clues.length) {
-      setRevealedCount((n) => n + 1)
+    if (!card || !deckSession || revealedCount >= card.clues.length) return
+    const nextRevealed = revealedCount + 1
+    setRevealedCount(nextRevealed)
+    persistSnapshot(deckSession, card, nextRevealed, showAnswer)
+  }
+
+  const handlePreviousCard = () => {
+    const session = syncDeckSession()
+    if (!session || session.index <= 0 || !card) return
+
+    persistSnapshot(session, card, revealedCount, showAnswer)
+
+    const prevIndex = session.index - 1
+    const updated = { ...session, index: prevIndex }
+    saveDeckSession(updated)
+    setDeckSession(updated)
+
+    const snapshot = snapshotForIndex(updated, prevIndex)
+    if (snapshot) {
+      applySnapshot(snapshot)
+      return
     }
+
+    const entityId = currentEntityId(updated)
+    if (entityId) void loadCardForEntity(entityId, updated)
   }
 
   const handleNextCard = () => {
     const session = syncDeckSession()
-    if (!session) {
+    if (!session || !card) {
       navigate('/play', { replace: true })
       return
     }
 
-    const nextIndex = session.index + 1
-    const updated = { ...session, index: nextIndex }
+    const sessionWithSnapshot = persistSnapshot(session, card, revealedCount, showAnswer)
+    const nextIndex = sessionWithSnapshot.index + 1
+    const updated = { ...sessionWithSnapshot, index: nextIndex }
     saveDeckSession(updated)
     setDeckSession(updated)
 
-    if (nextIndex >= session.entityIds.length) {
+    if (nextIndex >= currentDeckEntityIds(updated).length) {
       setDeckComplete(true)
+      setSessionComplete(isSessionComplete(updated))
       playSound('round-end')
       return
     }
 
-    const nextEntityId = session.entityIds[nextIndex]
-    if (nextEntityId) void loadCardForEntity(nextEntityId)
+    const nextEntityId = currentEntityId(updated)
+    if (!nextEntityId) return
+
+    const snapshot = snapshotForIndex(updated, nextIndex)
+    void loadCardForEntity(nextEntityId, updated, snapshot)
   }
 
-  const handleShuffleAgain = async () => {
+  const handleNextDeck = () => {
+    const session = syncDeckSession()
+    if (!session || !hasNextDeck(session)) return
+
+    const nextSession = advanceToNextDeck(session)
+    saveDeckSession(nextSession)
+    setDeckSession(nextSession)
+    setDeckComplete(false)
+    setSessionComplete(false)
+
+    const entityId = currentEntityId(nextSession)
+    if (entityId) void loadCardForEntity(entityId, nextSession)
+  }
+
+  const handlePlayAgain = async () => {
     if (!datasetId || offline) return
-    setReshuffling(true)
+    setLoadingDeck(true)
     setError(null)
     try {
       const session = await fetchInPersonDeck(
@@ -196,12 +314,13 @@ function PlayCards() {
       )
       setDeckSession(session)
       setDeckComplete(false)
+      setSessionComplete(false)
       const entityId = currentEntityId(session)
-      if (entityId) await loadCardForEntity(entityId)
+      if (entityId) await loadCardForEntity(entityId, session)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to shuffle deck')
+      setError(err instanceof Error ? err.message : 'Failed to load deck')
     } finally {
-      setReshuffling(false)
+      setLoadingDeck(false)
     }
   }
 
@@ -219,10 +338,14 @@ function PlayCards() {
             <span className="material-symbols-outlined">arrow_back</span>
           </Link>
           <div className="text-center min-w-0 flex-1">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-primary">In person</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-primary">Party mode</p>
             {deckSession && (
               <p className="text-foreground-muted text-xs truncate">
-                {deckComplete ? 'Deck complete' : deckProgressLabel(deckSession)}
+                {sessionComplete
+                  ? 'All characters played'
+                  : deckComplete
+                    ? 'Deck complete'
+                    : deckProgressLabel(deckSession)}
               </p>
             )}
             {card && !deckComplete && (
@@ -247,15 +370,26 @@ function PlayCards() {
           </div>
         )}
 
-        {deckComplete && !loading && (
+        {deckComplete && !loading && !sessionComplete && deckSession && (
           <div className="p-3 bg-green-50 border border-green-200 text-green-900 rounded-lg text-sm text-center">
             All cards in this deck have been played.
+            {remainingEntityCount(deckSession) > 0 && (
+              <span className="block mt-1">
+                {remainingEntityCount(deckSession)} characters remaining in this session.
+              </span>
+            )}
+          </div>
+        )}
+
+        {sessionComplete && !loading && (
+          <div className="p-3 bg-green-50 border border-green-200 text-green-900 rounded-lg text-sm text-center">
+            You&apos;ve played every character in this session.
           </div>
         )}
 
         {loading && (
           <LoadingState
-            label={reshuffling ? 'Shuffling deck' : 'Loading card'}
+            label={loadingDeck ? 'Loading deck' : 'Loading card'}
             layout="page"
             className="flex-1"
           />
@@ -280,7 +414,7 @@ function PlayCards() {
           </div>
         )}
 
-        {card && !loading && !error && (
+        {card && !loading && !error && !deckComplete && (
           <>
             <section className="bg-surface rounded-xl p-3 md:p-5 border border-edge shadow-sm text-center shrink-0">
               <p className="text-foreground-muted text-[10px] font-bold uppercase tracking-widest mb-1 md:mb-2 capitalize">
@@ -372,14 +506,25 @@ function PlayCards() {
             )}
             {deckComplete ? (
               <>
-                <button
-                  type="button"
-                  onClick={() => void handleShuffleAgain()}
-                  disabled={reshuffling || offline}
-                  className="w-full bg-primary text-white font-bold py-2.5 md:py-3 rounded-lg disabled:opacity-50"
-                >
-                  {reshuffling ? 'Shuffling…' : 'Shuffle again'}
-                </button>
+                {sessionComplete ? (
+                  <button
+                    type="button"
+                    onClick={() => void handlePlayAgain()}
+                    disabled={loadingDeck || offline}
+                    className="w-full bg-primary text-white font-bold py-2.5 md:py-3 rounded-lg disabled:opacity-50"
+                  >
+                    {loadingDeck ? 'Loading…' : 'Play again'}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleNextDeck}
+                    disabled={loading || offline}
+                    className="w-full bg-primary text-white font-bold py-2.5 md:py-3 rounded-lg disabled:opacity-50"
+                  >
+                    Next deck
+                  </button>
+                )}
                 <Link
                   to="/play"
                   className="block text-center py-2.5 text-primary text-sm font-semibold"
@@ -389,15 +534,19 @@ function PlayCards() {
               </>
             ) : (
               <div className="flex gap-2">
+                {canGoBack && (
+                  <button
+                    type="button"
+                    onClick={handlePreviousCard}
+                    disabled={loading}
+                    className="flex-1 py-2.5 md:py-3 rounded-lg border-2 border-edge font-semibold text-foreground hover:bg-surface-muted disabled:opacity-50"
+                  >
+                    Previous card
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={() => {
-                    unlockAudio()
-                    setShowAnswer((v) => {
-                      if (!v) playSound('card-flip')
-                      return !v
-                    })
-                  }}
+                  onClick={handleToggleAnswer}
                   className="flex-1 py-2.5 md:py-3 rounded-lg border-2 border-edge font-semibold text-foreground hover:bg-surface-muted"
                 >
                   {showAnswer ? 'Hide answer' : 'Reveal answer'}

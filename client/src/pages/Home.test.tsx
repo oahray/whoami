@@ -141,14 +141,14 @@ describe('Home', () => {
     )
   })
 
-  it('links to play in person and about', () => {
+  it('links to party mode and about', () => {
     render(
       <MemoryRouter>
         <Home />
       </MemoryRouter>
     )
 
-    expect(screen.getByRole('link', { name: /play in person/i })).toHaveAttribute('href', '/play')
+    expect(screen.getByRole('link', { name: /party mode/i })).toHaveAttribute('href', '/play')
     expect(screen.getByRole('link', { name: /about & how to play/i })).toHaveAttribute('href', '/about')
   })
 

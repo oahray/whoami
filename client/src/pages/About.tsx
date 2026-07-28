@@ -57,7 +57,7 @@ function About() {
         <section className="bg-surface rounded-lg border border-edge shadow-sm p-5 space-y-3">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-primary">groups</span>
-            <h2 className="text-lg font-bold text-foreground">Play in person</h2>
+            <h2 className="text-lg font-bold text-foreground">Party mode</h2>
           </div>
           <p className="text-foreground text-sm leading-relaxed">
             No room code and no scoring on the server. One person holds the phone and reads clues aloud
@@ -66,7 +66,7 @@ function About() {
           </p>
           <p className="text-foreground-muted text-xs">
             <Link to="/play" className="text-primary font-semibold hover:text-primary/80">
-              Start in-person mode
+              Start party mode
             </Link>{' '}
             from the home screen. No room code needed.
           </p>

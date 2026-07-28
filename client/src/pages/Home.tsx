@@ -239,7 +239,7 @@ function Home() {
             to="/play"
             className="text-white font-semibold text-sm hover:text-white/90 underline underline-offset-2"
           >
-            Play in person
+            Party mode
           </Link>
           <Link
             to="/about"

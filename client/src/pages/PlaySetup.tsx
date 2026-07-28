@@ -160,7 +160,7 @@ function PlaySetup() {
             <span className="material-symbols-outlined">arrow_back</span>
           </Link>
           <div className="min-w-0 flex-1">
-            <h1 className="text-lg font-bold tracking-tight">Play in person</h1>
+            <h1 className="text-lg font-bold tracking-tight">Party mode</h1>
             <p className="text-foreground-muted text-xs truncate">One phone · read clues aloud</p>
           </div>
           <div className="flex items-center gap-1 shrink-0">
