@@ -18,6 +18,26 @@ function renderPlayCards(initialEntry: string) {
   )
 }
 
+function saveTestSession(
+  masterPool: string[],
+  overrides: {
+    deckStartOffset?: number
+    index?: number
+    history?: Parameters<typeof saveDeckSession>[0]['history']
+  } = {}
+) {
+  saveDeckSession({
+    datasetId: 'ds-1',
+    difficulty: 'any',
+    entityType: 'character',
+    masterPool,
+    deckStartOffset: 0,
+    index: 0,
+    history: [],
+    ...overrides
+  })
+}
+
 describe('PlayCards', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -25,13 +45,7 @@ describe('PlayCards', () => {
     vi.stubGlobal('fetch', vi.fn())
     Object.defineProperty(navigator, 'onLine', { value: true, configurable: true })
 
-    saveDeckSession({
-      datasetId: 'ds-1',
-      difficulty: 'any',
-      entityType: 'character',
-      entityIds: ['ent-1', 'ent-2'],
-      index: 0
-    })
+    saveTestSession(['ent-1', 'ent-2'])
   })
 
   function mockEntityCard(entityId: string, name: string, clues: InPersonCardClue[]) {
@@ -93,14 +107,30 @@ describe('PlayCards', () => {
     expect(screen.getByRole('button', { name: /next card/i })).toBeInTheDocument()
   })
 
-  it('shows deck complete after the last card', async () => {
-    saveDeckSession({
-      datasetId: 'ds-1',
-      difficulty: 'any',
-      entityType: 'character',
-      entityIds: ['ent-1'],
-      index: 0
+  it('shows deck complete with next deck when more characters remain', async () => {
+    const pool = Array.from({ length: 12 }, (_, i) => `ent-${i + 1}`)
+    saveTestSession(pool, { index: 9 })
+
+    mockEntityCard('ent-10', 'Tenth', [{ order: 1, text: 'Tenth clue', citations: null }])
+
+    renderPlayCards('/play/cards?datasetId=ds-1&difficulty=any')
+
+    await waitFor(() => {
+      expect(screen.getByText('Tenth clue')).toBeInTheDocument()
     })
+
+    fireEvent.click(screen.getByRole('button', { name: /next card/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/all cards in this deck/i)).toBeInTheDocument()
+    })
+    expect(screen.getByText(/2 characters remaining/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /next deck/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /play again/i })).not.toBeInTheDocument()
+  })
+
+  it('shows play again after the last deck in the session', async () => {
+    saveTestSession(['ent-1'], { index: 0 })
 
     mockEntityCard('ent-1', 'Moses', [{ order: 1, text: 'Only clue', citations: null }])
 
@@ -113,18 +143,49 @@ describe('PlayCards', () => {
     fireEvent.click(screen.getByRole('button', { name: /next card/i }))
 
     await waitFor(() => {
-      expect(screen.getByText(/all cards in this deck/i)).toBeInTheDocument()
+      expect(screen.getByText(/every character in this session/i)).toBeInTheDocument()
     })
-    expect(screen.queryByRole('button', { name: /next card/i })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /shuffle again/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /play again/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /next deck/i })).not.toBeInTheDocument()
+  })
+
+  it('restores previous card clues and reveal state from history', async () => {
+    mockEntityCard('ent-1', 'Moses', [
+      { order: 1, text: 'First clue', citations: null },
+      { order: 2, text: 'Second clue', citations: null }
+    ])
+
+    renderPlayCards('/play/cards?datasetId=ds-1&difficulty=any')
+
+    await waitFor(() => {
+      expect(screen.getByText('First clue')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /next clue/i }))
+    fireEvent.click(screen.getByRole('button', { name: /reveal answer/i }))
+
+    mockEntityCard('ent-2', 'Aaron', [
+      { order: 1, text: 'Aaron first', citations: null },
+      { order: 2, text: 'Aaron second', citations: null }
+    ])
+    fireEvent.click(screen.getByRole('button', { name: /next card/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Aaron first')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /previous card/i }))
+
+    await waitFor(() => {
+      expect(screen.getByText('Second clue')).toBeInTheDocument()
+    })
+    expect(screen.getByText('Moses')).toBeInTheDocument()
+    expect(screen.queryByText('Aaron first')).not.toBeInTheDocument()
+    expect(fetch).toHaveBeenCalledTimes(2)
   })
 
   it('redirects to setup without a deck session', async () => {
     sessionStorage.clear()
-    const mockNavigate = vi.fn()
-    vi.doMock('react-router-dom', () => ({
-      useNavigate: () => mockNavigate
-    }))
 
     renderPlayCards('/play/cards?datasetId=ds-1')
 

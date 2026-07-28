@@ -1,19 +1,42 @@
 import { API_BASE_URL } from './apiBase'
 import { DEFAULT_ENTITY_TYPE_FILTER, type EntityTypeFilter } from './entityTypeFilter'
-import type { GameDifficultyMode } from '../types'
+import type { GameDifficultyMode, InPersonCard } from '../types'
+
+export const IN_PERSON_DECK_SIZE = 10
+
+export type InPersonCardSnapshot = {
+  card: InPersonCard
+  revealedCount: number
+  showAnswer: boolean
+}
 
 export type InPersonDeckSession = {
   datasetId: string
   difficulty: GameDifficultyMode
   entityType: EntityTypeFilter
-  entityIds: string[]
+  masterPool: string[]
+  deckStartOffset: number
   index: number
+  history: InPersonCardSnapshot[]
 }
 
 const STORAGE_KEY = 'whoami-in-person-deck'
 
 export function saveDeckSession(session: InPersonDeckSession): void {
   sessionStorage.setItem(STORAGE_KEY, JSON.stringify(session))
+}
+
+function isValidSession(raw: unknown): raw is InPersonDeckSession {
+  if (!raw || typeof raw !== 'object') return false
+  const session = raw as Partial<InPersonDeckSession>
+  return (
+    typeof session.datasetId === 'string' &&
+    typeof session.difficulty === 'string' &&
+    Array.isArray(session.masterPool) &&
+    typeof session.deckStartOffset === 'number' &&
+    typeof session.index === 'number' &&
+    Array.isArray(session.history)
+  )
 }
 
 export function loadDeckSession(
@@ -24,16 +47,17 @@ export function loadDeckSession(
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY)
     if (!raw) return null
-    const session = JSON.parse(raw) as InPersonDeckSession
-    const sessionEntityType = session.entityType ?? DEFAULT_ENTITY_TYPE_FILTER
+    const parsed: unknown = JSON.parse(raw)
+    if (!isValidSession(parsed)) return null
+    const sessionEntityType = parsed.entityType ?? DEFAULT_ENTITY_TYPE_FILTER
     if (
-      session.datasetId !== datasetId ||
-      session.difficulty !== difficulty ||
+      parsed.datasetId !== datasetId ||
+      parsed.difficulty !== difficulty ||
       sessionEntityType !== entityType
     ) {
       return null
     }
-    return { ...session, entityType: sessionEntityType }
+    return { ...parsed, entityType: sessionEntityType }
   } catch {
     return null
   }
@@ -43,19 +67,83 @@ export function clearDeckSession(): void {
   sessionStorage.removeItem(STORAGE_KEY)
 }
 
+export function currentDeckEntityIds(session: InPersonDeckSession): string[] {
+  return session.masterPool.slice(
+    session.deckStartOffset,
+    session.deckStartOffset + IN_PERSON_DECK_SIZE
+  )
+}
+
 export function currentEntityId(session: InPersonDeckSession): string | null {
-  if (session.index < 0 || session.index >= session.entityIds.length) return null
-  return session.entityIds[session.index] ?? null
+  const deck = currentDeckEntityIds(session)
+  if (session.index < 0 || session.index >= deck.length) return null
+  return deck[session.index] ?? null
 }
 
 export function isDeckExhausted(session: InPersonDeckSession): boolean {
-  return session.index >= session.entityIds.length
+  return session.index >= currentDeckEntityIds(session).length
+}
+
+export function isSessionComplete(session: InPersonDeckSession): boolean {
+  const deck = currentDeckEntityIds(session)
+  return (
+    isDeckExhausted(session) &&
+    session.deckStartOffset + deck.length >= session.masterPool.length
+  )
+}
+
+export function hasNextDeck(session: InPersonDeckSession): boolean {
+  if (!isDeckExhausted(session)) return false
+  const deck = currentDeckEntityIds(session)
+  return session.deckStartOffset + deck.length < session.masterPool.length
+}
+
+export function remainingEntityCount(session: InPersonDeckSession): number {
+  const deck = currentDeckEntityIds(session)
+  const consumedThroughCurrentDeck = session.deckStartOffset + deck.length
+  return Math.max(0, session.masterPool.length - consumedThroughCurrentDeck)
+}
+
+export function totalDeckCount(session: InPersonDeckSession): number {
+  return Math.ceil(session.masterPool.length / IN_PERSON_DECK_SIZE)
+}
+
+export function currentDeckNumber(session: InPersonDeckSession): number {
+  return Math.floor(session.deckStartOffset / IN_PERSON_DECK_SIZE) + 1
 }
 
 export function deckProgressLabel(session: InPersonDeckSession): string {
-  const total = session.entityIds.length
-  const current = Math.min(session.index + 1, total)
-  return `Card ${current} of ${total}`
+  const deck = currentDeckEntityIds(session)
+  const totalDecks = totalDeckCount(session)
+  const deckNumber = currentDeckNumber(session)
+  const current = Math.min(session.index + 1, deck.length)
+  return `Card ${current} of ${deck.length} · Deck ${deckNumber} of ${totalDecks}`
+}
+
+export function snapshotForIndex(
+  session: InPersonDeckSession,
+  index: number
+): InPersonCardSnapshot | null {
+  return session.history[index] ?? null
+}
+
+export function updateCardSnapshot(
+  session: InPersonDeckSession,
+  snapshot: InPersonCardSnapshot
+): InPersonDeckSession {
+  const history = [...session.history]
+  history[session.index] = snapshot
+  return { ...session, history }
+}
+
+export function advanceToNextDeck(session: InPersonDeckSession): InPersonDeckSession {
+  const currentDeck = currentDeckEntityIds(session)
+  return {
+    ...session,
+    deckStartOffset: session.deckStartOffset + currentDeck.length,
+    index: 0,
+    history: []
+  }
 }
 
 export async function fetchInPersonDeck(
@@ -74,8 +162,10 @@ export async function fetchInPersonDeck(
     datasetId,
     difficulty,
     entityType,
-    entityIds,
-    index: 0
+    masterPool: entityIds,
+    deckStartOffset: 0,
+    index: 0,
+    history: []
   }
   saveDeckSession(session)
   return session
