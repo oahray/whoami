@@ -338,7 +338,7 @@ function PlayCards() {
             <span className="material-symbols-outlined">arrow_back</span>
           </Link>
           <div className="text-center min-w-0 flex-1">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-primary">In person</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-primary">Party mode</p>
             {deckSession && (
               <p className="text-foreground-muted text-xs truncate">
                 {sessionComplete
