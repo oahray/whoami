@@ -18,7 +18,6 @@ import {
   ENTITY_TYPE_FIELD_LABEL,
   ENTITY_TYPE_HINT_IN_PERSON,
   ENTITY_TYPE_OPTIONS,
-  entityTypeCountLabel,
   type EntityTypeFilter
 } from '../lib/entityTypeFilter'
 import { fetchInPersonDeck } from '../lib/inPersonDeck'
@@ -160,7 +159,7 @@ function PlaySetup() {
             <span className="material-symbols-outlined">arrow_back</span>
           </Link>
           <div className="min-w-0 flex-1">
-            <h1 className="text-lg font-bold tracking-tight">Party mode</h1>
+            <h1 className="text-lg font-bold tracking-tight">Pass &amp; play</h1>
             <p className="text-foreground-muted text-xs truncate">One phone · read clues aloud</p>
           </div>
           <div className="flex items-center gap-1 shrink-0">
@@ -285,7 +284,7 @@ function PlaySetup() {
               )}
               {!eligibilityLoading && eligibility && selectedCount > 0 && (
                 <p className="text-xs text-foreground-muted mt-1">
-                  {entityTypeCountLabel(entityType, selectedCount)}. Clues are shuffled every card.
+                  Clues are shuffled every card.
                 </p>
               )}
               {!eligibilityLoading &&
@@ -293,7 +292,7 @@ function PlaySetup() {
                 !noPlayableModes &&
                 selectedCount === 0 && (
                   <p className="text-xs text-amber-700 mt-1">
-                    No entities have enough clues for this difficulty. Choose another.
+                    Not enough clues for this difficulty. Choose another.
                   </p>
                 )}
             </div>

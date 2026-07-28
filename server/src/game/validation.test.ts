@@ -122,6 +122,13 @@ describe('validateGuess', () => {
       const answerWithHyphen = 'Mary-Magdalene'
       expect(validateGuess('Mary-Magdalene', answerWithHyphen, false)).toBe(true)
       expect(validateGuess('Mary Magdalene', answerWithHyphen, false)).toBe(true)
+      expect(validateGuess('MaryMagdalene', answerWithHyphen, false)).toBe(true)
+    })
+
+    it('should ignore parenthetical clarifications in non-strict mode', () => {
+      expect(validateGuess('Jude', "Jude (Jesus' brother)", false)).toBe(true)
+      expect(validateGuess("Jude (Jesus' brother)", "Jude (Jesus' brother)", false)).toBe(true)
+      expect(validateGuess('Jude', "Jude (Jesus' brother)", true)).toBe(false)
     })
   })
 

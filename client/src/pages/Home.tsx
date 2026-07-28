@@ -234,26 +234,38 @@ function Home() {
           </div>
         </div>
 
-        <div className="mt-6 flex flex-col items-center gap-2">
+        <nav
+          aria-label="Other ways to play"
+          className="mt-6 flex flex-wrap justify-center gap-2 w-full max-w-sm mx-auto"
+        >
           <Link
             to="/solo"
-            className="text-white font-semibold text-sm hover:text-white/90 underline underline-offset-2"
+            className="inline-flex flex-1 basis-[calc(50%-0.25rem)] min-w-[8rem] items-center justify-center gap-1.5 rounded-lg bg-white/10 px-3 py-2.5 text-white text-sm font-semibold hover:bg-white/15 transition-colors"
           >
-            Solo mode
+            <span className="material-symbols-outlined text-base" aria-hidden>
+              person
+            </span>
+            Solo
           </Link>
           <Link
             to="/play"
-            className="text-white font-semibold text-sm hover:text-white/90 underline underline-offset-2"
+            className="inline-flex flex-1 basis-[calc(50%-0.25rem)] min-w-[8rem] items-center justify-center gap-1.5 rounded-lg bg-white/10 px-3 py-2.5 text-white text-sm font-semibold hover:bg-white/15 transition-colors"
           >
-            Party mode
+            <span className="material-symbols-outlined text-base" aria-hidden>
+              groups
+            </span>
+            Pass &amp; play
           </Link>
           <Link
             to="/about"
-            className="text-white/90 hover:text-white text-sm font-medium underline underline-offset-2"
+            className="inline-flex flex-1 basis-[calc(50%-0.25rem)] min-w-[8rem] items-center justify-center gap-1.5 rounded-lg bg-white/10 px-3 py-2.5 text-white/90 text-sm font-medium hover:bg-white/15 hover:text-white transition-colors"
           >
-            About &amp; how to play
+            <span className="material-symbols-outlined text-base" aria-hidden>
+              info
+            </span>
+            About
           </Link>
-        </div>
+        </nav>
       </div>
 
       {error && (

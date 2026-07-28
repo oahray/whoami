@@ -6,6 +6,7 @@ import { API_BASE_URL } from '../lib/apiBase'
 import { validateGuess } from '../lib/guessValidation'
 import {
   clearSoloSession,
+  continueEndurancePool,
   formatSoloTime,
   getSoloRecord,
   loadSoloSession,
@@ -89,20 +90,34 @@ function SoloGame() {
     const current = activeSession.current
     if (!current || status === 'finished') return
     const elapsed = Math.min(current.roundDurationMs, Math.max(0, Date.now() - roundStartedAt.current))
-    const updated: SoloSession = {
+    let updated: SoloSession = {
       ...current,
       index: current.index + 1,
       correctCount: current.correctCount + (correct ? 1 : 0),
       activeElapsedMs: current.activeElapsedMs + elapsed
     }
-    activeSession.current = updated
-    setSession(updated)
-    const isChallengeDone = updated.variation === 'challenge' && updated.index >= updated.entityIds.length
-    const isEnduranceDone = updated.variation === 'endurance' && !correct
-    if (isChallengeDone || isEnduranceDone || updated.index >= updated.entityIds.length) {
+
+    if (updated.variation === 'endurance' && !correct) {
+      activeSession.current = updated
+      setSession(updated)
       finishRun(updated)
       return
     }
+
+    if (updated.variation === 'challenge' && updated.index >= updated.entityIds.length) {
+      activeSession.current = updated
+      setSession(updated)
+      finishRun(updated)
+      return
+    }
+
+    if (updated.variation === 'endurance' && updated.index >= updated.entityIds.length) {
+      const lastEntityId = current.entityIds[current.index] ?? ''
+      updated = continueEndurancePool(updated, lastEntityId)
+    }
+
+    activeSession.current = updated
+    setSession(updated)
     saveSoloSession(updated)
     void loadCard(updated)
   }, [finishRun, loadCard, status])
@@ -123,14 +138,10 @@ function SoloGame() {
   }, [session, card, status, loading])
 
   useEffect(() => {
-    if (status !== 'timeout' || !session) return
-    if (session.variation === 'endurance') {
-      advance(false)
-      return
-    }
+    if (status !== 'timeout') return
     const timeout = window.setTimeout(() => advance(false), 5000)
     return () => window.clearTimeout(timeout)
-  }, [status, session, advance])
+  }, [status, advance])
 
   const submitGuess = () => {
     if (!card || status !== 'active' || !guess.trim()) return
@@ -198,7 +209,19 @@ function SoloGame() {
             <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-foreground-muted"><span>Clues</span><span>{visibleClues.length} revealed</span></div>
             {visibleClues.map((clue) => <article key={clue.order} className="rounded-lg border border-edge bg-surface p-4 shadow-sm"><p className="text-[10px] font-bold uppercase tracking-widest text-primary">Clue {clue.order}</p><p className="mt-1 font-medium">{clue.text}</p></article>)}
             {status === 'correct' && <p className="rounded-lg bg-green-50 p-3 text-center font-semibold text-green-800">Correct! {card.entity.name}</p>}
-            {status === 'timeout' && <section className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-center"><p className="text-sm text-amber-900">Time&apos;s up — the answer was</p><p className="mt-1 text-2xl font-black text-amber-950">{card.entity.name}</p>{session.variation === 'challenge' && <button type="button" onClick={() => advance(false)} className="mt-4 w-full rounded-lg bg-primary py-3 font-bold text-white">Next round</button>}</section>}
+            {status === 'timeout' && (
+              <section className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-center">
+                <p className="text-sm text-amber-900">Time&apos;s up — the answer was</p>
+                <p className="mt-1 text-2xl font-black text-amber-950">{card.entity.name}</p>
+                <button
+                  type="button"
+                  onClick={() => advance(false)}
+                  className="mt-4 w-full rounded-lg bg-primary py-3 font-bold text-white"
+                >
+                  {session.variation === 'challenge' ? 'Next round' : 'See results'}
+                </button>
+              </section>
+            )}
           </>
         )}
       </main>

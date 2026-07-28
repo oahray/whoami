@@ -14,7 +14,7 @@ describe('About', () => {
     expect(screen.getByRole('heading', { name: 'About' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Who Am I?' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Play online' })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Party mode' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Pass & play' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Install the app' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Content' })).toBeInTheDocument()
     expect(screen.getAllByRole('link', { name: /back to home/i })).toHaveLength(2)

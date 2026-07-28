@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PreferencesProvider } from '../context/PreferencesContext'
@@ -9,20 +9,23 @@ describe('SoloGame', () => {
   beforeEach(() => {
     sessionStorage.clear()
     localStorage.clear()
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        entity: { id: 'ent-1', name: 'Moses', type: 'character', aliases: [] },
-        clues: [{ order: 1, text: 'A clue', citations: null }]
-      })
-    } as Response))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          entity: { id: 'ent-1', name: 'Moses', type: 'character', aliases: [] },
+          clues: [{ order: 1, text: 'A clue', citations: null }]
+        })
+      } as Response)
+    )
   })
 
   afterEach(() => {
     vi.useRealTimers()
   })
 
-  it('finishes Endurance and shows the result after a timeout', async () => {
+  it('shows the answer after Endurance timeout, then the results', async () => {
     saveSoloSession({
       datasetId: 'ds-1',
       difficulty: 'any',
@@ -58,7 +61,13 @@ describe('SoloGame', () => {
       await vi.advanceTimersByTimeAsync(200)
     })
 
+    expect(screen.getByText(/time's up/i)).toBeInTheDocument()
+    expect(screen.getByText('Moses')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /see results/i })).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: /endurance complete/i })).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /see results/i }))
+
     expect(screen.getByRole('heading', { name: /endurance complete/i })).toBeInTheDocument()
-    expect(screen.getByText('0')).toBeInTheDocument()
   })
 })

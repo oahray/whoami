@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
   SOLO_CHALLENGE_ROUNDS,
+  continueEndurancePool,
   createSoloSession,
   getSoloRecord,
   isBetterRecord,
+  listSoloRecords,
   saveSoloRecord,
   saveSoloSession,
   loadSoloSession,
@@ -58,5 +60,55 @@ describe('soloSession', () => {
     expect(saved.isPersonalBest).toBe(true)
     expect(getSoloRecord(config)).toEqual(better)
     expect(getSoloRecord({ ...config, roundDurationMs: 45_000 })).toBeNull()
+  })
+
+  it('lists personal records ranked by correct then time', () => {
+    saveSoloRecord({
+      ...config,
+      variation: 'endurance',
+      correctCount: 5,
+      activeElapsedMs: 20_000,
+      achievedAt: '2026-01-01T00:00:00.000Z'
+    })
+    saveSoloRecord({
+      ...config,
+      correctCount: 8,
+      activeElapsedMs: 50_000,
+      achievedAt: '2026-01-02T00:00:00.000Z'
+    })
+    saveSoloRecord({
+      ...config,
+      roundDurationMs: 45_000,
+      correctCount: 8,
+      activeElapsedMs: 40_000,
+      achievedAt: '2026-01-03T00:00:00.000Z'
+    })
+    const listed = listSoloRecords()
+    expect(listed.map((record) => [record.correctCount, record.activeElapsedMs])).toEqual([
+      [8, 40_000],
+      [8, 50_000],
+      [5, 20_000]
+    ])
+    expect(listSoloRecords('challenge')).toHaveLength(2)
+    expect(listSoloRecords('endurance')).toHaveLength(1)
+  })
+
+  it('reshuffles endurance pools without repeating the last card first', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    const continued = continueEndurancePool(
+      {
+        ...config,
+        variation: 'endurance',
+        entityIds: ['a', 'b', 'c'],
+        index: 3,
+        correctCount: 3,
+        activeElapsedMs: 1000
+      },
+      'a'
+    )
+    expect(continued.index).toBe(0)
+    expect(continued.entityIds).toHaveLength(3)
+    expect(continued.entityIds[0]).not.toBe('a')
+    vi.restoreAllMocks()
   })
 })

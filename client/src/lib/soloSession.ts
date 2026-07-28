@@ -78,20 +78,51 @@ export function isBetterRecord(candidate: Pick<SoloRecord, 'correctCount' | 'act
   )
 }
 
-export function getSoloRecord(config: SoloConfig): SoloRecord | null {
+function readSoloRecords(): SoloRecord[] {
   try {
     const raw = localStorage.getItem(RECORDS_KEY)
-    const records = raw ? (JSON.parse(raw) as SoloRecord[]) : []
-    return records.find((record) => sameRecordCategory(record, config)) ?? null
+    return raw ? (JSON.parse(raw) as SoloRecord[]) : []
   } catch {
-    return null
+    return []
   }
+}
+
+export function getSoloRecord(config: SoloConfig): SoloRecord | null {
+  return readSoloRecords().find((record) => sameRecordCategory(record, config)) ?? null
+}
+
+export function listSoloRecords(variation?: SoloVariation): SoloRecord[] {
+  return [...readSoloRecords()]
+    .filter((record) => (variation ? record.variation === variation : true))
+    .sort((a, b) => {
+      if (b.correctCount !== a.correctCount) return b.correctCount - a.correctCount
+      return a.activeElapsedMs - b.activeElapsedMs
+    })
+}
+
+export function shuffleEntityIds(entityIds: string[]): string[] {
+  const next = [...entityIds]
+  for (let i = next.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[next[i], next[j]] = [next[j], next[i]]
+  }
+  return next
+}
+
+/** Reshuffle the endurance pool so a long streak can continue past one pass. */
+export function continueEndurancePool(session: SoloSession, lastEntityId: string): SoloSession {
+  if (session.entityIds.length === 0) return { ...session, index: 0 }
+  let entityIds = shuffleEntityIds(session.entityIds)
+  if (entityIds.length > 1 && entityIds[0] === lastEntityId) {
+    const swapWith = 1 + Math.floor(Math.random() * (entityIds.length - 1))
+    ;[entityIds[0], entityIds[swapWith]] = [entityIds[swapWith], entityIds[0]]
+  }
+  return { ...session, entityIds, index: 0 }
 }
 
 export function saveSoloRecord(record: SoloRecord): { record: SoloRecord; isPersonalBest: boolean } {
   try {
-    const raw = localStorage.getItem(RECORDS_KEY)
-    const records = raw ? (JSON.parse(raw) as SoloRecord[]) : []
+    const records = readSoloRecords()
     const existing = records.find((item) => sameRecordCategory(item, record))
     if (existing && !isBetterRecord(record, existing)) {
       return { record: existing, isPersonalBest: false }
@@ -108,4 +139,29 @@ export function formatSoloTime(milliseconds: number): string {
   const totalSeconds = Math.max(0, Math.round(milliseconds / 1000))
   const minutes = Math.floor(totalSeconds / 60)
   return `${minutes}:${String(totalSeconds % 60).padStart(2, '0')}`
+}
+
+export function soloVariationLabel(variation: SoloVariation): string {
+  return variation === 'challenge' ? 'Solo challenge' : 'Endurance'
+}
+
+export function soloConfigSummary(
+  config: SoloConfig,
+  options: { includeVariation?: boolean } = {}
+): string {
+  const includeVariation = options.includeVariation !== false
+  const typeLabel =
+    config.entityType === 'place'
+      ? 'Places'
+      : config.entityType === 'all'
+        ? 'Characters & places'
+        : 'Characters'
+  const parts = [
+    ...(includeVariation ? [soloVariationLabel(config.variation)] : []),
+    typeLabel,
+    config.difficulty,
+    `${config.roundDurationMs / 1000}s cards`,
+    `${config.clueRevealIntervalMs / 1000}s clues`
+  ]
+  return parts.join(' · ')
 }

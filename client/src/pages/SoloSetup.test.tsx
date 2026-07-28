@@ -15,6 +15,7 @@ vi.mock('../hooks/useMaintenanceStatus', () => ({
 describe('SoloSetup', () => {
   beforeEach(() => {
     sessionStorage.clear()
+    localStorage.clear()
     vi.stubGlobal('fetch', vi.fn(async (input) => {
       const url = String(input)
       if (url.includes('/datasets')) {
@@ -43,5 +44,44 @@ describe('SoloSetup', () => {
       clueRevealIntervalMs: 5000
     })
     expect(loadSoloSession()?.entityIds).toHaveLength(10)
+  })
+
+  it('shows personal bests without revealing content pool size', async () => {
+    const { saveSoloRecord } = await import('../lib/soloSession')
+    saveSoloRecord({
+      datasetId: 'ds-1',
+      difficulty: 'any',
+      entityType: 'character',
+      variation: 'challenge',
+      roundDurationMs: 30_000,
+      clueRevealIntervalMs: 10_000,
+      correctCount: 7,
+      activeElapsedMs: 90_000,
+      achievedAt: '2026-01-01T00:00:00.000Z'
+    })
+    saveSoloRecord({
+      datasetId: 'ds-1',
+      difficulty: 'any',
+      entityType: 'character',
+      variation: 'endurance',
+      roundDurationMs: 30_000,
+      clueRevealIntervalMs: 10_000,
+      correctCount: 12,
+      activeElapsedMs: 120_000,
+      achievedAt: '2026-01-02T00:00:00.000Z'
+    })
+
+    renderWithPreferences(
+      <MemoryRouter>
+        <SoloSetup />
+      </MemoryRouter>
+    )
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: /personal bests/i })).toBeInTheDocument())
+    expect(screen.getByRole('heading', { name: /^solo challenge$/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /^endurance$/i })).toBeInTheDocument()
+    expect(screen.getByText(/7 correct/i)).toBeInTheDocument()
+    expect(screen.queryByText(/12 character/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/available/i)).not.toBeInTheDocument()
   })
 })
