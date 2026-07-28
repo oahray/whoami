@@ -22,6 +22,14 @@ export function errorHandler(
     return
   }
 
+  if (err?.type === 'entity.too.large') {
+    return res.status(413).json({
+      error: 'PAYLOAD_TOO_LARGE',
+      message:
+        'The import file is too large for the server to accept in one request. Try splitting it into smaller JSON files.'
+    })
+  }
+
   res.status(500).json({
     error: 'INTERNAL_ERROR',
     message: 'An unexpected error occurred'

@@ -21,6 +21,10 @@ import publicMaintenanceRoutes from './routes/maintenance.js'
 import { supabase } from './db/supabase.js'
 import { logger } from './utils/logger.js'
 import { errorHandler } from './middleware/errorHandler.js'
+import {
+  BULK_IMPORT_JSON_BODY_LIMIT,
+  DEFAULT_JSON_BODY_LIMIT
+} from './config/bodyLimits.js'
 
 dotenv.config()
 
@@ -78,7 +82,15 @@ app.use(cors({
   credentials: true
 }))
 
-app.use(express.json())
+const defaultJsonParser = express.json({ limit: DEFAULT_JSON_BODY_LIMIT })
+const bulkImportJsonParser = express.json({ limit: BULK_IMPORT_JSON_BODY_LIMIT })
+
+app.use((req, res, next) => {
+  if (req.method === 'POST' && req.path === '/admin/bulk-import') {
+    return bulkImportJsonParser(req, res, next)
+  }
+  return defaultJsonParser(req, res, next)
+})
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })

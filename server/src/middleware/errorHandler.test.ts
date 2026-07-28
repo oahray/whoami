@@ -44,6 +44,23 @@ describe('errorHandler middleware', () => {
     expect(res.body.error).toBe('INTERNAL_ERROR')
   })
 
+  it('returns 413 when the request body exceeds the parser limit', async () => {
+    const app = express()
+    app.use(express.json({ limit: '10b' }))
+    app.post('/upload', (_req, res) => {
+      res.json({ ok: true })
+    })
+    app.use(errorHandler)
+
+    const res = await request(app)
+      .post('/upload')
+      .set('Content-Type', 'application/json')
+      .send('{"data":"too-large"}')
+
+    expect(res.status).toBe(413)
+    expect(res.body.error).toBe('PAYLOAD_TOO_LARGE')
+  })
+
   it('does not mutate response if headers were already sent', async () => {
     const app = express()
     app.get('/partial', (_req, res, next) => {

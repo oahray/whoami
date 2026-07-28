@@ -125,7 +125,7 @@ function PlaySetup() {
     return () => {
       cancelled = true
     }
-  }, [datasetId, entityType, offline, difficulty])
+  }, [datasetId, entityType, offline])
 
   const handleStart = async () => {
     if (!canStart) return
@@ -235,7 +235,7 @@ function PlaySetup() {
                 id="playEntityType"
                 value={entityType}
                 onChange={(e) => setEntityType(e.target.value as EntityTypeFilter)}
-                disabled={eligibilityLoading || Boolean(noPlayableModes)}
+                disabled={eligibilityLoading}
                 className="w-full bg-surface-muted border-0 rounded-lg text-foreground focus:ring-2 focus:ring-primary py-2.5 px-3 disabled:opacity-60"
               >
                 {ENTITY_TYPE_OPTIONS.map((opt) => (
@@ -245,6 +245,11 @@ function PlaySetup() {
                 ))}
               </select>
               <p className="text-xs text-foreground-muted mt-1">{ENTITY_TYPE_HINT_IN_PERSON}</p>
+              {!eligibilityLoading && noPlayableModes && (
+                <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                  Not enough clues for this card type. Try characters or places above.
+                </p>
+              )}
             </div>
 
             <div>
@@ -281,11 +286,6 @@ function PlaySetup() {
               {!eligibilityLoading && eligibility && selectedCount > 0 && (
                 <p className="text-xs text-foreground-muted mt-1">
                   {entityTypeCountLabel(entityType, selectedCount)}. Clues are shuffled every card.
-                </p>
-              )}
-              {!eligibilityLoading && noPlayableModes && (
-                <p className="text-xs text-amber-700 mt-1">
-                  Not enough clues for any difficulty in this content pack.
                 </p>
               )}
               {!eligibilityLoading &&
