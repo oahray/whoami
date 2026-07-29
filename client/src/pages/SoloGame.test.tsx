@@ -102,11 +102,13 @@ describe('SoloGame', () => {
       await vi.advanceTimersByTimeAsync(200)
     })
     expect(screen.getByText(/time's up/i)).toBeInTheDocument()
+    expect(screen.getByText(/results in 10s/i)).toBeInTheDocument()
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(9_000)
     })
     expect(screen.queryByRole('heading', { name: /endurance complete/i })).not.toBeInTheDocument()
+    expect(screen.getByText(/results in 1s/i)).toBeInTheDocument()
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1_000)

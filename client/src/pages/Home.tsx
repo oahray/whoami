@@ -5,6 +5,7 @@ import { useSocket } from '../hooks/useSocket'
 import { unlockAudio } from '../lib/sounds'
 import { getErrorMessage, isFatalError } from '../utils/errorMessages'
 import IosInstallHint from '../components/IosInstallHint'
+import FeedbackLink from '../components/FeedbackLink'
 import LoadingState from '../components/LoadingState'
 import Logo from '../components/Logo'
 import MaintenanceBanner from '../components/MaintenanceBanner'
@@ -266,6 +267,17 @@ function Home() {
             About
           </Link>
         </nav>
+        <p className="mt-3 text-center text-white/70 text-xs font-medium space-x-3">
+          <Link
+            to="/privacy"
+            className="underline-offset-2 hover:text-white hover:underline"
+          >
+            Privacy
+          </Link>
+          <FeedbackLink className="underline-offset-2 hover:text-white hover:underline">
+            Feedback
+          </FeedbackLink>
+        </p>
       </div>
 
       {error && (

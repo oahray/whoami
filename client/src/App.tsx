@@ -3,6 +3,7 @@ import { GameProvider } from './context/GameContext'
 import { PreferencesProvider } from './context/PreferencesContext'
 import Home from './pages/Home'
 import About from './pages/About'
+import Privacy from './pages/Privacy'
 import PlaySetup from './pages/PlaySetup'
 import PlayCards from './pages/PlayCards'
 import SoloSetup from './pages/SoloSetup'
@@ -25,6 +26,7 @@ function App() {
               <Routes>
                 <Route path="/" element={<Home />} />
                 <Route path="/about" element={<About />} />
+                <Route path="/privacy" element={<Privacy />} />
                 <Route path="/play" element={<PlaySetup />} />
                 <Route path="/play/cards" element={<PlayCards />} />
                 <Route path="/solo" element={<SoloSetup />} />
