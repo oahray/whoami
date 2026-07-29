@@ -1,4 +1,5 @@
 import { supabase } from './supabase.js'
+import { fetchAllPages } from './fetchAllPages.js'
 import {
   entityMatchesTypeFilter,
   type EntityTypeFilter
@@ -88,35 +89,46 @@ export async function getPublishedEntitiesForGamePool(
   datasetId: string,
   entityType: EntityTypeFilter = 'character'
 ): Promise<Entity[]> {
-  const { data, error } = await supabase
-    .from('entities')
-    .select('*')
-    .eq('is_published', true)
-    .eq('dataset_id', datasetId)
-    .order('name')
-
-  if (error) {
-    throw new Error(`Failed to fetch entities: ${error.message}`)
+  let datasetEntities: Entity[]
+  try {
+    datasetEntities = await fetchAllPages<Entity>((from, to) =>
+      supabase
+        .from('entities')
+        .select('*')
+        .eq('is_published', true)
+        .eq('dataset_id', datasetId)
+        .order('name')
+        .order('id')
+        .range(from, to)
+    )
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'unknown error'
+    throw new Error(`Failed to fetch entities: ${message}`)
   }
 
-  const datasetEntities = data ?? []
   if (datasetEntities.length === 0) {
     return []
   }
 
   const datasetEntityIds = datasetEntities.map((e) => e.id)
 
-  const { data: clueRows, error: cluesError } = await supabase
-    .from('clues')
-    .select('entity_id, difficulty')
-    .in('entity_id', datasetEntityIds)
-
-  if (cluesError) {
-    throw new Error(`Failed to fetch clues for pool: ${cluesError.message}`)
+  let clueRows: Array<{ entity_id: string; difficulty: string | null }>
+  try {
+    clueRows = await fetchAllPages((from, to) =>
+      supabase
+        .from('clues')
+        .select('entity_id, difficulty')
+        .in('entity_id', datasetEntityIds)
+        .order('id')
+        .range(from, to)
+    )
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'unknown error'
+    throw new Error(`Failed to fetch clues for pool: ${message}`)
   }
 
   const countByEntity = new Map<string, number>()
-  for (const row of clueRows ?? []) {
+  for (const row of clueRows) {
     if (mode !== 'any') {
       if (row.difficulty !== mode) continue
     }

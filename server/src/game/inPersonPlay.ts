@@ -5,6 +5,7 @@ import {
   type GameDifficultyMode,
   type Entity
 } from '../db/entities.js'
+import { fetchAllPages } from '../db/fetchAllPages.js'
 import { supabase } from '../db/supabase.js'
 import { IN_PERSON_CLUES_MIN, IN_PERSON_CLUES_MAX } from './config.js'
 import {
@@ -58,17 +59,22 @@ async function fetchPublishedEntities(
   datasetId: string,
   entityType: EntityTypeFilter = DEFAULT_ENTITY_TYPE_FILTER
 ): Promise<Entity[]> {
-  const { data, error } = await supabase
-    .from('entities')
-    .select('*')
-    .eq('is_published', true)
-    .eq('dataset_id', datasetId)
-    .order('name')
-
-  if (error) {
-    throw new Error(`Failed to fetch entities: ${error.message}`)
+  try {
+    const data = await fetchAllPages<Entity>((from, to) =>
+      supabase
+        .from('entities')
+        .select('*')
+        .eq('is_published', true)
+        .eq('dataset_id', datasetId)
+        .order('name')
+        .order('id')
+        .range(from, to)
+    )
+    return data.filter((e) => entityMatchesTypeFilter(e.type, entityType))
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'unknown error'
+    throw new Error(`Failed to fetch entities: ${message}`)
   }
-  return (data ?? []).filter((e) => entityMatchesTypeFilter(e.type, entityType))
 }
 
 type EntityClueCounts = Record<GameDifficultyMode, number>
@@ -87,16 +93,22 @@ async function fetchClueCountsByEntity(
     countsByEntity.set(id, emptyClueCounts())
   }
 
-  const { data: clueRows, error } = await supabase
-    .from('clues')
-    .select('entity_id, difficulty')
-    .in('entity_id', entityIds)
-
-  if (error) {
-    throw new Error(`Failed to fetch clues for in-person pool: ${error.message}`)
+  let clueRows: Array<{ entity_id: string; difficulty: string | null }>
+  try {
+    clueRows = await fetchAllPages((from, to) =>
+      supabase
+        .from('clues')
+        .select('entity_id, difficulty')
+        .in('entity_id', entityIds)
+        .order('id')
+        .range(from, to)
+    )
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'unknown error'
+    throw new Error(`Failed to fetch clues for in-person pool: ${message}`)
   }
 
-  for (const row of clueRows ?? []) {
+  for (const row of clueRows) {
     const counts = countsByEntity.get(row.entity_id)
     if (!counts) continue
     counts.any += 1
