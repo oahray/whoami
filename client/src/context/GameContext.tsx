@@ -107,14 +107,19 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
     const handleConnect = () => {
       setIsReconnecting(false)
+      setError(null)
       // Re-join room when socket reconnects (e.g. after tab was backgrounded), so we don't stay disconnected
       attemptReconnect()
     }
 
     const handleConnectError = (err: unknown) => {
-      // socket.io will retry up to `reconnectionAttempts` times. Surface a
-      // friendly message so the user isn't staring at a silent UI.
+      // Socket.io retries automatically; the yellow "Connecting..." / "Reconnecting..."
+      // banners cover transient failures. Avoid a sticky error toast on every attempt.
       console.warn('Socket connect_error:', err)
+    }
+
+    const handleReconnectFailed = () => {
+      setIsReconnecting(false)
       setError(getErrorMessage('CONNECTION_FAILED'))
     }
 
@@ -337,6 +342,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
     socket.on('connect', handleConnect)
     socket.on('connect_error', handleConnectError)
+    socket.on('reconnect_failed', handleReconnectFailed)
     socket.on('disconnect', handleDisconnect)
     socket.on('ROOM_JOINED', handleRoomJoined)
     socket.on('PLAYER_JOINED', handlePlayerJoined)
@@ -355,6 +361,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return () => {
       socket.off('connect', handleConnect)
       socket.off('connect_error', handleConnectError)
+      socket.off('reconnect_failed', handleReconnectFailed)
       socket.off('disconnect', handleDisconnect)
       socket.off('ROOM_JOINED', handleRoomJoined)
       socket.off('PLAYER_JOINED', handlePlayerJoined)

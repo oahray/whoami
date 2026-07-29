@@ -27,29 +27,24 @@ router.get('/entities', async (req: AuthRequest, res: Response) => {
     const datasetId = await requireDatasetId(res, req.query.datasetId)
     if (!datasetId) return
 
+    // One query: entities plus aggregated clue counts via PostgREST embed.
     const { data: entities, error: entitiesError } = await supabase
       .from('entities')
-      .select('*')
+      .select('*, clues(count)')
       .eq('dataset_id', datasetId)
       .order('name')
 
     if (entitiesError) throw entitiesError
 
-    const entitiesWithClueCount = await Promise.all(
-      (entities ?? []).map(async (entity) => {
-        const { count, error: countError } = await supabase
-          .from('clues')
-          .select('*', { count: 'exact', head: true })
-          .eq('entity_id', entity.id)
-
-        if (countError) throw countError
-
-        return {
-          ...entity,
-          clueCount: count || 0
-        }
-      })
-    )
+    const entitiesWithClueCount = (entities ?? []).map((entity) => {
+      const { clues, ...rest } = entity as typeof entity & {
+        clues?: Array<{ count: number | null }> | null
+      }
+      return {
+        ...rest,
+        clueCount: clues?.[0]?.count ?? 0
+      }
+    })
 
     res.json(entitiesWithClueCount)
   } catch (error) {

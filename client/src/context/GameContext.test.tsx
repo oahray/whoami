@@ -32,6 +32,7 @@ function TestConsumer() {
       {(value) => (
         <div>
           <div data-testid="room-code">{value?.roomCode ?? ''}</div>
+          <div data-testid="error">{value?.error ?? ''}</div>
           <div data-testid="scoreboard">{JSON.stringify(value?.gameState?.currentScoreboard ?? [])}</div>
           <div data-testid="round">{value?.gameState?.roundNumber ?? ''}</div>
         </div>
@@ -69,6 +70,27 @@ describe('GameProvider', () => {
       roomCode: 'ABC123',
       nickname: 'Paul'
     })
+  })
+
+  it('clears connection errors when the socket reconnects', () => {
+    const socket = createMockSocket(false)
+    mockUseSocket.mockReturnValue({ socket })
+
+    render(
+      <GameProvider>
+        <TestConsumer />
+      </GameProvider>
+    )
+
+    act(() => {
+      socket.handlers.reconnect_failed?.()
+    })
+    expect(screen.getByTestId('error')).toHaveTextContent(/could not reach the server/i)
+
+    act(() => {
+      socket.handlers.connect?.()
+    })
+    expect(screen.getByTestId('error')).toHaveTextContent('')
   })
 
   it('uses the server-provided scoreboard on ROUND_STARTED', () => {

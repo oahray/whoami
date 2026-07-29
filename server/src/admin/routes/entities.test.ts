@@ -27,6 +27,70 @@ describe('entities routes', () => {
     vi.clearAllMocks()
   })
 
+  it('GET /entities loads clue counts in one query (no N+1)', async () => {
+    const fromCalls: string[] = []
+
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      fromCalls.push(table)
+      return createQueryBuilder(table, (state) => {
+        if (state.table === 'datasets') {
+          return { data: DEFAULT_DATASET, error: null }
+        }
+
+        if (state.table === 'entities') {
+          const selectArgs = findOp(state, 'select')?.args
+          expect(selectArgs?.[0]).toBe('*, clues(count)')
+          return {
+            data: [
+              {
+                id: 'e1',
+                name: 'Moses',
+                type: 'character',
+                is_published: true,
+                clues: [{ count: 4 }]
+              },
+              {
+                id: 'e2',
+                name: 'Egypt',
+                type: 'place',
+                is_published: false,
+                clues: [{ count: 0 }]
+              }
+            ],
+            error: null
+          }
+        }
+
+        return { error: new Error(`Unexpected query for table ${table}`) }
+      })
+    })
+
+    const app = express()
+    app.use(entitiesRouter)
+
+    const response = await request(app).get('/entities')
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual([
+      {
+        id: 'e1',
+        name: 'Moses',
+        type: 'character',
+        is_published: true,
+        clueCount: 4
+      },
+      {
+        id: 'e2',
+        name: 'Egypt',
+        type: 'place',
+        is_published: false,
+        clueCount: 0
+      }
+    ])
+    expect(fromCalls.filter((table) => table === 'clues')).toHaveLength(0)
+    expect(fromCalls.filter((table) => table === 'entities')).toHaveLength(1)
+  })
+
   it('POST /entities rejects missing required fields', async () => {
     const app = express()
     app.use(express.json())
