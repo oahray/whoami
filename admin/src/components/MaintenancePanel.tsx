@@ -8,6 +8,9 @@ const API_BASE_URL =
   import.meta.env.VITE_SOCKET_URL?.replace('ws://', 'http://').replace('wss://', 'https://') ||
   'http://localhost:3001'
 
+/** Matches server MAINTENANCE_FREEZE_LEAD_MS — new games blocked from this point. */
+const FREEZE_LEAD_MS = 15 * 60 * 1000
+
 function formatLocal(iso: string) {
   return new Date(iso).toLocaleString()
 }
@@ -15,6 +18,11 @@ function formatLocal(iso: string) {
 function toDatetimeLocalValue(date: Date) {
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+function windowAction(window: MaintenanceWindow, now = Date.now()): 'cancel' | 'end' {
+  const freezeAt = new Date(window.starts_at).getTime() - FREEZE_LEAD_MS
+  return now >= freezeAt ? 'end' : 'cancel'
 }
 
 export default function MaintenancePanel() {
@@ -105,22 +113,42 @@ export default function MaintenancePanel() {
     }
   }
 
-  const handleCancel = async (id: string) => {
-    setPendingId(id)
+  const handleRemove = async (maintenanceWindow: MaintenanceWindow) => {
+    const action = windowAction(maintenanceWindow)
+    if (
+      action === 'end' &&
+      !globalThis.confirm(
+        'End this maintenance window now? New games will be allowed again immediately.'
+      )
+    ) {
+      return
+    }
+
+    setPendingId(maintenanceWindow.id)
     setError('')
     try {
       const token = await getAccessToken()
-      const res = await fetch(`${API_BASE_URL}/admin/maintenance/${id}`, {
+      const res = await fetch(`${API_BASE_URL}/admin/maintenance/${maintenanceWindow.id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       })
       const body = await res.json().catch(() => ({}))
       if (!res.ok) {
-        throw new Error(body.message || body.error || 'Failed to cancel maintenance')
+        throw new Error(
+          body.message ||
+            body.error ||
+            (action === 'end' ? 'Failed to end maintenance' : 'Failed to cancel maintenance')
+        )
       }
       await loadWindows()
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to cancel maintenance')
+      setError(
+        err instanceof Error
+          ? err.message
+          : action === 'end'
+            ? 'Failed to end maintenance'
+            : 'Failed to cancel maintenance'
+      )
     } finally {
       setPendingId(null)
     }
@@ -232,7 +260,8 @@ export default function MaintenancePanel() {
           </label>
 
           <p className="text-admin-muted text-xs">
-            New games are blocked from 15 minutes before start until the window ends.
+            New games are blocked from 15 minutes before start until the window ends. You can end an
+            active window early from the list below.
           </p>
 
           <div className="flex justify-end">
@@ -256,32 +285,53 @@ export default function MaintenancePanel() {
           <p className="p-4 text-admin-muted text-sm">No upcoming maintenance windows.</p>
         ) : (
           <ul className="divide-y divide-admin-border">
-            {upcoming.map((window) => (
-              <li key={window.id} className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div>
-                  <p className="text-admin-fg font-medium">
-                    {formatLocal(window.starts_at)} → {formatLocal(window.ends_at)}
-                  </p>
-                  <p className="text-admin-muted text-sm mt-0.5">
-                    Purge scope:{' '}
-                    {window.dataset_id
-                      ? datasets.find((d) => d.id === window.dataset_id)?.name ?? window.dataset_id
-                      : 'All datasets'}
-                  </p>
-                  {window.admin_note && (
-                    <p className="text-admin-muted text-xs mt-1">Note: {window.admin_note}</p>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  disabled={pendingId === window.id}
-                  onClick={() => void handleCancel(window.id)}
-                  className="px-3 py-1.5 rounded-lg border border-admin-border text-admin-fg hover:bg-admin-muted-surface text-sm font-medium disabled:opacity-50 shrink-0"
+            {upcoming.map((window) => {
+              const action = windowAction(window)
+              return (
+                <li
+                  key={window.id}
+                  className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
                 >
-                  Cancel
-                </button>
-              </li>
-            ))}
+                  <div>
+                    <p className="text-admin-fg font-medium">
+                      {formatLocal(window.starts_at)} → {formatLocal(window.ends_at)}
+                    </p>
+                    <p className="text-admin-muted text-sm mt-0.5">
+                      Purge scope:{' '}
+                      {window.dataset_id
+                        ? datasets.find((d) => d.id === window.dataset_id)?.name ?? window.dataset_id
+                        : 'All datasets'}
+                      {action === 'end' && (
+                        <span className="ml-2 inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900">
+                          {new Date(window.starts_at).getTime() <= Date.now() ? 'Active' : 'Freeze'}
+                        </span>
+                      )}
+                    </p>
+                    {window.admin_note && (
+                      <p className="text-admin-muted text-xs mt-1">Note: {window.admin_note}</p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    disabled={pendingId === window.id}
+                    onClick={() => void handleRemove(window)}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50 shrink-0 ${
+                      action === 'end'
+                        ? 'border border-amber-300 bg-amber-50 text-amber-950 hover:bg-amber-100'
+                        : 'border border-admin-border text-admin-fg hover:bg-admin-muted-surface'
+                    }`}
+                  >
+                    {pendingId === window.id
+                      ? action === 'end'
+                        ? 'Ending…'
+                        : 'Cancelling…'
+                      : action === 'end'
+                        ? 'End now'
+                        : 'Cancel'}
+                  </button>
+                </li>
+              )
+            })}
           </ul>
         )}
       </div>

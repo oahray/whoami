@@ -9,10 +9,12 @@ vi.mock('./supabase.js', () => ({
 import { supabase } from './supabase.js'
 import {
   canPurgeDataset,
+  cancelMaintenanceWindow,
   getMaintenanceStatus,
+  MaintenanceScheduleError,
   MAINTENANCE_FREEZE_LEAD_MS
 } from './maintenance.js'
-import { createQueryBuilder } from '../test-utils/supabaseQueryBuilder.js'
+import { createQueryBuilder, hasEq, hasOp } from '../test-utils/supabaseQueryBuilder.js'
 
 const NOW = new Date('2026-06-09T14:00:00.000Z').getTime()
 
@@ -104,5 +106,73 @@ describe('maintenance', () => {
     mockWindows([{ id: 'mw-1', starts_at: startsAt, ends_at: endsAt, dataset_id: null }])
 
     await expect(canPurgeDataset('ds-1', NOW)).resolves.toBe(false)
+  })
+
+  it('allows ending a window early during freeze', async () => {
+    const startsAt = new Date(NOW + 10 * 60 * 1000).toISOString()
+    const endsAt = new Date(NOW + 40 * 60 * 1000).toISOString()
+    const row = { id: 'mw-1', starts_at: startsAt, ends_at: endsAt, dataset_id: null }
+    let deleted = false
+
+    vi.mocked(supabase.from).mockImplementation((table: string) =>
+      createQueryBuilder(table, (state) => {
+        if (table !== 'maintenance_windows') {
+          return { error: new Error(`Unexpected table ${table}`) }
+        }
+        if (hasOp(state, 'delete') && hasEq(state, 'id', 'mw-1')) {
+          deleted = true
+          return { data: null, error: null }
+        }
+        if (hasOp(state, 'maybeSingle') || hasOp(state, 'select')) {
+          return { data: row, error: null }
+        }
+        return { data: null, error: null }
+      })
+    )
+
+    await expect(cancelMaintenanceWindow('mw-1', NOW)).resolves.toBeUndefined()
+    expect(deleted).toBe(true)
+  })
+
+  it('allows ending a window early while active', async () => {
+    const startsAt = new Date(NOW - 5 * 60 * 1000).toISOString()
+    const endsAt = new Date(NOW + 25 * 60 * 1000).toISOString()
+    const row = { id: 'mw-1', starts_at: startsAt, ends_at: endsAt, dataset_id: null }
+    let deleted = false
+
+    vi.mocked(supabase.from).mockImplementation((table: string) =>
+      createQueryBuilder(table, (state) => {
+        if (table !== 'maintenance_windows') {
+          return { error: new Error(`Unexpected table ${table}`) }
+        }
+        if (hasOp(state, 'delete') && hasEq(state, 'id', 'mw-1')) {
+          deleted = true
+          return { data: null, error: null }
+        }
+        return { data: row, error: null }
+      })
+    )
+
+    await expect(cancelMaintenanceWindow('mw-1', NOW)).resolves.toBeUndefined()
+    expect(deleted).toBe(true)
+  })
+
+  it('rejects ending a window that already finished', async () => {
+    const startsAt = new Date(NOW - 40 * 60 * 1000).toISOString()
+    const endsAt = new Date(NOW - 10 * 60 * 1000).toISOString()
+    const row = { id: 'mw-1', starts_at: startsAt, ends_at: endsAt, dataset_id: null }
+
+    vi.mocked(supabase.from).mockImplementation((table: string) =>
+      createQueryBuilder(table, () => {
+        if (table !== 'maintenance_windows') {
+          return { error: new Error(`Unexpected table ${table}`) }
+        }
+        return { data: row, error: null }
+      })
+    )
+
+    await expect(cancelMaintenanceWindow('mw-1', NOW)).rejects.toMatchObject({
+      code: 'ALREADY_ENDED'
+    } satisfies Partial<MaintenanceScheduleError>)
   })
 })
