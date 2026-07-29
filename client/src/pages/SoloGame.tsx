@@ -88,7 +88,8 @@ function SoloGame() {
     const saved = saveSoloRecord(record)
     clearSoloSession()
     setStatus('finished')
-    setResult(saved)
+    // Use this run's stats even when it did not beat the personal best.
+    setResult({ record, isPersonalBest: saved.isPersonalBest })
   }, [])
 
   const advance = useCallback((correct: boolean) => {

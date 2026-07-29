@@ -478,7 +478,10 @@ function Lobby() {
                   </div>
                 )}
               </div>
-              <p className="text-xs text-foreground-muted -mt-2">When enabled, guesses must match the answer more closely.</p>
+              <p className="text-xs text-foreground-muted -mt-2">
+                When enabled, spelling must match exactly. Dashes stay optional; parentheticals are
+                optional unless the guess includes them.
+              </p>
 
               <div>
                 <label className="block text-foreground text-sm font-semibold mb-2">Transparency</label>
