@@ -2,6 +2,10 @@ import { Server, Socket } from 'socket.io'
 import { getRoomBySocket } from '../../rooms/store.js'
 import { resetRoomForNewGame } from '../../game/roundState.js'
 import { getDataset } from '../../db/entities.js'
+import {
+  encodeDifficultySelection,
+  parseDifficultySelection
+} from '../../game/difficultySelection.js'
 import { logger } from '../../utils/logger.js'
 
 export async function handleUpdateSettings(io: Server, socket: Socket, payload: any) {
@@ -90,14 +94,15 @@ export async function handleUpdateSettings(io: Server, socket: Socket, payload: 
     }
 
     if (difficultyMode !== undefined) {
-      if (!['any', 'easy', 'medium', 'hard', 'nightmare'].includes(difficultyMode)) {
+      const selection = parseDifficultySelection(difficultyMode)
+      if (selection === null) {
         socket.emit('ROOM_ERROR', {
           code: 'INVALID_SETTINGS',
           message: 'Invalid difficulty mode'
         })
         return
       }
-      room.settings.difficultyMode = difficultyMode
+      room.settings.difficultyMode = encodeDifficultySelection(selection)
     }
 
     if (strictMode !== undefined) {

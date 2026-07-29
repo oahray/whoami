@@ -1,10 +1,16 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { DifficultyMultiSelect } from '../components/DifficultyMultiSelect'
 import LoadingState from '../components/LoadingState'
 import MaintenanceBanner from '../components/MaintenanceBanner'
 import PreferencesMenu from '../components/PreferencesMenu'
 import { useMaintenanceStatus } from '../hooks/useMaintenanceStatus'
 import { API_BASE_URL } from '../lib/apiBase'
+import {
+  coerceDifficultySelection,
+  encodeDifficultySelection,
+  type DifficultySelection
+} from '../lib/difficultySelection'
 import {
   DEFAULT_ENTITY_TYPE_FILTER,
   ENTITY_TYPE_FIELD_LABEL,
@@ -13,9 +19,7 @@ import {
 } from '../lib/entityTypeFilter'
 import {
   fetchInPersonEligibility,
-  firstPlayableDifficulty,
-  IN_PERSON_DIFFICULTY_OPTIONS,
-  isDifficultyPlayable,
+  isDifficultySelectionPlayable,
   type InPersonEligibility
 } from '../lib/inPersonEligibility'
 import { isMaintenanceBlockingNewGames } from '../lib/maintenance'
@@ -32,7 +36,7 @@ import {
   type SoloVariation
 } from '../lib/soloSession'
 import { unlockAudio } from '../lib/sounds'
-import type { GameDifficultyMode, PublicDataset } from '../types'
+import type { PublicDataset } from '../types'
 
 const TIMER_OPTIONS = [15, 30, 45, 60]
 const CLUE_INTERVAL_OPTIONS = [5, 10, 15]
@@ -47,7 +51,9 @@ function SoloSetup() {
   const [entityType, setEntityType] = useState<EntityTypeFilter>(
     savedPrefs?.entityType ?? DEFAULT_ENTITY_TYPE_FILTER
   )
-  const [difficulty, setDifficulty] = useState<GameDifficultyMode>(savedPrefs?.difficulty ?? 'any')
+  const [difficulty, setDifficulty] = useState<DifficultySelection>(
+    coerceDifficultySelection(savedPrefs?.difficulty)
+  )
   const [variation, setVariation] = useState<SoloVariation>(savedPrefs?.variation ?? 'challenge')
   const [roundSeconds, setRoundSeconds] = useState(
     savedPrefs ? savedPrefs.roundDurationMs / 1000 : 30
@@ -62,10 +68,10 @@ function SoloSetup() {
   const [error, setError] = useState<string | null>(null)
   const [offline, setOffline] = useState(!navigator.onLine)
 
-  const selectedCount = eligibility?.modes[difficulty] ?? 0
+  const selectionPlayable = isDifficultySelectionPlayable(eligibility, difficulty)
   const canStart =
     Boolean(datasetId) &&
-    selectedCount > 0 &&
+    selectionPlayable &&
     !starting &&
     !eligibilityLoading &&
     !offline &&
@@ -163,13 +169,12 @@ function SoloSetup() {
     if (!datasetId || offline) return
     let cancelled = false
     setEligibilityLoading(true)
-    fetchInPersonEligibility(datasetId, entityType)
+    fetchInPersonEligibility(datasetId, entityType, { difficulty })
       .then((data) => {
         if (cancelled) return
         setEligibility(data)
-        if (!isDifficultyPlayable(data.modes, difficulty)) {
-          const fallback = firstPlayableDifficulty(data.modes)
-          if (fallback) setDifficulty(fallback)
+        if (!isDifficultySelectionPlayable(data, difficulty) && (data.modes.any ?? 0) > 0) {
+          setDifficulty([])
         }
       })
       .catch((err) => !cancelled && setError(err instanceof Error ? err.message : 'Failed to load eligibility'))
@@ -185,7 +190,11 @@ function SoloSetup() {
     setError(null)
     unlockAudio()
     try {
-      const query = new URLSearchParams({ datasetId, difficulty, entityType })
+      const query = new URLSearchParams({
+        datasetId,
+        difficulty: encodeDifficultySelection(difficulty),
+        entityType
+      })
       const response = await fetch(`${API_BASE_URL}/cards/deck?${query}`)
       if (!response.ok) {
         const body = await response.json().catch(() => ({}))
@@ -272,30 +281,23 @@ function SoloSetup() {
                 ))}
               </select>
             </label>
-            <label className="block text-sm font-semibold">
-              Difficulty
-              <select
-                value={difficulty}
-                onChange={(event) => setDifficulty(event.target.value as GameDifficultyMode)}
-                disabled={eligibilityLoading}
-                className="mt-2 w-full rounded-lg bg-surface-muted p-2.5 font-normal disabled:opacity-50"
-              >
-                {IN_PERSON_DIFFICULTY_OPTIONS.map((option) => (
-                  <option
-                    key={option.value}
-                    value={option.value}
-                    disabled={(eligibility?.modes[option.value] ?? 0) === 0}
-                  >
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              {!eligibilityLoading && eligibility && selectedCount === 0 && (
-                <span className="mt-1 block text-xs font-normal text-amber-700 dark:text-amber-300">
-                  Not enough clues for this difficulty. Choose another.
-                </span>
-              )}
-            </label>
+            <DifficultyMultiSelect
+              value={difficulty}
+              onChange={setDifficulty}
+              disabled={eligibilityLoading}
+              anyCount={eligibility?.modes.any}
+              tierCounts={{
+                easy: eligibility?.modes.easy,
+                medium: eligibility?.modes.medium,
+                hard: eligibility?.modes.hard,
+                nightmare: eligibility?.modes.nightmare
+              }}
+            />
+            {!eligibilityLoading && eligibility && !selectionPlayable && (
+              <p className="text-xs font-normal text-amber-700 dark:text-amber-300">
+                Not enough clues for this difficulty mix. Choose another.
+              </p>
+            )}
             <fieldset>
               <legend className="text-sm font-semibold">Variation</legend>
               <div className="mt-2 grid grid-cols-2 gap-2">

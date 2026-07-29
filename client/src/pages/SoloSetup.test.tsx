@@ -50,7 +50,7 @@ describe('SoloSetup', () => {
     const { saveSoloRecord } = await import('../lib/soloSession')
     saveSoloRecord({
       datasetId: 'ds-1',
-      difficulty: 'any',
+      difficulty: [],
       entityType: 'character',
       variation: 'challenge',
       roundDurationMs: 30_000,
@@ -61,7 +61,7 @@ describe('SoloSetup', () => {
     })
     saveSoloRecord({
       datasetId: 'ds-1',
-      difficulty: 'any',
+      difficulty: [],
       entityType: 'character',
       variation: 'endurance',
       roundDurationMs: 30_000,
@@ -91,7 +91,7 @@ describe('SoloSetup', () => {
     const { saveSoloSetupPreferences } = await import('../lib/soloSession')
     saveSoloSetupPreferences({
       datasetId: 'ds-1',
-      difficulty: 'easy',
+      difficulty: ['easy'],
       entityType: 'character',
       variation: 'endurance',
       roundDurationMs: 45_000,
@@ -103,6 +103,7 @@ describe('SoloSetup', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: /start endurance/i })).toBeEnabled())
     expect(screen.getByLabelText(/card timer/i)).toHaveValue('45')
     expect(screen.getByLabelText(/new clue every/i)).toHaveValue('5')
-    expect(screen.getByLabelText(/^difficulty$/i)).toHaveValue('easy')
+    expect(screen.getByRole('button', { name: /^easy$/i })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: /^any$/i })).toHaveAttribute('aria-pressed', 'false')
   })
 })

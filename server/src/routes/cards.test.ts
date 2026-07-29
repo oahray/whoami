@@ -313,6 +313,27 @@ describe('GET /cards/deck', () => {
     expect(response.body.entityIds).toEqual(expect.arrayContaining(['ent-a', 'ent-b']))
   })
 
+  it('accepts combined difficulty tiers', async () => {
+    installMocks(
+      [ENTITY_A, ENTITY_B],
+      [
+        ...makeClues('ent-a', 6).map((clue, index) => ({
+          ...clue,
+          difficulty: index < 3 ? 'hard' : 'nightmare'
+        })),
+        ...makeClues('ent-b', 6).map((clue) => ({ ...clue, difficulty: 'easy' }))
+      ]
+    )
+
+    const response = await request(makeApp()).get('/cards/deck').query({
+      datasetId: 'ds-1',
+      difficulty: 'hard,nightmare'
+    })
+
+    expect(response.status).toBe(200)
+    expect(response.body.entityIds).toEqual(['ent-a'])
+  })
+
   it('filters deck to places when entityType is place', async () => {
     installMocks(
       [ENTITY_A, ENTITY_PLACE],

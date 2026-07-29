@@ -1,6 +1,6 @@
 import { getCluesForEntity, getDataset, getDefaultEnabledDataset } from '../db/entities.js'
-import type { GameDifficultyMode } from '../db/entities.js'
 import { buildEntityPool } from './entityPool.js'
+import { parseDifficultySelection } from './difficultySelection.js'
 import { calculateScore } from './scoring.js'
 import { validateGuess } from './validation.js'
 import { isRateLimited, hasExceededMaxGuesses } from './rateLimit.js'
@@ -84,7 +84,7 @@ export async function startNextRound(room: RoomState): Promise<void> {
   }
 
   const clues = await getCluesForEntity(entity.id, {
-    difficultyMode: room.settings.difficultyMode as GameDifficultyMode
+    difficultySelection: parseDifficultySelection(room.settings.difficultyMode) ?? []
   })
   if (clues.length < 2) {
     throw new Error(`Entity ${entity.name} has insufficient clues`)

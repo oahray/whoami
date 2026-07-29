@@ -17,7 +17,7 @@ import {
 
 const config: SoloConfig = {
   datasetId: 'ds-1',
-  difficulty: 'any',
+  difficulty: [],
   entityType: 'character',
   variation: 'challenge',
   roundDurationMs: 30_000,

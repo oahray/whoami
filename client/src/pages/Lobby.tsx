@@ -1,7 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { DifficultyMultiSelect } from '../components/DifficultyMultiSelect'
 import PreferencesMenu from '../components/PreferencesMenu'
 import { unlockAudio } from '../lib/sounds'
+import {
+  coerceDifficultySelection,
+  encodeDifficultySelection,
+  formatDifficultySelection
+} from '../lib/difficultySelection'
 import {
   ENTITY_TYPE_FIELD_LABEL,
   ENTITY_TYPE_HINT_LOBBY,
@@ -410,26 +416,25 @@ function Lobby() {
               </div>
 
               <div>
-                <label htmlFor="difficultyMode" className="block text-foreground text-sm font-semibold mb-2">Difficulty</label>
                 {isHost ? (
-                  <select
+                  <DifficultyMultiSelect
                     id="difficultyMode"
-                    value={settings.difficultyMode}
-                    onChange={(e) => handleUpdateSetting('difficultyMode', e.target.value)}
-                    className="w-full bg-surface-muted border-0 rounded-md text-foreground focus:ring-2 focus:ring-primary py-2.5 px-3"
-                  >
-                    <option value="any">Any (mix of all difficulties)</option>
-                    <option value="easy">Easy</option>
-                    <option value="medium">Medium</option>
-                    <option value="hard">Hard</option>
-                    <option value="nightmare">Nightmare</option>
-                  </select>
+                    value={coerceDifficultySelection(settings.difficultyMode)}
+                    onChange={(next) =>
+                      handleUpdateSetting('difficultyMode', encodeDifficultySelection(next))
+                    }
+                  />
                 ) : (
-                  <div className="py-2.5 px-3 bg-surface-muted rounded-lg text-foreground capitalize">
-                    {settings.difficultyMode === 'any' ? 'Any' : settings.difficultyMode}
-                  </div>
+                  <>
+                    <p className="block text-foreground text-sm font-semibold mb-2">Difficulty</p>
+                    <div className="py-2.5 px-3 bg-surface-muted rounded-lg text-foreground">
+                      {formatDifficultySelection(coerceDifficultySelection(settings.difficultyMode))}
+                    </div>
+                    <p className="text-xs text-foreground-muted mt-1">
+                      Filters which clues are used. &quot;Any&quot; uses every clue regardless of difficulty.
+                    </p>
+                  </>
                 )}
-                <p className="text-xs text-foreground-muted mt-1">Filters which clues are used. &quot;Any&quot; uses every clue regardless of difficulty.</p>
               </div>
 
               <div>

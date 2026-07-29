@@ -1,6 +1,6 @@
 import { Router, type Response } from 'express'
-import { parseDifficultyMode } from '../db/entities.js'
 import { parseEntityTypeFilter } from '../game/entityTypeFilter.js'
+import { parseDifficultySelection } from '../game/difficultySelection.js'
 import {
   buildInPersonCardForEntity,
   getInPersonDeck,
@@ -18,8 +18,7 @@ function parseDatasetId(raw: unknown): string {
 }
 
 function parseDifficultyQuery(raw: unknown) {
-  if (raw === undefined || raw === '') return 'any' as const
-  return parseDifficultyMode(raw)
+  return parseDifficultySelection(raw)
 }
 
 function parseEntityTypeQuery(raw: unknown) {
@@ -50,7 +49,11 @@ router.get('/cards/eligibility', async (req, res) => {
     if (!entityType) {
       return res.status(400).json({ error: 'Invalid entity type' })
     }
-    const eligibility = await getInPersonEligibility(datasetId, entityType)
+    const difficultySelection = parseDifficultyQuery(req.query.difficulty)
+    if (difficultySelection === null) {
+      return res.status(400).json({ error: 'Invalid difficulty' })
+    }
+    const eligibility = await getInPersonEligibility(datasetId, entityType, difficultySelection)
     res.json(eligibility)
   } catch (error) {
     return handleInPersonError(error, res, 'Failed to fetch eligibility')
@@ -72,15 +75,15 @@ router.get('/cards/deck', async (req, res) => {
     if (!datasetId) {
       return res.status(400).json({ error: 'datasetId is required' })
     }
-    const difficultyMode = parseDifficultyQuery(req.query.difficulty)
-    if (!difficultyMode) {
+    const difficultySelection = parseDifficultyQuery(req.query.difficulty)
+    if (difficultySelection === null) {
       return res.status(400).json({ error: 'Invalid difficulty' })
     }
     const entityType = parseEntityTypeQuery(req.query.entityType)
     if (!entityType) {
       return res.status(400).json({ error: 'Invalid entity type' })
     }
-    const deck = await getInPersonDeck(datasetId, difficultyMode, entityType)
+    const deck = await getInPersonDeck(datasetId, difficultySelection, entityType)
     res.json(deck)
   } catch (error) {
     return handleInPersonError(error, res, 'Failed to fetch deck')
@@ -93,8 +96,8 @@ router.get('/cards/entity/:entityId', async (req, res) => {
     if (!datasetId) {
       return res.status(400).json({ error: 'datasetId is required' })
     }
-    const difficultyMode = parseDifficultyQuery(req.query.difficulty)
-    if (!difficultyMode) {
+    const difficultySelection = parseDifficultyQuery(req.query.difficulty)
+    if (difficultySelection === null) {
       return res.status(400).json({ error: 'Invalid difficulty' })
     }
     const entityId = typeof req.params.entityId === 'string' ? req.params.entityId.trim() : ''
@@ -104,7 +107,7 @@ router.get('/cards/entity/:entityId', async (req, res) => {
     const card = await buildInPersonCardForEntity({
       datasetId,
       entityId,
-      difficultyMode
+      difficultySelection
     })
     res.json(card)
   } catch (error) {
@@ -119,8 +122,8 @@ router.get('/cards/random', async (req, res) => {
       return res.status(400).json({ error: 'datasetId is required' })
     }
 
-    const difficultyMode = parseDifficultyQuery(req.query.difficulty)
-    if (!difficultyMode) {
+    const difficultySelection = parseDifficultyQuery(req.query.difficulty)
+    if (difficultySelection === null) {
       return res.status(400).json({ error: 'Invalid difficulty' })
     }
 
@@ -136,7 +139,7 @@ router.get('/cards/random', async (req, res) => {
 
     const card = await getRandomInPersonCard({
       datasetId,
-      difficultyMode,
+      difficultySelection,
       entityType,
       excludeEntityId
     })

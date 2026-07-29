@@ -189,10 +189,9 @@ describe('Lobby', () => {
       </MemoryRouter>
     )
 
-    const difficultySelect = screen.getByLabelText('Difficulty') as HTMLSelectElement
-    expect(difficultySelect.value).toBe('any')
+    expect(screen.getByRole('button', { name: /^any$/i })).toHaveAttribute('aria-pressed', 'true')
 
-    fireEvent.change(difficultySelect, { target: { value: 'hard' } })
+    fireEvent.click(screen.getByRole('button', { name: /^hard$/i }))
 
     expect(emit).toHaveBeenCalledWith('UPDATE_SETTINGS', { difficultyMode: 'hard' })
   })

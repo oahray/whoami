@@ -4,6 +4,7 @@ import LoadingState from '../components/LoadingState'
 import SoundToggle from '../components/SoundToggle'
 import { useVisualViewportLock } from '../hooks/useVisualViewportLock'
 import { API_BASE_URL } from '../lib/apiBase'
+import { encodeDifficultySelection } from '../lib/difficultySelection'
 import { validateGuess } from '../lib/guessValidation'
 import {
   clearSoloSession,
@@ -54,7 +55,7 @@ function SoloGame() {
     try {
       const query = new URLSearchParams({
         datasetId: nextSession.datasetId,
-        difficulty: nextSession.difficulty,
+        difficulty: encodeDifficultySelection(nextSession.difficulty),
         entityType: nextSession.entityType
       })
       const response = await fetch(`${API_BASE_URL}/cards/entity/${encodeURIComponent(entityId)}?${query}`)
@@ -171,7 +172,7 @@ function SoloGame() {
     try {
       const query = new URLSearchParams({
         datasetId: session.datasetId,
-        difficulty: session.difficulty,
+        difficulty: encodeDifficultySelection(session.difficulty),
         entityType: session.entityType
       })
       const response = await fetch(`${API_BASE_URL}/cards/deck?${query}`)

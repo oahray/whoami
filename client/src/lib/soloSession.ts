@@ -1,5 +1,10 @@
 import type { EntityTypeFilter } from './entityTypeFilter'
-import type { GameDifficultyMode } from '../types'
+import {
+  coerceDifficultySelection,
+  difficultySelectionEquals,
+  formatDifficultySelection,
+  type DifficultySelection
+} from './difficultySelection'
 
 export const SOLO_CHALLENGE_ROUNDS = 10
 export const SOLO_RECORDS_PER_MODE = 5
@@ -11,7 +16,8 @@ export type SoloVariation = 'challenge' | 'endurance'
 
 export type SoloConfig = {
   datasetId: string
-  difficulty: GameDifficultyMode
+  /** Empty = any difficulty. */
+  difficulty: DifficultySelection
   entityType: EntityTypeFilter
   variation: SoloVariation
   roundDurationMs: number
@@ -33,11 +39,15 @@ export type SoloRecord = SoloConfig & {
 
 export type SoloSetupPreferences = {
   datasetId?: string
-  difficulty: GameDifficultyMode
+  difficulty: DifficultySelection
   entityType: EntityTypeFilter
   variation: SoloVariation
   roundDurationMs: number
   clueRevealIntervalMs: number
+}
+
+function normalizeConfigDifficulty<T extends { difficulty: unknown }>(value: T): T & { difficulty: DifficultySelection } {
+  return { ...value, difficulty: coerceDifficultySelection(value.difficulty) }
 }
 
 export function createSoloSession(config: SoloConfig, entityIds: string[]): SoloSession {
@@ -58,7 +68,7 @@ export function loadSoloSession(): SoloSession | null {
   try {
     const raw = sessionStorage.getItem(SESSION_KEY)
     if (!raw) return null
-    const session = JSON.parse(raw) as SoloSession
+    const session = normalizeConfigDifficulty(JSON.parse(raw) as SoloSession)
     if (!Array.isArray(session.entityIds) || !session.datasetId || !session.variation) return null
     return session
   } catch {
@@ -82,8 +92,8 @@ export function loadSoloSetupPreferences(): SoloSetupPreferences | null {
   try {
     const raw = localStorage.getItem(SETUP_KEY)
     if (!raw) return null
-    const prefs = JSON.parse(raw) as SoloSetupPreferences
-    if (!prefs.variation || !prefs.difficulty || !prefs.entityType) return null
+    const prefs = normalizeConfigDifficulty(JSON.parse(raw) as SoloSetupPreferences)
+    if (!prefs.variation || prefs.difficulty == null || !prefs.entityType) return null
     if (!prefs.roundDurationMs || !prefs.clueRevealIntervalMs) return null
     return prefs
   } catch {
@@ -94,7 +104,10 @@ export function loadSoloSetupPreferences(): SoloSetupPreferences | null {
 function sameRecordCategory(a: SoloConfig, b: SoloConfig): boolean {
   return (
     a.datasetId === b.datasetId &&
-    a.difficulty === b.difficulty &&
+    difficultySelectionEquals(
+      coerceDifficultySelection(a.difficulty),
+      coerceDifficultySelection(b.difficulty)
+    ) &&
     a.entityType === b.entityType &&
     a.variation === b.variation &&
     a.roundDurationMs === b.roundDurationMs &&
@@ -126,7 +139,8 @@ function compareRecords(a: SoloRecord, b: SoloRecord): number {
 function readSoloRecords(): SoloRecord[] {
   try {
     const raw = localStorage.getItem(RECORDS_KEY)
-    return raw ? (JSON.parse(raw) as SoloRecord[]) : []
+    const records = raw ? (JSON.parse(raw) as SoloRecord[]) : []
+    return records.map((record) => normalizeConfigDifficulty(record))
   } catch {
     return []
   }
@@ -234,7 +248,7 @@ export function soloConfigSummary(
   const parts = [
     ...(includeVariation ? [soloVariationLabel(config.variation)] : []),
     typeLabel,
-    config.difficulty,
+    formatDifficultySelection(coerceDifficultySelection(config.difficulty)),
     `${config.roundDurationMs / 1000}s cards`,
     `${config.clueRevealIntervalMs / 1000}s clues`
   ]
