@@ -24,6 +24,9 @@ import type { InPersonCard } from '../types'
 
 type RoundStatus = 'active' | 'correct' | 'timeout' | 'finished'
 
+/** Endurance pause after correct/timeout so citations can be read; challenge waits for Next. */
+const ENDURANCE_SETTLE_MS = 10_000
+
 function SoloGame() {
   const navigate = useNavigate()
   const [session, setSession] = useState<SoloSession | null>(null)
@@ -148,10 +151,11 @@ function SoloGame() {
   }, [session, card, status, loading])
 
   useEffect(() => {
-    if (status !== 'timeout') return
-    const timeout = window.setTimeout(() => advance(false), 5000)
+    if (status !== 'timeout' && status !== 'correct') return
+    if (session?.variation !== 'endurance') return
+    const timeout = window.setTimeout(() => advance(status === 'correct'), ENDURANCE_SETTLE_MS)
     return () => window.clearTimeout(timeout)
-  }, [status, advance])
+  }, [status, advance, session?.variation])
 
   useEffect(() => {
     if (status !== 'active' || loading || !card) return
@@ -222,7 +226,6 @@ function SoloGame() {
     setStatus('correct')
     setFeedback('Correct!')
     playSound('success-small')
-    window.setTimeout(() => advance(true), 800)
   }
 
   if (result && session) {
@@ -268,6 +271,13 @@ function SoloGame() {
 
   if (!session) return <LoadingState label="Loading solo mode" layout="page" />
 
+  const settled = status === 'correct' || status === 'timeout'
+  const settleAdvanceLabel =
+    session.variation === 'endurance'
+      ? status === 'correct'
+        ? 'Next'
+        : 'See results'
+      : 'Next round'
   const revealedCount = card
     ? Math.min(card.clues.length, 1 + Math.floor((session.roundDurationMs - remainingMs) / session.clueRevealIntervalMs))
     : 0
@@ -298,8 +308,28 @@ function SoloGame() {
         {card && !loading && (
           <>
             <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-foreground-muted"><span>Clues</span><span>{visibleClues.length} revealed</span></div>
-            {visibleClues.map((clue) => <article key={clue.order} className="rounded-lg border border-edge bg-surface p-4 shadow-sm"><p className="text-[10px] font-bold uppercase tracking-widest text-primary">Clue {clue.order}</p><p className="mt-1 font-medium">{clue.text}</p></article>)}
-            {status === 'correct' && <p className="rounded-lg bg-green-50 p-3 text-center font-semibold text-green-800">Correct! {card.entity.name}</p>}
+            {visibleClues.map((clue) => (
+              <article key={clue.order} className="rounded-lg border border-edge bg-surface p-4 shadow-sm">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-primary">Clue {clue.order}</p>
+                <p className="mt-1 font-medium">{clue.text}</p>
+                {settled && clue.citations && (
+                  <p className="mt-1 text-xs font-medium text-foreground-muted">{clue.citations}</p>
+                )}
+              </article>
+            ))}
+            {status === 'correct' && (
+              <section className="rounded-lg border border-green-300 bg-green-50 p-4 text-center">
+                <p className="text-sm text-green-800">Correct!</p>
+                <p className="mt-1 text-2xl font-black text-green-950">{card.entity.name}</p>
+                <button
+                  type="button"
+                  onClick={() => advance(true)}
+                  className="mt-4 w-full rounded-lg bg-primary py-3 font-bold text-white"
+                >
+                  {settleAdvanceLabel}
+                </button>
+              </section>
+            )}
             {status === 'timeout' && (
               <section className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-center">
                 <p className="text-sm text-amber-900">Time&apos;s up — the answer was</p>
@@ -309,7 +339,7 @@ function SoloGame() {
                   onClick={() => advance(false)}
                   className="mt-4 w-full rounded-lg bg-primary py-3 font-bold text-white"
                 >
-                  {session.variation === 'challenge' ? 'Next round' : 'See results'}
+                  {settleAdvanceLabel}
                 </button>
               </section>
             )}
@@ -321,23 +351,29 @@ function SoloGame() {
           className="shrink-0 border-t border-edge bg-surface px-3 pt-3"
           style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))' }}
         >
-          <div className="max-w-lg mx-auto flex gap-2">
-            <input
-              ref={guessInputRef}
-              type="text"
-              value={guess}
-              onChange={(event) => setGuess(event.target.value)}
-              onKeyDown={(event) => event.key === 'Enter' && submitGuess()}
-              placeholder="Enter your guess…"
-              enterKeyHint="go"
-              autoComplete="off"
-              autoCorrect="off"
-              spellCheck={false}
-              className="min-w-0 flex-1 rounded-lg bg-surface-muted px-3 py-3 text-base font-medium"
-            />
-            <button type="button" onClick={submitGuess} disabled={!guess.trim()} className="rounded-lg bg-primary px-4 font-bold text-white disabled:opacity-50">Guess</button>
+          <div className="max-w-lg mx-auto space-y-2">
+            {feedback && (
+              <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-center text-sm font-semibold text-amber-900">
+                {feedback}
+              </p>
+            )}
+            <div className="flex gap-2">
+              <input
+                ref={guessInputRef}
+                type="text"
+                value={guess}
+                onChange={(event) => setGuess(event.target.value)}
+                onKeyDown={(event) => event.key === 'Enter' && submitGuess()}
+                placeholder="Enter your guess…"
+                enterKeyHint="go"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
+                className="min-w-0 flex-1 rounded-lg bg-surface-muted px-3 py-3 text-base font-medium"
+              />
+              <button type="button" onClick={submitGuess} disabled={!guess.trim()} className="rounded-lg bg-primary px-4 font-bold text-white disabled:opacity-50">Guess</button>
+            </div>
           </div>
-          {feedback && <p className="mt-2 text-center text-sm font-medium text-foreground-muted">{feedback}</p>}
         </footer>
       )}
     </div>
