@@ -1,12 +1,18 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import LoadingState from '../components/LoadingState'
 import { useAuth } from '../context/AuthContext'
 import { useAdminDataset } from '../context/AdminDatasetContext'
 import { AdminLayout } from '../components/AdminLayout'
+import {
+  compareEntities,
+  type EntitySortDir,
+  type EntitySortKey
+} from '../lib/entitySort'
 import type { Entity } from '../types'
 
 const API_BASE_URL = import.meta.env.VITE_SOCKET_URL?.replace('ws://', 'http://').replace('wss://', 'https://') || 'http://localhost:3001'
+const PAGE_SIZE = 50
 
 function AdminEntities() {
   const { getAccessToken } = useAuth()
@@ -18,6 +24,9 @@ function AdminEntities() {
   const [searchQuery, setSearchQuery] = useState('')
   const [filterType, setFilterType] = useState<string>('all')
   const [filterPublished, setFilterPublished] = useState<string>('all')
+  const [sortKey, setSortKey] = useState<EntitySortKey>('name')
+  const [sortDir, setSortDir] = useState<EntitySortDir>('asc')
+  const [page, setPage] = useState(1)
 
   useEffect(() => {
     loadData()
@@ -59,18 +68,55 @@ function AdminEntities() {
     }
   }
 
-  const filteredEntities = entities.filter((entity) => {
-    if (searchQuery && !entity.name.toLowerCase().includes(searchQuery.toLowerCase())) return false
-    if (filterType !== 'all' && entity.type !== filterType) return false
-    if (filterPublished === 'published' && !entity.is_published) return false
-    if (filterPublished === 'unpublished' && entity.is_published) return false
-    return true
-  })
+  const toggleSort = (key: EntitySortKey) => {
+    if (sortKey === key) {
+      setSortDir((dir) => (dir === 'asc' ? 'desc' : 'asc'))
+      return
+    }
+    setSortKey(key)
+    setSortDir(key === 'name' ? 'asc' : 'desc')
+  }
 
+  const filteredEntities = useMemo(() => {
+    return entities
+      .filter((entity) => {
+        if (searchQuery && !entity.name.toLowerCase().includes(searchQuery.toLowerCase())) return false
+        if (filterType !== 'all' && entity.type !== filterType) return false
+        if (filterPublished === 'published' && !entity.is_published) return false
+        if (filterPublished === 'unpublished' && entity.is_published) return false
+        return true
+      })
+      .sort((a, b) => compareEntities(a, b, sortKey, sortDir))
+  }, [entities, searchQuery, filterType, filterPublished, sortKey, sortDir])
+
+  useEffect(() => {
+    setPage(1)
+  }, [searchQuery, filterType, filterPublished, sortKey, sortDir])
+
+  const filteredCharacterCount = useMemo(
+    () => filteredEntities.filter((entity) => entity.type === 'character').length,
+    [filteredEntities]
+  )
+  const filteredPlaceCount = useMemo(
+    () => filteredEntities.filter((entity) => entity.type === 'place').length,
+    [filteredEntities]
+  )
+
+  const totalPages = Math.max(1, Math.ceil(filteredEntities.length / PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages)
+  const pageStart = (currentPage - 1) * PAGE_SIZE
+  const pagedEntities = filteredEntities.slice(pageStart, pageStart + PAGE_SIZE)
+  const rangeStart = filteredEntities.length === 0 ? 0 : pageStart + 1
+  const rangeEnd = Math.min(pageStart + PAGE_SIZE, filteredEntities.length)
   const typePillClass = (type: string) => {
     if (type === 'character') return 'bg-blue-100 text-blue-700'
     if (type === 'place') return 'bg-amber-100 text-amber-800'
     return 'bg-admin-muted-surface text-admin-fg'
+  }
+
+  const sortIcon = (key: EntitySortKey) => {
+    if (sortKey !== key) return 'unfold_more'
+    return sortDir === 'asc' ? 'arrow_upward' : 'arrow_downward'
   }
 
   const breadcrumb = selectedDataset
@@ -127,7 +173,7 @@ function AdminEntities() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search entities by name or clue..."
+              placeholder="Search entities by name..."
               className="w-full bg-admin-panel border border-admin-border rounded-lg pl-10 pr-4 py-2.5 text-admin-fg focus:ring-2 focus:ring-primary/20 focus:border-primary"
             />
           </div>
@@ -150,11 +196,25 @@ function AdminEntities() {
               <option value="published">Published</option>
               <option value="unpublished">Unpublished</option>
             </select>
-            <button type="button" className="flex size-10 items-center justify-center rounded-lg border border-admin-border bg-admin-panel text-admin-muted hover:bg-admin-muted-surface" title="Filters">
-              <span className="material-symbols-outlined">filter_list</span>
-            </button>
           </div>
         </div>
+
+        <p className="mb-4 text-sm font-semibold text-admin-fg">
+          {filterType !== 'place' && (
+            <>
+              {filteredCharacterCount} {filteredCharacterCount === 1 ? 'character' : 'characters'}
+            </>
+          )}
+          {filterType === 'all' && ' · '}
+          {filterType !== 'character' && (
+            <>
+              {filteredPlaceCount} {filteredPlaceCount === 1 ? 'place' : 'places'}
+            </>
+          )}
+          {filteredEntities.length !== entities.length && (
+            <span className="font-normal text-admin-muted"> (filtered)</span>
+          )}
+        </p>
 
         <div className="flex flex-col gap-3 mb-4 md:hidden">
           <button
@@ -180,15 +240,35 @@ function AdminEntities() {
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="bg-admin-muted-surface text-admin-muted text-xs font-semibold uppercase tracking-wider">
-                  <th className="px-4 py-3">Name</th>
+                  <th className="px-4 py-3">
+                    <button
+                      type="button"
+                      onClick={() => toggleSort('name')}
+                      className="inline-flex items-center gap-1 hover:text-admin-fg"
+                      aria-label={`Sort by name ${sortKey === 'name' ? sortDir : 'asc'}`}
+                    >
+                      Name
+                      <span className="material-symbols-outlined text-sm">{sortIcon('name')}</span>
+                    </button>
+                  </th>
                   <th className="px-4 py-3">Type</th>
-                  <th className="px-4 py-3">Clues</th>
+                  <th className="px-4 py-3">
+                    <button
+                      type="button"
+                      onClick={() => toggleSort('clues')}
+                      className="inline-flex items-center gap-1 hover:text-admin-fg"
+                      aria-label={`Sort by clues ${sortKey === 'clues' ? sortDir : 'desc'}`}
+                    >
+                      Clues
+                      <span className="material-symbols-outlined text-sm">{sortIcon('clues')}</span>
+                    </button>
+                  </th>
                   <th className="px-4 py-3">Status</th>
                   <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-admin-border">
-                {filteredEntities.map((entity) => (
+                {pagedEntities.map((entity) => (
                   <tr key={entity.id} className="hover:bg-admin-muted-surface/50">
                     <td className="px-4 py-4 font-medium text-admin-fg">{entity.name}</td>
                     <td className="px-4 py-4">
@@ -225,15 +305,39 @@ function AdminEntities() {
               </tbody>
             </table>
           </div>
-          <div className="px-4 py-3 border-t border-admin-border flex items-center justify-between bg-admin-muted-surface/50">
+          <div className="px-4 py-3 border-t border-admin-border flex flex-wrap items-center justify-between gap-3 bg-admin-muted-surface/50">
             <span className="text-admin-muted text-sm">
-              Showing {filteredEntities.length} of {entities.length}
+              {filteredEntities.length === 0
+                ? 'Showing 0'
+                : `Showing ${rangeStart}–${rangeEnd} of ${filteredEntities.length}`}
             </span>
+            {filteredEntities.length > PAGE_SIZE && (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPage(currentPage - 1)}
+                  disabled={currentPage <= 1}
+                  className="px-3 py-1.5 rounded-lg border border-admin-border bg-admin-panel text-sm font-medium text-admin-fg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-admin-muted-surface"
+                >
+                  Previous
+                </button>
+                <span className="text-admin-muted text-sm tabular-nums">
+                  {currentPage} / {totalPages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPage(currentPage + 1)}
+                  disabled={currentPage >= totalPages}
+                  className="px-3 py-1.5 rounded-lg border border-admin-border bg-admin-panel text-sm font-medium text-admin-fg disabled:opacity-40 disabled:cursor-not-allowed hover:bg-admin-muted-surface"
+                >
+                  Next
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </section>
 
-      {/* Mobile: FAB for New entity (above bottom nav) */}
       <div className="md:hidden fixed right-4 bottom-20 z-20">
         <button
           type="button"
