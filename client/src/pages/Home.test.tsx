@@ -151,6 +151,7 @@ describe('Home', () => {
     expect(screen.getByRole('link', { name: /^solo$/i })).toHaveAttribute('href', '/solo')
     expect(screen.getByRole('link', { name: /pass & play/i })).toHaveAttribute('href', '/play')
     expect(screen.getByRole('link', { name: /^about$/i })).toHaveAttribute('href', '/about')
+    expect(screen.getByRole('link', { name: /^privacy$/i })).toHaveAttribute('href', '/privacy')
   })
 
   it('surfaces a kick message stashed in sessionStorage and clears it after showing', () => {

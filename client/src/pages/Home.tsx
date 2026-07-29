@@ -266,6 +266,14 @@ function Home() {
             About
           </Link>
         </nav>
+        <p className="mt-3 text-center">
+          <Link
+            to="/privacy"
+            className="text-white/70 text-xs font-medium underline-offset-2 hover:text-white hover:underline"
+          >
+            Privacy
+          </Link>
+        </p>
       </div>
 
       {error && (
