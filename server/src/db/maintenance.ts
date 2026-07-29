@@ -39,7 +39,7 @@ export class MaintenanceScheduleError extends Error {
       | 'STARTS_TOO_SOON'
       | 'OVERLAPPING_WINDOW'
       | 'NOT_FOUND'
-      | 'CANNOT_CANCEL',
+      | 'ALREADY_ENDED',
     message: string
   ) {
     super(message)
@@ -225,6 +225,10 @@ export async function createMaintenanceWindow(input: CreateMaintenanceInput): Pr
   return data as MaintenanceWindow
 }
 
+/**
+ * Removes a maintenance window. Safe before start (cancel) or during freeze/active
+ * (end early). Already-ended windows cannot be removed this way.
+ */
 export async function cancelMaintenanceWindow(id: string, now = Date.now()): Promise<void> {
   const { data, error } = await supabase
     .from('maintenance_windows')
@@ -241,10 +245,10 @@ export async function cancelMaintenanceWindow(id: string, now = Date.now()): Pro
   }
 
   const window = data as MaintenanceWindow
-  if (freezeStart(window) <= now) {
+  if (blockEnd(window) <= now) {
     throw new MaintenanceScheduleError(
-      'CANNOT_CANCEL',
-      'Cannot cancel a window that has already entered the freeze period'
+      'ALREADY_ENDED',
+      'This maintenance window has already ended'
     )
   }
 
