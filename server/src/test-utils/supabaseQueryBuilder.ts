@@ -42,6 +42,7 @@ export function createQueryBuilder(table: string, resolver: QueryResolver) {
     'like',
     'order',
     'limit',
+    'range',
     'single',
     'maybeSingle'
   ] as const

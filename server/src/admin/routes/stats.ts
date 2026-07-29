@@ -1,5 +1,6 @@
 import { Router, Response } from 'express'
 import { supabase } from '../../db/supabase.js'
+import { fetchAllPages } from '../../db/fetchAllPages.js'
 import { resolveDatasetIdFromRequest } from '../../db/entities.js'
 import type { AuthRequest } from '../auth.js'
 import { logger } from '../../utils/logger.js'
@@ -29,16 +30,20 @@ router.get('/stats', async (req: AuthRequest, res: Response) => {
     )
     if (unpublishedError) throw unpublishedError
 
-    const { data: datasetEntityIdsRaw, error: idsError } = await supabase
-      .from('entities')
-      .select('id, is_published')
-      .eq('dataset_id', datasetId)
-    if (idsError) throw idsError
+    const datasetEntityRows = await fetchAllPages<{ id: string; is_published: boolean }>(
+      (from, to) =>
+        supabase
+          .from('entities')
+          .select('id, is_published')
+          .eq('dataset_id', datasetId)
+          .order('id')
+          .range(from, to)
+    )
 
-    const datasetEntityIds = (datasetEntityIdsRaw ?? []).map((row) => row.id as string)
-    const unpublishedIdsForDataset = (datasetEntityIdsRaw ?? [])
+    const datasetEntityIds = datasetEntityRows.map((row) => row.id)
+    const unpublishedIdsForDataset = datasetEntityRows
       .filter((row) => row.is_published === false)
-      .map((row) => row.id as string)
+      .map((row) => row.id)
 
     let totalClues = 0
     let cluesWithoutDifficulty = 0
@@ -77,12 +82,14 @@ router.get('/stats', async (req: AuthRequest, res: Response) => {
       if (noDiffError) throw noDiffError
       cluesWithoutDifficulty = noDiffCount ?? 0
 
-      const { data: clueRows, error: clueRowsError } = await supabase
-        .from('clues')
-        .select('entity_id')
-        .in('entity_id', datasetEntityIds)
-      if (clueRowsError) throw clueRowsError
-      allClueRows = (clueRows ?? []) as Array<{ entity_id: string }>
+      allClueRows = await fetchAllPages<{ entity_id: string }>((from, to) =>
+        supabase
+          .from('clues')
+          .select('entity_id')
+          .in('entity_id', datasetEntityIds)
+          .order('id')
+          .range(from, to)
+      )
     }
 
     const { count: characterCount, error: charError } = await scopedEntities().eq('type', 'character')
