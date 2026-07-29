@@ -125,10 +125,19 @@ describe('validateGuess', () => {
       expect(validateGuess('MaryMagdalene', answerWithHyphen, false)).toBe(true)
     })
 
-    it('should ignore parenthetical clarifications in non-strict mode', () => {
+    it('should require parentheticals only when the guess includes them', () => {
       expect(validateGuess('Jude', "Jude (Jesus' brother)", false)).toBe(true)
       expect(validateGuess("Jude (Jesus' brother)", "Jude (Jesus' brother)", false)).toBe(true)
-      expect(validateGuess('Jude', "Jude (Jesus' brother)", true)).toBe(false)
+      expect(validateGuess('Jude (wrong person)', "Jude (Jesus' brother)", false)).toBe(false)
+      expect(validateGuess('Jude', "Jude (Jesus' brother)", true)).toBe(true)
+      expect(validateGuess('Pharaoh', 'Pharaoh (Egypt)', true)).toBe(true)
+      expect(validateGuess('Pharaoh (Nubia)', 'Pharaoh (Egypt)', true)).toBe(false)
+    })
+
+    it('should accept a single typo on longer names in non-strict mode', () => {
+      expect(validateGuess('Pharoah', 'Pharaoh (Egypt)', false)).toBe(true)
+      expect(validateGuess('Pharoah', 'Pharaoh', true)).toBe(false)
+      expect(validateGuess('Mary', 'Mark', false)).toBe(false)
     })
   })
 
@@ -160,18 +169,16 @@ describe('validateGuess', () => {
       })
     })
 
-    it('should allow punctuation variations in non-strict mode', () => {
+    it('should allow dash and apostrophe variations in every mode', () => {
       expect(validateGuess('Mary-Magdalene', 'Mary Magdalene', false)).toBe(true)
       expect(validateGuess('Mary Magdalene', 'Mary-Magdalene', false)).toBe(true)
-      expect(validateGuess("O'Brien", "O Brien", false)).toBe(true)
-      expect(validateGuess("O Brien", "O'Brien", false)).toBe(true)
-    })
-
-    it('should require exact punctuation in strict mode', () => {
-      expect(validateGuess('Mary-Magdalene', 'Mary Magdalene', true)).toBe(false)
-      expect(validateGuess('Mary Magdalene', 'Mary-Magdalene', true)).toBe(false)
-      expect(validateGuess("O'Brien", "O Brien", true)).toBe(false)
-      expect(validateGuess("O Brien", "O'Brien", true)).toBe(false)
+      expect(validateGuess("O'Brien", 'O Brien', false)).toBe(true)
+      expect(validateGuess('O Brien', "O'Brien", false)).toBe(true)
+      expect(validateGuess('Mary-Magdalene', 'Mary Magdalene', true)).toBe(true)
+      expect(validateGuess('Mary Magdalene', 'Mary-Magdalene', true)).toBe(true)
+      expect(validateGuess("O'Brien", 'O Brien', true)).toBe(true)
+      expect(validateGuess('O Brien', "O'Brien", true)).toBe(true)
+      expect(validateGuess('MaryMagdalene', 'Mary-Magdalene', true)).toBe(true)
     })
 
     it('should ignore articles (the, a, an) in non-strict mode', () => {
@@ -203,9 +210,9 @@ describe('validateGuess', () => {
       expect(validateGuess('SIMON', 'Peter', true, ['Simon'])).toBe(true)
     })
 
-    it('applies normalization rules to aliases too', () => {
+    it('applies punctuation normalization to aliases in every mode', () => {
       expect(validateGuess('Mary Magdalene', 'Mary', false, ['Mary-Magdalene'])).toBe(true)
-      expect(validateGuess('Mary Magdalene', 'Mary', true, ['Mary-Magdalene'])).toBe(false)
+      expect(validateGuess('Mary Magdalene', 'Mary', true, ['Mary-Magdalene'])).toBe(true)
     })
 
     it('rejects guesses that do not match any alias', () => {

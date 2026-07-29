@@ -125,7 +125,8 @@ export function saveSoloRecord(record: SoloRecord): { record: SoloRecord; isPers
     const records = readSoloRecords()
     const existing = records.find((item) => sameRecordCategory(item, record))
     if (existing && !isBetterRecord(record, existing)) {
-      return { record: existing, isPersonalBest: false }
+      // Always return this attempt for the results UI; PB stays in storage.
+      return { record, isPersonalBest: false }
     }
     const next = [...records.filter((item) => !sameRecordCategory(item, record)), record]
     localStorage.setItem(RECORDS_KEY, JSON.stringify(next))

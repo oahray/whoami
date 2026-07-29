@@ -62,6 +62,16 @@ describe('soloSession', () => {
     expect(getSoloRecord({ ...config, roundDurationMs: 45_000 })).toBeNull()
   })
 
+  it('returns this attempt on the results payload even when it is not a personal best', () => {
+    const first = { ...config, correctCount: 8, activeElapsedMs: 40_000, achievedAt: '2026-01-01T00:00:00.000Z' }
+    const worse = { ...first, correctCount: 3, activeElapsedMs: 50_000, achievedAt: '2026-01-02T00:00:00.000Z' }
+    saveSoloRecord(first)
+    const saved = saveSoloRecord(worse)
+    expect(saved.isPersonalBest).toBe(false)
+    expect(saved.record.correctCount).toBe(3)
+    expect(getSoloRecord(config)?.correctCount).toBe(8)
+  })
+
   it('lists personal records ranked by correct then time', () => {
     saveSoloRecord({
       ...config,
