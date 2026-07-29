@@ -236,7 +236,7 @@ function SoloGame() {
   const submitGuess = () => {
     if (!card || status !== 'active' || !guess.trim()) return
     if (!validateGuess(guess, card.entity.name, card.entity.aliases)) {
-      setFeedback('Not quite — keep trying.')
+      setFeedback('Not quite. Keep trying.')
       setGuess('')
       return
     }
@@ -362,7 +362,7 @@ function SoloGame() {
             )}
             {status === 'timeout' && (
               <section className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-center">
-                <p className="text-sm text-amber-900">Time&apos;s up — the answer was</p>
+                <p className="text-sm text-amber-900">Time&apos;s up. The answer was</p>
                 <p className="mt-1 text-2xl font-black text-amber-950">{card.entity.name}</p>
                 <button
                   type="button"

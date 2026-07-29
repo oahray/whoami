@@ -20,6 +20,8 @@ describe('About', () => {
     expect(screen.getByRole('heading', { name: 'Pass & play' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Install the app' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Content' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Feedback' })).toBeInTheDocument()
+    expect(screen.getByText(/report issues and share feedback shortly/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /your preferences/i })).toBeInTheDocument()
     expect(screen.getAllByRole('link', { name: /back to home/i })).toHaveLength(2)
     expect(screen.getByLabelText('Back to home')).toHaveAttribute('href', '/')

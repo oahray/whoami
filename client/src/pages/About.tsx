@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom'
+import FeedbackLink from '../components/FeedbackLink'
 import PreferencesMenu from '../components/PreferencesMenu'
+import { isFeedbackConfigured } from '../lib/feedback'
 
 function About() {
   return (
@@ -147,6 +149,35 @@ function About() {
           </p>
         </section>
 
+        {isFeedbackConfigured() ? (
+          <section className="bg-surface rounded-lg border border-edge shadow-sm p-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary">rate_review</span>
+              <h2 className="text-lg font-bold text-foreground">Feedback</h2>
+            </div>
+            <p className="text-foreground text-sm leading-relaxed">
+              Spotted a problem or have an idea? Send anonymous feedback. No name or email required.
+              It opens a short Google Form and is not stored on the game servers.
+            </p>
+            <FeedbackLink className="inline-flex items-center gap-2 text-primary font-semibold text-sm hover:text-primary/80">
+              <span className="material-symbols-outlined text-lg" aria-hidden>
+                open_in_new
+              </span>
+              Send feedback
+            </FeedbackLink>
+          </section>
+        ) : (
+          <section className="bg-surface rounded-lg border border-edge shadow-sm p-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary">rate_review</span>
+              <h2 className="text-lg font-bold text-foreground">Feedback</h2>
+            </div>
+            <p className="text-foreground text-sm leading-relaxed">
+              You will be able to report issues and share feedback shortly.
+            </p>
+          </section>
+        )}
+
         <div className="pt-2 flex flex-wrap gap-4">
           <Link
             to="/"
@@ -166,6 +197,12 @@ function About() {
             </span>
             Privacy
           </Link>
+          <FeedbackLink className="inline-flex items-center gap-2 text-primary font-semibold text-sm hover:text-primary/80">
+            <span className="material-symbols-outlined text-lg" aria-hidden>
+              rate_review
+            </span>
+            Feedback
+          </FeedbackLink>
         </div>
       </main>
     </div>

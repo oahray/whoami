@@ -17,6 +17,8 @@ describe('Privacy', () => {
     expect(screen.getByRole('heading', { name: 'What we collect' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Stored on your device' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'How we use information' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Feedback' })).toBeInTheDocument()
+    expect(screen.getByText(/report issues and share feedback shortly/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /your preferences/i })).toBeInTheDocument()
     expect(screen.getByLabelText('Back to home')).toHaveAttribute('href', '/')
     expect(screen.getAllByRole('link', { name: /^about$/i }).length).toBeGreaterThan(0)

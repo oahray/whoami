@@ -1,7 +1,11 @@
 import { Link } from 'react-router-dom'
+import FeedbackLink from '../components/FeedbackLink'
 import PreferencesMenu from '../components/PreferencesMenu'
+import { isFeedbackConfigured } from '../lib/feedback'
 
 function Privacy() {
+  const feedbackReady = isFeedbackConfigured()
+
   return (
     <div className="min-h-screen bg-app-bg font-display text-foreground antialiased">
       <header className="sticky top-0 z-10 border-b border-edge bg-surface/95 backdrop-blur-sm">
@@ -43,20 +47,20 @@ function Privacy() {
           </div>
           <ul className="list-disc list-inside space-y-2 text-foreground text-sm leading-relaxed">
             <li>
-              <strong>Nickname</strong> — optional display name for online rooms. It is not a login and
-              is not tied to an email or password for players.
+              <strong>Nickname:</strong> an optional display name for online rooms. It is not a login
+              and is not tied to an email or password for players.
             </li>
             <li>
-              <strong>Room and game activity</strong> — room codes, lobby settings, guesses, scores, and
+              <strong>Room and game activity:</strong> room codes, lobby settings, guesses, scores, and
               connection status while an online game is in progress on our game server.
             </li>
             <li>
-              <strong>Technical connection data</strong> — like most websites, our hosting and game
-              server may see IP address, browser details, and similar request metadata needed to run the
-              service and keep it secure.
+              <strong>Technical connection data:</strong> our hosting and game server may see IP
+              address, browser details, and similar request metadata needed to run the service and keep
+              it secure.
             </li>
             <li>
-              <strong>Published game content</strong> — datasets, entities, and clues are loaded from our
+              <strong>Published game content:</strong> datasets, entities, and clues are loaded from our
               database when you play online, solo, or pass &amp; play.
             </li>
           </ul>
@@ -68,7 +72,7 @@ function Privacy() {
             <h2 className="text-lg font-bold text-foreground">Stored on your device</h2>
           </div>
           <p className="text-foreground text-sm leading-relaxed">
-            Some preferences and progress stay in your browser storage on this device only, for example:
+            Some preferences and progress stay in your browser storage on this device only:
           </p>
           <ul className="list-disc list-inside space-y-2 text-foreground text-sm leading-relaxed">
             <li>Nickname reminder and last online room reconnect details</li>
@@ -92,7 +96,7 @@ function Privacy() {
             <li>To run online rooms, reveal clues, and show scores</li>
             <li>To load clue content for solo and pass &amp; play</li>
             <li>To remember your preferences and reconnect you to a room on this device</li>
-            <li>To operate, secure, and maintain the service (including scheduled maintenance)</li>
+            <li>To operate, secure, and maintain the service, including scheduled maintenance</li>
           </ul>
           <p className="text-foreground text-sm leading-relaxed">
             We do not sell your personal information. We do not use player nicknames or guesses for
@@ -107,24 +111,16 @@ function Privacy() {
           </div>
           <p className="text-foreground text-sm leading-relaxed">
             Online room state is temporary and exists to support the current game session. Device
-            preferences and solo records remain until you clear them or uninstall/clear site data.
-            If you install Who Am I? as an app, your browser may also cache the app shell for faster
-            launch; gameplay still needs an internet connection to load rooms and clues.
+            preferences and solo records remain until you clear them or clear site data. If you install
+            Who Am I? as an app, your browser may also cache the app shell for faster launch. Gameplay
+            still needs an internet connection to load rooms and clues.
           </p>
         </section>
 
-        <section className="bg-surface rounded-lg border border-edge shadow-sm p-5 space-y-3">
-          <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary">admin_panel_settings</span>
-            <h2 className="text-lg font-bold text-foreground">Admin access</h2>
-          </div>
-          <p className="text-foreground text-sm leading-relaxed">
-            A separate admin area is used only by operators to manage content and maintenance. Admin
-            sign-in uses authenticated accounts and is not part of normal player play.
-          </p>
-        </section>
-
-        <section className="bg-surface rounded-lg border border-edge shadow-sm p-5 space-y-3" aria-labelledby="privacy-children">
+        <section
+          className="bg-surface rounded-lg border border-edge shadow-sm p-5 space-y-3"
+          aria-labelledby="privacy-children"
+        >
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-primary text-2xl" aria-hidden>
               children
@@ -135,7 +131,7 @@ function Privacy() {
           </div>
           <p className="text-foreground text-sm leading-relaxed">
             Who Am I? is meant as a family-friendly Bible quiz. We do not knowingly collect personal
-            information from children beyond what is needed to play (such as a nickname in a room). If
+            information from children beyond what is needed to play, such as a nickname in a room. If
             you believe a child has provided information that should be removed from a live session,
             leave the room or ask the host to end the game.
           </p>
@@ -148,20 +144,25 @@ function Privacy() {
           </div>
           <p className="text-foreground text-sm leading-relaxed">
             We may update this policy as the app changes. The &quot;Last updated&quot; date at the top
-            will change when we do. Continued use of Who Am I? after an update means you accept the
-            revised policy.
+            will change when we do.
           </p>
         </section>
 
         <section className="bg-surface rounded-lg border border-edge shadow-sm p-5 space-y-3">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-primary">mail</span>
-            <h2 className="text-lg font-bold text-foreground">Questions</h2>
+            <h2 className="text-lg font-bold text-foreground">Feedback</h2>
           </div>
-          <p className="text-foreground text-sm leading-relaxed">
-            For privacy questions about Who Am I?, contact the site operator. A built-in feedback
-            option may also be added later for reports and suggestions.
-          </p>
+          {feedbackReady ? (
+            <p className="text-foreground text-sm leading-relaxed">
+              You can report issues and share feedback anonymously through the feedback form. No name
+              or email is required, and submissions are not stored on the game servers.
+            </p>
+          ) : (
+            <p className="text-foreground text-sm leading-relaxed">
+              You will be able to report issues and share feedback shortly.
+            </p>
+          )}
           <p className="text-foreground-muted text-xs">
             See also{' '}
             <Link to="/about" className="text-primary font-semibold hover:text-primary/80">
@@ -190,6 +191,12 @@ function Privacy() {
             </span>
             About
           </Link>
+          <FeedbackLink className="inline-flex items-center gap-2 text-primary font-semibold text-sm hover:text-primary/80">
+            <span className="material-symbols-outlined text-lg" aria-hidden>
+              rate_review
+            </span>
+            Feedback
+          </FeedbackLink>
         </div>
       </main>
     </div>
