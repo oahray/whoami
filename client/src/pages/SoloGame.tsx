@@ -39,6 +39,7 @@ function SoloGame() {
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<{ record: SoloRecord; isPersonalBest: boolean } | null>(null)
   const [restarting, setRestarting] = useState(false)
+  const [settleSeconds, setSettleSeconds] = useState<number | null>(null)
   const roundStartedAt = useRef(0)
   const activeSession = useRef<SoloSession | null>(null)
   const guessInputRef = useRef<HTMLInputElement | null>(null)
@@ -151,10 +152,26 @@ function SoloGame() {
   }, [session, card, status, loading])
 
   useEffect(() => {
-    if (status !== 'timeout' && status !== 'correct') return
-    if (session?.variation !== 'endurance') return
+    if (status !== 'timeout' && status !== 'correct') {
+      setSettleSeconds(null)
+      return
+    }
+    if (session?.variation !== 'endurance') {
+      setSettleSeconds(null)
+      return
+    }
+
+    const endsAt = Date.now() + ENDURANCE_SETTLE_MS
+    const tick = () => {
+      setSettleSeconds(Math.max(0, Math.ceil((endsAt - Date.now()) / 1000)))
+    }
+    tick()
+    const interval = window.setInterval(tick, 200)
     const timeout = window.setTimeout(() => advance(status === 'correct'), ENDURANCE_SETTLE_MS)
-    return () => window.clearTimeout(timeout)
+    return () => {
+      window.clearInterval(interval)
+      window.clearTimeout(timeout)
+    }
   }, [status, advance, session?.variation])
 
   useEffect(() => {
@@ -278,6 +295,16 @@ function SoloGame() {
         ? 'Next'
         : 'See results'
       : 'Next round'
+  const settleCountdownLabel =
+    session.variation === 'endurance' && settleSeconds !== null
+      ? status === 'correct'
+        ? settleSeconds > 0
+          ? `Next round starting in ${settleSeconds}s…`
+          : 'Next round starting…'
+        : settleSeconds > 0
+          ? `Results in ${settleSeconds}s…`
+          : 'Showing results…'
+      : null
   const revealedCount = card
     ? Math.min(card.clues.length, 1 + Math.floor((session.roundDurationMs - remainingMs) / session.clueRevealIntervalMs))
     : 0
@@ -328,6 +355,9 @@ function SoloGame() {
                 >
                   {settleAdvanceLabel}
                 </button>
+                {settleCountdownLabel && (
+                  <p className="mt-3 text-xs font-medium italic text-green-800/80">{settleCountdownLabel}</p>
+                )}
               </section>
             )}
             {status === 'timeout' && (
@@ -341,6 +371,9 @@ function SoloGame() {
                 >
                   {settleAdvanceLabel}
                 </button>
+                {settleCountdownLabel && (
+                  <p className="mt-3 text-xs font-medium italic text-amber-900/80">{settleCountdownLabel}</p>
+                )}
               </section>
             )}
           </>
