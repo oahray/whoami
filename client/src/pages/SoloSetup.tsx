@@ -1,10 +1,16 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { DifficultyMultiSelect } from '../components/DifficultyMultiSelect'
 import LoadingState from '../components/LoadingState'
 import MaintenanceBanner from '../components/MaintenanceBanner'
 import PreferencesMenu from '../components/PreferencesMenu'
 import { useMaintenanceStatus } from '../hooks/useMaintenanceStatus'
 import { API_BASE_URL } from '../lib/apiBase'
+import {
+  coerceDifficultySelection,
+  encodeDifficultySelection,
+  type DifficultySelection
+} from '../lib/difficultySelection'
 import {
   DEFAULT_ENTITY_TYPE_FILTER,
   ENTITY_TYPE_FIELD_LABEL,
@@ -13,9 +19,7 @@ import {
 } from '../lib/entityTypeFilter'
 import {
   fetchInPersonEligibility,
-  firstPlayableDifficulty,
-  IN_PERSON_DIFFICULTY_OPTIONS,
-  isDifficultyPlayable,
+  isDifficultySelectionPlayable,
   type InPersonEligibility
 } from '../lib/inPersonEligibility'
 import { isMaintenanceBlockingNewGames } from '../lib/maintenance'
@@ -24,13 +28,15 @@ import {
   formatSoloTime,
   getSoloRecord,
   listSoloRecords,
+  loadSoloSetupPreferences,
   saveSoloSession,
+  saveSoloSetupPreferences,
   soloConfigSummary,
   type SoloConfig,
   type SoloVariation
 } from '../lib/soloSession'
 import { unlockAudio } from '../lib/sounds'
-import type { GameDifficultyMode, PublicDataset } from '../types'
+import type { PublicDataset } from '../types'
 
 const TIMER_OPTIONS = [15, 30, 45, 60]
 const CLUE_INTERVAL_OPTIONS = [5, 10, 15]
@@ -39,13 +45,22 @@ function SoloSetup() {
   const navigate = useNavigate()
   const { status: maintenanceStatus } = useMaintenanceStatus()
   const maintenanceBlocking = isMaintenanceBlockingNewGames(maintenanceStatus)
+  const savedPrefs = loadSoloSetupPreferences()
   const [datasets, setDatasets] = useState<PublicDataset[]>([])
   const [datasetId, setDatasetId] = useState('')
-  const [entityType, setEntityType] = useState<EntityTypeFilter>(DEFAULT_ENTITY_TYPE_FILTER)
-  const [difficulty, setDifficulty] = useState<GameDifficultyMode>('any')
-  const [variation, setVariation] = useState<SoloVariation>('challenge')
-  const [roundSeconds, setRoundSeconds] = useState(30)
-  const [clueIntervalSeconds, setClueIntervalSeconds] = useState(10)
+  const [entityType, setEntityType] = useState<EntityTypeFilter>(
+    savedPrefs?.entityType ?? DEFAULT_ENTITY_TYPE_FILTER
+  )
+  const [difficulty, setDifficulty] = useState<DifficultySelection>(
+    coerceDifficultySelection(savedPrefs?.difficulty)
+  )
+  const [variation, setVariation] = useState<SoloVariation>(savedPrefs?.variation ?? 'challenge')
+  const [roundSeconds, setRoundSeconds] = useState(
+    savedPrefs ? savedPrefs.roundDurationMs / 1000 : 30
+  )
+  const [clueIntervalSeconds, setClueIntervalSeconds] = useState(
+    savedPrefs ? savedPrefs.clueRevealIntervalMs / 1000 : 10
+  )
   const [eligibility, setEligibility] = useState<InPersonEligibility | null>(null)
   const [loading, setLoading] = useState(true)
   const [eligibilityLoading, setEligibilityLoading] = useState(false)
@@ -53,10 +68,10 @@ function SoloSetup() {
   const [error, setError] = useState<string | null>(null)
   const [offline, setOffline] = useState(!navigator.onLine)
 
-  const selectedCount = eligibility?.modes[difficulty] ?? 0
+  const selectionPlayable = isDifficultySelectionPlayable(eligibility, difficulty)
   const canStart =
     Boolean(datasetId) &&
-    selectedCount > 0 &&
+    selectionPlayable &&
     !starting &&
     !eligibilityLoading &&
     !offline &&
@@ -74,39 +89,30 @@ function SoloSetup() {
     : null
 
   const currentBest = currentConfig ? getSoloRecord(currentConfig) : null
-  const challengeRecords = listSoloRecords('challenge')
-  const enduranceRecords = listSoloRecords('endurance')
+  const challengeRecords = datasetId ? listSoloRecords('challenge', datasetId) : []
+  const enduranceRecords = datasetId ? listSoloRecords('endurance', datasetId) : []
   const hasAnyRecords = challengeRecords.length > 0 || enduranceRecords.length > 0
+  const selectedDatasetName = datasets.find((dataset) => dataset.id === datasetId)?.name
 
   const renderRecordList = (records: typeof challengeRecords) => (
     <ul className="space-y-2">
       {records.map((record) => {
         const isCurrent =
           currentConfig !== null &&
-          record.datasetId === currentConfig.datasetId &&
           record.difficulty === currentConfig.difficulty &&
           record.entityType === currentConfig.entityType &&
-          record.variation === currentConfig.variation &&
           record.roundDurationMs === currentConfig.roundDurationMs &&
           record.clueRevealIntervalMs === currentConfig.clueRevealIntervalMs
         return (
           <li
-            key={[
-              record.datasetId,
-              record.entityType,
-              record.difficulty,
-              record.variation,
-              record.roundDurationMs,
-              record.clueRevealIntervalMs
-            ].join(':')}
+            key={`${record.achievedAt}:${record.correctCount}:${record.activeElapsedMs}:${record.roundDurationMs}`}
             className={`rounded-lg border p-3 ${
               isCurrent ? 'border-primary bg-primary/5' : 'border-edge bg-surface-muted'
             }`}
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-sm font-bold truncate">{datasetName(record.datasetId)}</p>
-                <p className="text-xs text-foreground-muted mt-0.5">
+                <p className="text-sm font-bold">
                   {soloConfigSummary(record, { includeVariation: false })}
                 </p>
               </div>
@@ -144,7 +150,13 @@ function SoloSetup() {
       .then((rows) => {
         if (cancelled) return
         setDatasets(rows)
-        setDatasetId(rows.find((dataset) => dataset.is_default)?.id ?? rows[0]?.id ?? '')
+        const prefs = loadSoloSetupPreferences()
+        const preferred =
+          (prefs?.datasetId && rows.some((row) => row.id === prefs.datasetId) && prefs.datasetId) ||
+          rows.find((dataset) => dataset.is_default)?.id ||
+          rows[0]?.id ||
+          ''
+        setDatasetId(preferred)
       })
       .catch((err) => !cancelled && setError(err instanceof Error ? err.message : 'Failed to load content'))
       .finally(() => !cancelled && setLoading(false))
@@ -157,13 +169,12 @@ function SoloSetup() {
     if (!datasetId || offline) return
     let cancelled = false
     setEligibilityLoading(true)
-    fetchInPersonEligibility(datasetId, entityType)
+    fetchInPersonEligibility(datasetId, entityType, { difficulty })
       .then((data) => {
         if (cancelled) return
         setEligibility(data)
-        if (!isDifficultyPlayable(data.modes, difficulty)) {
-          const fallback = firstPlayableDifficulty(data.modes)
-          if (fallback) setDifficulty(fallback)
+        if (!isDifficultySelectionPlayable(data, difficulty) && (data.modes.any ?? 0) > 0) {
+          setDifficulty([])
         }
       })
       .catch((err) => !cancelled && setError(err instanceof Error ? err.message : 'Failed to load eligibility'))
@@ -179,24 +190,27 @@ function SoloSetup() {
     setError(null)
     unlockAudio()
     try {
-      const query = new URLSearchParams({ datasetId, difficulty, entityType })
+      const query = new URLSearchParams({
+        datasetId,
+        difficulty: encodeDifficultySelection(difficulty),
+        entityType
+      })
       const response = await fetch(`${API_BASE_URL}/cards/deck?${query}`)
       if (!response.ok) {
         const body = await response.json().catch(() => ({}))
         throw new Error(body.error ?? `Failed to load cards (${response.status})`)
       }
       const { entityIds } = (await response.json()) as { entityIds: string[] }
-      const session = createSoloSession(
-        {
-          datasetId,
-          difficulty,
-          entityType,
-          variation,
-          roundDurationMs: roundSeconds * 1000,
-          clueRevealIntervalMs: clueIntervalSeconds * 1000
-        },
-        entityIds
-      )
+      const config = {
+        datasetId,
+        difficulty,
+        entityType,
+        variation,
+        roundDurationMs: roundSeconds * 1000,
+        clueRevealIntervalMs: clueIntervalSeconds * 1000
+      }
+      const session = createSoloSession(config, entityIds)
+      saveSoloSetupPreferences(config)
       saveSoloSession(session)
       navigate('/solo/play')
     } catch (err) {
@@ -205,8 +219,6 @@ function SoloSetup() {
       setStarting(false)
     }
   }
-
-  const datasetName = (id: string) => datasets.find((dataset) => dataset.id === id)?.name ?? 'Content'
 
   return (
     <div className="min-h-screen bg-app-bg font-display text-foreground">
@@ -269,30 +281,23 @@ function SoloSetup() {
                 ))}
               </select>
             </label>
-            <label className="block text-sm font-semibold">
-              Difficulty
-              <select
-                value={difficulty}
-                onChange={(event) => setDifficulty(event.target.value as GameDifficultyMode)}
-                disabled={eligibilityLoading}
-                className="mt-2 w-full rounded-lg bg-surface-muted p-2.5 font-normal disabled:opacity-50"
-              >
-                {IN_PERSON_DIFFICULTY_OPTIONS.map((option) => (
-                  <option
-                    key={option.value}
-                    value={option.value}
-                    disabled={(eligibility?.modes[option.value] ?? 0) === 0}
-                  >
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              {!eligibilityLoading && eligibility && selectedCount === 0 && (
-                <span className="mt-1 block text-xs font-normal text-amber-700 dark:text-amber-300">
-                  Not enough clues for this difficulty. Choose another.
-                </span>
-              )}
-            </label>
+            <DifficultyMultiSelect
+              value={difficulty}
+              onChange={setDifficulty}
+              disabled={eligibilityLoading}
+              anyCount={eligibility?.modes.any}
+              tierCounts={{
+                easy: eligibility?.modes.easy,
+                medium: eligibility?.modes.medium,
+                hard: eligibility?.modes.hard,
+                nightmare: eligibility?.modes.nightmare
+              }}
+            />
+            {!eligibilityLoading && eligibility && !selectionPlayable && (
+              <p className="text-xs font-normal text-amber-700 dark:text-amber-300">
+                Not enough clues for this difficulty mix. Choose another.
+              </p>
+            )}
             <fieldset>
               <legend className="text-sm font-semibold">Variation</legend>
               <div className="mt-2 grid grid-cols-2 gap-2">
@@ -377,7 +382,10 @@ function SoloSetup() {
               <span className="material-symbols-outlined text-primary">leaderboard</span>
               <h2 className="text-base font-bold">Personal bests</h2>
             </div>
-            <p className="text-xs text-foreground-muted">Saved on this device only.</p>
+            <p className="text-xs text-foreground-muted">
+              Top 5 per mode on this device
+              {selectedDatasetName ? ` · ${selectedDatasetName}` : ''}.
+            </p>
             {!hasAnyRecords ? (
               <p className="text-sm text-foreground-muted">No records yet. Finish a run to set one.</p>
             ) : (

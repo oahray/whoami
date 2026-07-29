@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { DifficultyMultiSelect } from '../components/DifficultyMultiSelect'
 import LoadingState from '../components/LoadingState'
 import MaintenanceBanner from '../components/MaintenanceBanner'
 import PreferencesMenu from '../components/PreferencesMenu'
@@ -7,10 +8,12 @@ import { useMaintenanceStatus } from '../hooks/useMaintenanceStatus'
 import { isMaintenanceBlockingNewGames } from '../lib/maintenance'
 import { API_BASE_URL } from '../lib/apiBase'
 import {
+  encodeDifficultySelection,
+  type DifficultySelection
+} from '../lib/difficultySelection'
+import {
   fetchInPersonEligibility,
-  firstPlayableDifficulty,
-  IN_PERSON_DIFFICULTY_OPTIONS,
-  isDifficultyPlayable,
+  isDifficultySelectionPlayable,
   type InPersonEligibility
 } from '../lib/inPersonEligibility'
 import {
@@ -22,7 +25,7 @@ import {
 } from '../lib/entityTypeFilter'
 import { fetchInPersonDeck } from '../lib/inPersonDeck'
 import { unlockAudio } from '../lib/sounds'
-import type { GameDifficultyMode, PublicDataset } from '../types'
+import type { PublicDataset } from '../types'
 
 function PlaySetup() {
   const navigate = useNavigate()
@@ -31,7 +34,7 @@ function PlaySetup() {
   const [datasets, setDatasets] = useState<PublicDataset[]>([])
   const [datasetId, setDatasetId] = useState('')
   const [entityType, setEntityType] = useState<EntityTypeFilter>(DEFAULT_ENTITY_TYPE_FILTER)
-  const [difficulty, setDifficulty] = useState<GameDifficultyMode>('any')
+  const [difficulty, setDifficulty] = useState<DifficultySelection>([])
   const [eligibility, setEligibility] = useState<InPersonEligibility | null>(null)
   const [loading, setLoading] = useState(true)
   const [eligibilityLoading, setEligibilityLoading] = useState(false)
@@ -43,14 +46,14 @@ function PlaySetup() {
 
   const showDatasetPicker = datasets.length > 1
   const selectedDataset = datasets.find((d) => d.id === datasetId)
-  const selectedCount = eligibility?.modes[difficulty] ?? 0
+  const selectionPlayable = isDifficultySelectionPlayable(eligibility, difficulty)
   const canStart =
     Boolean(datasetId) &&
     !offline &&
     !starting &&
     !eligibilityLoading &&
     !maintenanceBlocking &&
-    selectedCount > 0
+    selectionPlayable
 
   useEffect(() => {
     const onOnline = () => setOffline(false)
@@ -102,13 +105,12 @@ function PlaySetup() {
     setEligibilityLoading(true)
     setError(null)
 
-    fetchInPersonEligibility(datasetId, entityType)
+    fetchInPersonEligibility(datasetId, entityType, { difficulty })
       .then((data) => {
         if (cancelled) return
         setEligibility(data)
-        if (!isDifficultyPlayable(data.modes, difficulty)) {
-          const fallback = firstPlayableDifficulty(data.modes)
-          if (fallback) setDifficulty(fallback)
+        if (!isDifficultySelectionPlayable(data, difficulty) && (data.modes.any ?? 0) > 0) {
+          setDifficulty([])
         }
       })
       .catch((err) => {
@@ -124,7 +126,7 @@ function PlaySetup() {
     return () => {
       cancelled = true
     }
-  }, [datasetId, entityType, offline])
+  }, [datasetId, entityType, difficulty, offline])
 
   const handleStart = async () => {
     if (!canStart) return
@@ -133,7 +135,11 @@ function PlaySetup() {
     unlockAudio()
     try {
       await fetchInPersonDeck(datasetId, difficulty, entityType)
-      const params = new URLSearchParams({ datasetId, difficulty, entityType })
+      const params = new URLSearchParams({
+        datasetId,
+        difficulty: encodeDifficultySelection(difficulty),
+        entityType
+      })
       navigate(`/play/cards?${params.toString()}`)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to start cards')
@@ -143,9 +149,7 @@ function PlaySetup() {
   }
 
   const noPlayableModes =
-    eligibility &&
-    !eligibilityLoading &&
-    IN_PERSON_DIFFICULTY_OPTIONS.every((opt) => (eligibility.modes[opt.value] ?? 0) === 0)
+    eligibility && !eligibilityLoading && (eligibility.modes.any ?? 0) === 0
 
   return (
     <div className="min-h-screen bg-app-bg font-display text-foreground antialiased">
@@ -252,26 +256,19 @@ function PlaySetup() {
             </div>
 
             <div>
-              <label htmlFor="playDifficulty" className="block text-foreground text-sm font-semibold mb-2">
-                Difficulty
-              </label>
-              <select
+              <DifficultyMultiSelect
                 id="playDifficulty"
                 value={difficulty}
-                onChange={(e) => setDifficulty(e.target.value as GameDifficultyMode)}
+                onChange={setDifficulty}
                 disabled={eligibilityLoading || Boolean(noPlayableModes)}
-                className="w-full bg-surface-muted border-0 rounded-lg text-foreground focus:ring-2 focus:ring-primary py-2.5 px-3 disabled:opacity-60"
-              >
-                {IN_PERSON_DIFFICULTY_OPTIONS.map((opt) => {
-                  const count = eligibility?.modes[opt.value] ?? 0
-                  const disabled = eligibility !== null && count === 0
-                  return (
-                    <option key={opt.value} value={opt.value} disabled={disabled}>
-                      {opt.label}
-                    </option>
-                  )
-                })}
-              </select>
+                anyCount={eligibility?.modes.any}
+                tierCounts={{
+                  easy: eligibility?.modes.easy,
+                  medium: eligibility?.modes.medium,
+                  hard: eligibility?.modes.hard,
+                  nightmare: eligibility?.modes.nightmare
+                }}
+              />
               {eligibilityLoading && (
                 <div className="mt-1">
                   <LoadingState
@@ -282,19 +279,16 @@ function PlaySetup() {
                   />
                 </div>
               )}
-              {!eligibilityLoading && eligibility && selectedCount > 0 && (
+              {!eligibilityLoading && eligibility && selectionPlayable && (
                 <p className="text-xs text-foreground-muted mt-1">
                   Clues are shuffled every card.
                 </p>
               )}
-              {!eligibilityLoading &&
-                eligibility &&
-                !noPlayableModes &&
-                selectedCount === 0 && (
-                  <p className="text-xs text-amber-700 mt-1">
-                    Not enough clues for this difficulty. Choose another.
-                  </p>
-                )}
+              {!eligibilityLoading && eligibility && !noPlayableModes && !selectionPlayable && (
+                <p className="text-xs text-amber-700 mt-1">
+                  Not enough clues for this difficulty mix. Choose another.
+                </p>
+              )}
             </div>
 
             <button

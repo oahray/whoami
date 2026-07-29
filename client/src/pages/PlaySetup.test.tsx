@@ -56,7 +56,8 @@ describe('PlaySetup', () => {
               medium: 0,
               hard: 0,
               nightmare: 0
-            }
+            },
+            selectedCount: 2
           })
         } as Response
       }
@@ -79,9 +80,9 @@ describe('PlaySetup', () => {
       expect(screen.getByRole('button', { name: /start cards/i })).toBeInTheDocument()
     })
 
-    const difficultySelect = screen.getByLabelText(/difficulty/i) as HTMLSelectElement
     await waitFor(() => {
-      expect(difficultySelect.options[2]).toBeDisabled()
+      expect(screen.getByRole('button', { name: /^medium$/i })).toBeDisabled()
+      expect(screen.getByRole('button', { name: /^hard$/i })).toBeDisabled()
     })
 
     fireEvent.click(screen.getByRole('button', { name: /start cards/i }))

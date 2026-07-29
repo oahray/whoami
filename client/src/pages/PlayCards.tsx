@@ -1,8 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import LoadingState from '../components/LoadingState'
 import SoundToggle from '../components/SoundToggle'
 import { API_BASE_URL } from '../lib/apiBase'
+import {
+  coerceDifficultySelection,
+  encodeDifficultySelection
+} from '../lib/difficultySelection'
 import {
   advanceToNextDeck,
   currentDeckEntityIds,
@@ -29,7 +33,11 @@ function PlayCards() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const datasetId = searchParams.get('datasetId') ?? ''
-  const difficulty = searchParams.get('difficulty') ?? 'any'
+  const difficultyParam = searchParams.get('difficulty') ?? 'any'
+  const difficulty = useMemo(
+    () => coerceDifficultySelection(difficultyParam),
+    [difficultyParam]
+  )
   const entityType = (searchParams.get('entityType') ??
     DEFAULT_ENTITY_TYPE_FILTER) as EntityTypeFilter
 
@@ -48,11 +56,7 @@ function PlayCards() {
   const cluesScrollRef = useRef<HTMLElement>(null)
 
   const syncDeckSession = useCallback(() => {
-    const session = loadDeckSession(
-      datasetId,
-      difficulty as InPersonDeckSession['difficulty'],
-      entityType
-    )
+    const session = loadDeckSession(datasetId, difficulty, entityType)
     setDeckSession(session)
     return session
   }, [datasetId, difficulty, entityType])
@@ -117,7 +121,7 @@ function PlayCards() {
       setDeckComplete(false)
       setSessionComplete(false)
 
-      const params = new URLSearchParams({ datasetId, difficulty, entityType })
+      const params = new URLSearchParams({ datasetId, difficulty: difficultyParam, entityType })
       try {
         const res = await fetch(
           `${API_BASE_URL}/cards/entity/${encodeURIComponent(entityId)}?${params.toString()}`
@@ -309,7 +313,7 @@ function PlayCards() {
     try {
       const session = await fetchInPersonDeck(
         datasetId,
-        difficulty as InPersonDeckSession['difficulty'],
+        difficulty,
         entityType
       )
       setDeckSession(session)

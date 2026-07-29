@@ -9,6 +9,11 @@ import { fetchAllPages } from '../db/fetchAllPages.js'
 import { supabase } from '../db/supabase.js'
 import { IN_PERSON_CLUES_MIN, IN_PERSON_CLUES_MAX } from './config.js'
 import {
+  countCluesForSelection,
+  parseDifficultySelection,
+  type DifficultySelection
+} from './difficultySelection.js'
+import {
   DEFAULT_ENTITY_TYPE_FILTER,
   entityMatchesTypeFilter,
   type EntityTypeFilter
@@ -27,6 +32,16 @@ export type InPersonCardPayload = {
 
 export type InPersonEligibility = {
   modes: Record<GameDifficultyMode, number>
+  /** Entities eligible for the requested difficulty selection (defaults to any). */
+  selectedCount: number
+}
+
+function coerceSelection(
+  value: DifficultySelection | GameDifficultyMode | undefined
+): DifficultySelection {
+  if (value == null) return []
+  if (typeof value === 'string') return parseDifficultySelection(value) ?? []
+  return value
 }
 
 export class InPersonPlayError extends Error {
@@ -121,11 +136,18 @@ async function fetchClueCountsByEntity(
   return countsByEntity
 }
 
-function isEligibleForMode(counts: EntityClueCounts, mode: GameDifficultyMode): boolean {
-  return counts[mode] >= IN_PERSON_CLUES_MIN
+function isEligibleForSelection(counts: EntityClueCounts, selection: DifficultySelection): boolean {
+  return countCluesForSelection(counts, selection) >= IN_PERSON_CLUES_MIN
 }
 
-function countEligibleModes(countsByEntity: Map<string, EntityClueCounts>): InPersonEligibility {
+function isEligibleForMode(counts: EntityClueCounts, mode: GameDifficultyMode): boolean {
+  return isEligibleForSelection(counts, coerceSelection(mode))
+}
+
+function countEligibleModes(
+  countsByEntity: Map<string, EntityClueCounts>,
+  selection: DifficultySelection
+): InPersonEligibility {
   const modes = emptyClueCounts()
   for (const counts of countsByEntity.values()) {
     for (const mode of GAME_DIFFICULTY_MODES) {
@@ -134,41 +156,47 @@ function countEligibleModes(countsByEntity: Map<string, EntityClueCounts>): InPe
       }
     }
   }
-  return { modes }
+  let selectedCount = 0
+  for (const counts of countsByEntity.values()) {
+    if (isEligibleForSelection(counts, selection)) selectedCount += 1
+  }
+  return { modes, selectedCount }
 }
 
 export async function getInPersonEligibility(
   datasetId: string,
-  entityType: EntityTypeFilter = DEFAULT_ENTITY_TYPE_FILTER
+  entityType: EntityTypeFilter = DEFAULT_ENTITY_TYPE_FILTER,
+  difficultySelection: DifficultySelection | GameDifficultyMode = []
 ): Promise<InPersonEligibility> {
   await assertPlayableDataset(datasetId)
   const entities = await fetchPublishedEntities(datasetId, entityType)
   const countsByEntity = await fetchClueCountsByEntity(entities.map((e) => e.id))
-  return countEligibleModes(countsByEntity)
+  return countEligibleModes(countsByEntity, coerceSelection(difficultySelection))
 }
 
 export async function getEligibleEntityIds(
   datasetId: string,
-  mode: GameDifficultyMode,
+  difficultySelection: DifficultySelection | GameDifficultyMode,
   entityType: EntityTypeFilter = DEFAULT_ENTITY_TYPE_FILTER
 ): Promise<string[]> {
   await assertPlayableDataset(datasetId)
+  const selection = coerceSelection(difficultySelection)
   const entities = await fetchPublishedEntities(datasetId, entityType)
   const countsByEntity = await fetchClueCountsByEntity(entities.map((e) => e.id))
   return entities
     .filter((e) => {
       const counts = countsByEntity.get(e.id)
-      return counts ? isEligibleForMode(counts, mode) : false
+      return counts ? isEligibleForSelection(counts, selection) : false
     })
     .map((e) => e.id)
 }
 
 export async function getInPersonDeck(
   datasetId: string,
-  difficultyMode: GameDifficultyMode,
+  difficultySelection: DifficultySelection | GameDifficultyMode,
   entityType: EntityTypeFilter = DEFAULT_ENTITY_TYPE_FILTER
 ): Promise<{ entityIds: string[] }> {
-  const entityIds = await getEligibleEntityIds(datasetId, difficultyMode, entityType)
+  const entityIds = await getEligibleEntityIds(datasetId, difficultySelection, entityType)
   if (entityIds.length === 0) {
     throw new InPersonPlayError(
       'NO_CARDS',
@@ -181,9 +209,12 @@ export async function getInPersonDeck(
 export async function buildInPersonCardForEntity(params: {
   datasetId: string
   entityId: string
-  difficultyMode: GameDifficultyMode
+  difficultySelection?: DifficultySelection | GameDifficultyMode
+  /** @deprecated prefer difficultySelection */
+  difficultyMode?: GameDifficultyMode
 }): Promise<InPersonCardPayload> {
-  const { datasetId, entityId, difficultyMode } = params
+  const { datasetId, entityId } = params
+  const difficultySelection = coerceSelection(params.difficultySelection ?? params.difficultyMode)
   await assertPlayableDataset(datasetId)
 
   const { data: entity, error } = await supabase
@@ -201,7 +232,7 @@ export async function buildInPersonCardForEntity(params: {
     throw new InPersonPlayError('ENTITY_NOT_FOUND', 'Character not found in this content pack')
   }
 
-  const clues = await getCluesForEntity(entityId, { difficultyMode })
+  const clues = await getCluesForEntity(entityId, { difficultySelection })
   if (clues.length < IN_PERSON_CLUES_MIN) {
     throw new InPersonPlayError(
       'NO_CARDS',
@@ -228,17 +259,19 @@ export async function buildInPersonCardForEntity(params: {
 
 export async function getRandomInPersonCard(params: {
   datasetId: string
-  difficultyMode: GameDifficultyMode
+  difficultySelection?: DifficultySelection | GameDifficultyMode
+  /** @deprecated prefer difficultySelection */
+  difficultyMode?: GameDifficultyMode
   entityType?: EntityTypeFilter
   excludeEntityId?: string
 }): Promise<InPersonCardPayload> {
   const {
     datasetId,
-    difficultyMode,
     excludeEntityId,
     entityType = DEFAULT_ENTITY_TYPE_FILTER
   } = params
-  let entityIds = await getEligibleEntityIds(datasetId, difficultyMode, entityType)
+  const difficultySelection = coerceSelection(params.difficultySelection ?? params.difficultyMode)
+  let entityIds = await getEligibleEntityIds(datasetId, difficultySelection, entityType)
   if (excludeEntityId) {
     entityIds = entityIds.filter((id) => id !== excludeEntityId)
   }
@@ -250,5 +283,5 @@ export async function getRandomInPersonCard(params: {
   }
 
   const entityId = entityIds[Math.floor(Math.random() * entityIds.length)]
-  return buildInPersonCardForEntity({ datasetId, entityId, difficultyMode })
+  return buildInPersonCardForEntity({ datasetId, entityId, difficultySelection })
 }

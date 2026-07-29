@@ -28,7 +28,7 @@ function saveTestSession(
 ) {
   saveDeckSession({
     datasetId: 'ds-1',
-    difficulty: 'any',
+    difficulty: [],
     entityType: 'character',
     masterPool,
     deckStartOffset: 0,

@@ -28,7 +28,7 @@ describe('SoloGame', () => {
   it('shows the answer after Endurance timeout, then the results', async () => {
     saveSoloSession({
       datasetId: 'ds-1',
-      difficulty: 'any',
+      difficulty: [],
       entityType: 'character',
       variation: 'endurance',
       roundDurationMs: 100,
@@ -74,7 +74,7 @@ describe('SoloGame', () => {
   it('restarts with the same setup when Try again is pressed', async () => {
     saveSoloSession({
       datasetId: 'ds-1',
-      difficulty: 'any',
+      difficulty: [],
       entityType: 'character',
       variation: 'challenge',
       roundDurationMs: 100,

@@ -2,7 +2,8 @@ import type { Entity } from '../db/entities.js'
 import { ROUND_START_DELAY_MS } from '../game/config.js'
 
 type Difficulty = 'easy' | 'medium' | 'hard' | 'nightmare'
-type DifficultyMode = Difficulty | 'any'
+/** Encoded selection: `any` or comma-separated tiers (`hard,nightmare`). */
+type DifficultyMode = 'any' | Difficulty | (string & {})
 type RoomStatus = 'waiting' | 'in_progress' | 'finished'
 type RoundPhase = 'starting' | 'active' | 'clue_revealed' | 'ended'
 

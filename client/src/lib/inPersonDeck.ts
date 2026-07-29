@@ -1,6 +1,12 @@
 import { API_BASE_URL } from './apiBase'
+import {
+  coerceDifficultySelection,
+  difficultySelectionEquals,
+  encodeDifficultySelection,
+  type DifficultySelection
+} from './difficultySelection'
 import { DEFAULT_ENTITY_TYPE_FILTER, type EntityTypeFilter } from './entityTypeFilter'
-import type { GameDifficultyMode, InPersonCard } from '../types'
+import type { InPersonCard } from '../types'
 
 export const IN_PERSON_DECK_SIZE = 10
 
@@ -12,7 +18,7 @@ export type InPersonCardSnapshot = {
 
 export type InPersonDeckSession = {
   datasetId: string
-  difficulty: GameDifficultyMode
+  difficulty: DifficultySelection
   entityType: EntityTypeFilter
   masterPool: string[]
   deckStartOffset: number
@@ -31,7 +37,7 @@ function isValidSession(raw: unknown): raw is InPersonDeckSession {
   const session = raw as Partial<InPersonDeckSession>
   return (
     typeof session.datasetId === 'string' &&
-    typeof session.difficulty === 'string' &&
+    session.difficulty != null &&
     Array.isArray(session.masterPool) &&
     typeof session.deckStartOffset === 'number' &&
     typeof session.index === 'number' &&
@@ -41,7 +47,7 @@ function isValidSession(raw: unknown): raw is InPersonDeckSession {
 
 export function loadDeckSession(
   datasetId: string,
-  difficulty: GameDifficultyMode,
+  difficulty: DifficultySelection | string,
   entityType: EntityTypeFilter = DEFAULT_ENTITY_TYPE_FILTER
 ): InPersonDeckSession | null {
   try {
@@ -50,14 +56,16 @@ export function loadDeckSession(
     const parsed: unknown = JSON.parse(raw)
     if (!isValidSession(parsed)) return null
     const sessionEntityType = parsed.entityType ?? DEFAULT_ENTITY_TYPE_FILTER
+    const sessionDifficulty = coerceDifficultySelection(parsed.difficulty)
+    const wantedDifficulty = coerceDifficultySelection(difficulty)
     if (
       parsed.datasetId !== datasetId ||
-      parsed.difficulty !== difficulty ||
+      !difficultySelectionEquals(sessionDifficulty, wantedDifficulty) ||
       sessionEntityType !== entityType
     ) {
       return null
     }
-    return { ...parsed, entityType: sessionEntityType }
+    return { ...parsed, difficulty: sessionDifficulty, entityType: sessionEntityType }
   } catch {
     return null
   }
@@ -148,10 +156,15 @@ export function advanceToNextDeck(session: InPersonDeckSession): InPersonDeckSes
 
 export async function fetchInPersonDeck(
   datasetId: string,
-  difficulty: GameDifficultyMode,
+  difficulty: DifficultySelection | string,
   entityType: EntityTypeFilter = DEFAULT_ENTITY_TYPE_FILTER
 ): Promise<InPersonDeckSession> {
-  const params = new URLSearchParams({ datasetId, difficulty, entityType })
+  const selection = coerceDifficultySelection(difficulty)
+  const params = new URLSearchParams({
+    datasetId,
+    difficulty: encodeDifficultySelection(selection),
+    entityType
+  })
   const res = await fetch(`${API_BASE_URL}/cards/deck?${params.toString()}`)
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
@@ -160,7 +173,7 @@ export async function fetchInPersonDeck(
   const { entityIds } = (await res.json()) as { entityIds: string[] }
   const session: InPersonDeckSession = {
     datasetId,
-    difficulty,
+    difficulty: selection,
     entityType,
     masterPool: entityIds,
     deckStartOffset: 0,

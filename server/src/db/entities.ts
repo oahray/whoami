@@ -4,6 +4,12 @@ import {
   entityMatchesTypeFilter,
   type EntityTypeFilter
 } from '../game/entityTypeFilter.js'
+import {
+  countCluesForSelection,
+  isAnyDifficultySelection,
+  parseDifficultySelection,
+  type DifficultySelection
+} from '../game/difficultySelection.js'
 import { shuffle } from '../game/shuffle.js'
 
 type Difficulty = 'easy' | 'medium' | 'hard' | 'nightmare'
@@ -79,16 +85,21 @@ export async function getPublishedEntities(): Promise<Entity[]> {
 }
 
 /**
- * Published entities that have at least two clues for the given mode, scoped
- * to a single dataset. (For `any`, all clues count; for a specific tier, only
- * clues with that difficulty count.)
+ * Published entities that have at least two clues for the given difficulty
+ * selection, scoped to a single dataset. Empty selection (`any`) counts all clues;
+ * otherwise only clues in the selected tiers count.
  */
 export async function getPublishedEntitiesForGamePool(
-  mode: GameDifficultyMode,
+  difficultySelection: DifficultySelection | GameDifficultyMode,
   maxEntities: number,
   datasetId: string,
   entityType: EntityTypeFilter = 'character'
 ): Promise<Entity[]> {
+  const selection =
+    typeof difficultySelection === 'string'
+      ? parseDifficultySelection(difficultySelection) ?? []
+      : difficultySelection
+
   let datasetEntities: Entity[]
   try {
     datasetEntities = await fetchAllPages<Entity>((from, to) =>
@@ -127,17 +138,24 @@ export async function getPublishedEntitiesForGamePool(
     throw new Error(`Failed to fetch clues for pool: ${message}`)
   }
 
-  const countByEntity = new Map<string, number>()
+  const countByEntity = new Map<string, { any: number; easy: number; medium: number; hard: number; nightmare: number }>()
+  for (const id of datasetEntityIds) {
+    countByEntity.set(id, { any: 0, easy: 0, medium: 0, hard: 0, nightmare: 0 })
+  }
   for (const row of clueRows) {
-    if (mode !== 'any') {
-      if (row.difficulty !== mode) continue
+    const counts = countByEntity.get(row.entity_id)
+    if (!counts) continue
+    counts.any += 1
+    if (row.difficulty === 'easy' || row.difficulty === 'medium' || row.difficulty === 'hard' || row.difficulty === 'nightmare') {
+      counts[row.difficulty] += 1
     }
-    countByEntity.set(row.entity_id, (countByEntity.get(row.entity_id) ?? 0) + 1)
   }
 
   const eligibleIds = new Set<string>()
-  for (const [entityId, count] of countByEntity) {
-    if (count >= 2) eligibleIds.add(entityId)
+  for (const [entityId, counts] of countByEntity) {
+    if (countCluesForSelection(counts, selection) >= 2) {
+      eligibleIds.add(entityId)
+    }
   }
 
   const filtered = datasetEntities
@@ -344,13 +362,19 @@ export async function resolveDatasetIdFromRequest(
 
 export async function getCluesForEntity(
   entityId: string,
-  options?: { difficultyMode?: GameDifficultyMode }
+  options?: {
+    difficultyMode?: GameDifficultyMode
+    difficultySelection?: DifficultySelection
+  }
 ): Promise<Clue[]> {
   let query = supabase.from('clues').select('*').eq('entity_id', entityId)
 
-  const mode = options?.difficultyMode ?? 'any'
-  if (mode !== 'any') {
-    query = query.eq('difficulty', mode)
+  const selection =
+    options?.difficultySelection ??
+    (options?.difficultyMode != null ? parseDifficultySelection(options.difficultyMode) ?? [] : [])
+
+  if (!isAnyDifficultySelection(selection)) {
+    query = query.in('difficulty', selection)
   }
 
   const { data, error } = await query.order('created_at', { ascending: true })

@@ -22,7 +22,7 @@ const POOL = Array.from({ length: 25 }, (_, i) => `ent-${i + 1}`)
 function makeSession(overrides: Partial<Parameters<typeof saveDeckSession>[0]> = {}) {
   return {
     datasetId: 'ds-1',
-    difficulty: 'any' as const,
+    difficulty: [] as const,
     entityType: 'character' as const,
     masterPool: POOL,
     deckStartOffset: 0,
@@ -101,7 +101,7 @@ describe('inPersonDeck', () => {
       'whoami-in-person-deck',
       JSON.stringify({
         datasetId: 'ds-1',
-        difficulty: 'any',
+        difficulty: [],
         entityType: 'character',
         entityIds: ['ent-1'],
         index: 0
