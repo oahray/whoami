@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   coerceDifficultySelection,
   encodeDifficultySelection,
+  formatDifficultySelection,
   parseDifficultySelection,
   toggleDifficultyTier
 } from './difficultySelection'
@@ -15,6 +16,7 @@ describe('difficultySelection', () => {
   it('coerces legacy single-mode strings', () => {
     expect(coerceDifficultySelection('any')).toEqual([])
     expect(coerceDifficultySelection('nightmare')).toEqual(['nightmare'])
+    expect(formatDifficultySelection([])).toBe('All')
   })
 
   it('toggles from any into a subset and back', () => {

@@ -8,6 +8,7 @@ import { useMaintenanceStatus } from '../hooks/useMaintenanceStatus'
 import { isMaintenanceBlockingNewGames } from '../lib/maintenance'
 import { API_BASE_URL } from '../lib/apiBase'
 import {
+  coerceDifficultySelection,
   encodeDifficultySelection,
   type DifficultySelection
 } from '../lib/difficultySelection'
@@ -27,14 +28,49 @@ import { fetchInPersonDeck } from '../lib/inPersonDeck'
 import { unlockAudio } from '../lib/sounds'
 import type { PublicDataset } from '../types'
 
+const SETUP_KEY = 'whoami-in-person-setup'
+
+type InPersonSetupPreferences = {
+  datasetId?: string
+  entityType: EntityTypeFilter
+  difficulty: DifficultySelection
+}
+
+function loadSetupPreferences(): InPersonSetupPreferences | null {
+  try {
+    const raw = localStorage.getItem(SETUP_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as Partial<InPersonSetupPreferences>
+    if (!parsed.entityType || parsed.difficulty == null) return null
+    return {
+      datasetId: parsed.datasetId,
+      entityType: parsed.entityType,
+      difficulty: coerceDifficultySelection(parsed.difficulty)
+    }
+  } catch {
+    return null
+  }
+}
+
+function saveSetupPreferences(prefs: InPersonSetupPreferences): void {
+  try {
+    localStorage.setItem(SETUP_KEY, JSON.stringify(prefs))
+  } catch {
+    // ignore quota / private mode
+  }
+}
+
 function PlaySetup() {
   const navigate = useNavigate()
   const { status: maintenanceStatus } = useMaintenanceStatus()
   const maintenanceBlocking = isMaintenanceBlockingNewGames(maintenanceStatus)
+  const savedPrefs = loadSetupPreferences()
   const [datasets, setDatasets] = useState<PublicDataset[]>([])
   const [datasetId, setDatasetId] = useState('')
-  const [entityType, setEntityType] = useState<EntityTypeFilter>(DEFAULT_ENTITY_TYPE_FILTER)
-  const [difficulty, setDifficulty] = useState<DifficultySelection>([])
+  const [entityType, setEntityType] = useState<EntityTypeFilter>(
+    savedPrefs?.entityType ?? DEFAULT_ENTITY_TYPE_FILTER
+  )
+  const [difficulty, setDifficulty] = useState<DifficultySelection>(savedPrefs?.difficulty ?? [])
   const [eligibility, setEligibility] = useState<InPersonEligibility | null>(null)
   const [loading, setLoading] = useState(true)
   const [eligibilityLoading, setEligibilityLoading] = useState(false)
@@ -78,8 +114,11 @@ function PlaySetup() {
       .then((rows) => {
         if (cancelled) return
         setDatasets(rows)
-        const initial =
-          rows.find((d) => d.is_default)?.id ?? rows[0]?.id ?? ''
+        const initial = (
+          savedPrefs?.datasetId &&
+          rows.some((dataset) => dataset.id === savedPrefs.datasetId) &&
+          savedPrefs.datasetId
+        ) || rows.find((d) => d.is_default)?.id || rows[0]?.id || ''
         setDatasetId(initial)
       })
       .catch((err) => {
@@ -127,6 +166,16 @@ function PlaySetup() {
       cancelled = true
     }
   }, [datasetId, entityType, difficulty, offline])
+
+  const persistSetup = (overrides: Partial<InPersonSetupPreferences> = {}) => {
+    const nextDatasetId = overrides.datasetId ?? datasetId
+    if (!nextDatasetId) return
+    saveSetupPreferences({
+      datasetId: nextDatasetId,
+      entityType: overrides.entityType ?? entityType,
+      difficulty: overrides.difficulty ?? difficulty
+    })
+  }
 
   const handleStart = async () => {
     if (!canStart) return
@@ -208,7 +257,10 @@ function PlaySetup() {
                 <select
                   id="playDataset"
                   value={datasetId}
-                  onChange={(e) => setDatasetId(e.target.value)}
+                  onChange={(e) => {
+                    setDatasetId(e.target.value)
+                    persistSetup({ datasetId: e.target.value })
+                  }}
                   className="w-full bg-surface-muted border-0 rounded-lg text-foreground focus:ring-2 focus:ring-primary py-2.5 px-3"
                 >
                   {datasets.map((d) => (
@@ -237,7 +289,11 @@ function PlaySetup() {
               <select
                 id="playEntityType"
                 value={entityType}
-                onChange={(e) => setEntityType(e.target.value as EntityTypeFilter)}
+                onChange={(e) => {
+                  const nextEntityType = e.target.value as EntityTypeFilter
+                  setEntityType(nextEntityType)
+                  persistSetup({ entityType: nextEntityType })
+                }}
                 disabled={eligibilityLoading}
                 className="w-full bg-surface-muted border-0 rounded-lg text-foreground focus:ring-2 focus:ring-primary py-2.5 px-3 disabled:opacity-60"
               >
@@ -259,9 +315,11 @@ function PlaySetup() {
               <DifficultyMultiSelect
                 id="playDifficulty"
                 value={difficulty}
-                onChange={setDifficulty}
+                onChange={(next) => {
+                  setDifficulty(next)
+                  persistSetup({ difficulty: next })
+                }}
                 disabled={eligibilityLoading || Boolean(noPlayableModes)}
-                anyCount={eligibility?.modes.any}
                 tierCounts={{
                   easy: eligibility?.modes.easy,
                   medium: eligibility?.modes.medium,

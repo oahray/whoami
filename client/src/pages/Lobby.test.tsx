@@ -189,10 +189,13 @@ describe('Lobby', () => {
       </MemoryRouter>
     )
 
-    expect(screen.getByRole('button', { name: /^any$/i })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: /^easy$/i })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: /^medium$/i })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: /^hard$/i })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: /^nightmare$/i })).toHaveAttribute('aria-pressed', 'true')
 
     fireEvent.click(screen.getByRole('button', { name: /^hard$/i }))
 
-    expect(emit).toHaveBeenCalledWith('UPDATE_SETTINGS', { difficultyMode: 'hard' })
+    expect(emit).toHaveBeenCalledWith('UPDATE_SETTINGS', { difficultyMode: 'easy,medium,nightmare' })
   })
 })

@@ -24,6 +24,7 @@ vi.mock('react-router-dom', async () => {
 describe('PlaySetup', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    localStorage.clear()
     sessionStorage.clear()
     vi.stubGlobal('fetch', vi.fn())
     Object.defineProperty(navigator, 'onLine', { value: true, configurable: true })
@@ -168,5 +169,88 @@ describe('PlaySetup', () => {
     await waitFor(() => {
       expect(screen.getByText(/internet required to load cards/i)).toBeInTheDocument()
     })
+  })
+
+  it('restores the current setup selection after refresh', async () => {
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const url = String(input)
+      if (url.includes('/datasets')) {
+        return {
+          ok: true,
+          json: async () => [
+            {
+              id: 'ds-1',
+              name: 'Bible',
+              source: null,
+              description: null,
+              is_default: true
+            },
+            {
+              id: 'ds-2',
+              name: 'Org History',
+              source: null,
+              description: null,
+              is_default: false
+            }
+          ]
+        } as Response
+      }
+      if (url.includes('/cards/eligibility')) {
+        return {
+          ok: true,
+          json: async () => ({
+            modes: {
+              any: 5,
+              easy: 5,
+              medium: 5,
+              hard: 5,
+              nightmare: 5
+            },
+            selectedCount: 5
+          })
+        } as Response
+      }
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+
+    const firstRender = renderWithPreferences(
+      <MemoryRouter>
+        <PlaySetup />
+      </MemoryRouter>
+    )
+
+    const datasetSelect = await screen.findByLabelText(/content/i)
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^hard$/i })).toHaveAttribute('aria-pressed', 'true')
+    })
+
+    fireEvent.change(datasetSelect, { target: { value: 'ds-2' } })
+    fireEvent.change(screen.getByLabelText(/card type/i), { target: { value: 'place' } })
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^easy$/i })).toHaveAttribute('aria-pressed', 'true')
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: /^easy$/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^easy$/i })).toHaveAttribute('aria-pressed', 'false')
+    })
+    await waitFor(() => {
+      expect(localStorage.getItem('whoami-in-person-setup')).toContain('"difficulty":["medium","hard","nightmare"]')
+    })
+
+    firstRender.unmount()
+
+    renderWithPreferences(
+      <MemoryRouter>
+        <PlaySetup />
+      </MemoryRouter>
+    )
+
+    expect(await screen.findByLabelText(/content/i)).toHaveValue('ds-2')
+    expect(screen.getByLabelText(/card type/i)).toHaveValue('place')
+    expect(screen.getByRole('button', { name: /^easy$/i })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: /^medium$/i })).toHaveAttribute('aria-pressed', 'true')
   })
 })

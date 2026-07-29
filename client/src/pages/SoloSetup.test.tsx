@@ -104,6 +104,41 @@ describe('SoloSetup', () => {
     expect(screen.getByLabelText(/card timer/i)).toHaveValue('45')
     expect(screen.getByLabelText(/new clue every/i)).toHaveValue('5')
     expect(screen.getByRole('button', { name: /^easy$/i })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('button', { name: /^any$/i })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: /^medium$/i })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: /^hard$/i })).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('keeps the current setup selection after refresh before starting', async () => {
+    const firstRender = renderWithPreferences(
+      <MemoryRouter>
+        <SoloSetup />
+      </MemoryRouter>
+    )
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /start 10-round challenge/i })).toBeEnabled())
+
+    fireEvent.change(screen.getByLabelText(/card timer/i), { target: { value: '45' } })
+    fireEvent.click(screen.getByRole('button', { name: /endurance/i }))
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /start endurance/i })).toBeEnabled()
+    })
+    await waitFor(() => {
+      expect(localStorage.getItem('whoami-solo-setup')).toContain('"variation":"endurance"')
+    })
+
+    firstRender.unmount()
+
+    renderWithPreferences(
+      <MemoryRouter>
+        <SoloSetup />
+      </MemoryRouter>
+    )
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /start endurance/i })).toBeEnabled())
+    expect(screen.getByLabelText(/card timer/i)).toHaveValue('45')
+    expect(screen.getByRole('button', { name: /^easy$/i })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: /^medium$/i })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: /start endurance/i })).toBeEnabled()
   })
 })
