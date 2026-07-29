@@ -1,8 +1,8 @@
 import {
+  DIFFICULTY_TIERS,
   DIFFICULTY_TIER_OPTIONS,
   formatDifficultySelection,
   isAnyDifficultySelection,
-  toggleDifficultyTier,
   type DifficultySelection,
   type DifficultyTier
 } from '../lib/difficultySelection'
@@ -12,7 +12,6 @@ type DifficultyMultiSelectProps = {
   onChange: (next: DifficultySelection) => void
   /** Per-tier availability; tiers with 0 are disabled. */
   tierCounts?: Partial<Record<DifficultyTier, number>>
-  anyCount?: number
   disabled?: boolean
   id?: string
 }
@@ -21,34 +20,33 @@ export function DifficultyMultiSelect({
   value,
   onChange,
   tierCounts,
-  anyCount,
   disabled = false,
   id = 'difficulty'
 }: DifficultyMultiSelectProps) {
   const anySelected = isAnyDifficultySelection(value)
-  const anyDisabled = disabled || (typeof anyCount === 'number' && anyCount === 0)
+
+  function handleToggle(tier: DifficultyTier) {
+    if (anySelected) {
+      onChange(DIFFICULTY_TIERS.filter((value) => value !== tier))
+      return
+    }
+
+    const next = value.includes(tier)
+      ? value.filter((value) => value !== tier)
+      : [...value, tier]
+
+    onChange(next.length === 0 ? [] : DIFFICULTY_TIERS.filter((value) => next.includes(value)))
+  }
 
   return (
     <div>
       <p id={id} className="block text-sm font-semibold">
         Difficulty
       </p>
-      <div className="mt-2 flex flex-wrap gap-2" role="group" aria-labelledby={id}>
-        <button
-          type="button"
-          disabled={anyDisabled}
-          aria-pressed={anySelected}
-          onClick={() => onChange([])}
-          className={`rounded-lg border px-3 py-2 text-sm font-semibold transition-colors disabled:opacity-40 ${
-            anySelected
-              ? 'border-primary bg-primary/10 text-primary'
-              : 'border-edge bg-surface-muted text-foreground'
-          }`}
-        >
-          Any
-        </button>
+      <div className="mt-2 flex flex-wrap gap-1" role="group" aria-labelledby={id}>
         {DIFFICULTY_TIER_OPTIONS.map((option) => {
-          const selected = !anySelected && value.includes(option.value)
+          const available = (tierCounts?.[option.value] ?? 1) > 0
+          const selected = available && (anySelected || value.includes(option.value))
           const tierDisabled =
             disabled ||
             (typeof tierCounts?.[option.value] === 'number' && tierCounts[option.value] === 0)
@@ -58,11 +56,11 @@ export function DifficultyMultiSelect({
               type="button"
               disabled={tierDisabled}
               aria-pressed={selected}
-              onClick={() => onChange(toggleDifficultyTier(value, option.value))}
-              className={`rounded-lg border px-3 py-2 text-sm font-semibold capitalize transition-colors disabled:opacity-40 ${
+              onClick={() => handleToggle(option.value)}
+              className={`rounded-lg border px-3 py-2 text-sm font-semibold capitalize transition-colors disabled:opacity-40 text-foreground ${
                 selected
-                  ? 'border-primary bg-primary/10 text-primary'
-                  : 'border-edge bg-surface-muted text-foreground'
+                  ? 'border-primary bg-primary/10'
+                  : 'border-edge bg-surface-muted'
               }`}
             >
               {option.label}
@@ -72,8 +70,8 @@ export function DifficultyMultiSelect({
       </div>
       <p className="mt-1 text-xs font-normal text-foreground-muted">
         {anySelected
-          ? 'Uses every clue regardless of difficulty.'
-          : `Using ${formatDifficultySelection(value)} clues. Select multiple to combine.`}
+          ? 'Using every clue. Deselect tiers to narrow the mix.'
+          : `Using ${formatDifficultySelection(value)} clues. Select one or more tiers.`}
       </p>
     </div>
   )

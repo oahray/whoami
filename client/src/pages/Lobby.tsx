@@ -431,7 +431,7 @@ function Lobby() {
                       {formatDifficultySelection(coerceDifficultySelection(settings.difficultyMode))}
                     </div>
                     <p className="text-xs text-foreground-muted mt-1">
-                      Filters which clues are used. &quot;Any&quot; uses every clue regardless of difficulty.
+                      Filters which clues are used. &quot;All&quot; means every clue is in the mix.
                     </p>
                   </>
                 )}

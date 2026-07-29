@@ -58,7 +58,7 @@ export function difficultySelectionEquals(a: DifficultySelection, b: DifficultyS
 }
 
 export function formatDifficultySelection(selection: DifficultySelection): string {
-  if (isAnyDifficultySelection(selection)) return 'Any'
+  if (isAnyDifficultySelection(selection)) return 'All'
   return selection.map((tier) => tier.charAt(0).toUpperCase() + tier.slice(1)).join(' · ')
 }
 

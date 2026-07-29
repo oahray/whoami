@@ -59,7 +59,7 @@ function SoloSetup() {
     savedPrefs ? savedPrefs.roundDurationMs / 1000 : 30
   )
   const [clueIntervalSeconds, setClueIntervalSeconds] = useState(
-    savedPrefs ? savedPrefs.clueRevealIntervalMs / 1000 : 10
+    savedPrefs ? savedPrefs.clueRevealIntervalMs / 1000 : 5
   )
   const [eligibility, setEligibility] = useState<InPersonEligibility | null>(null)
   const [loading, setLoading] = useState(true)
@@ -184,6 +184,24 @@ function SoloSetup() {
     }
   }, [datasetId, entityType, difficulty, offline])
 
+  const persistSetup = (
+    overrides: Partial<Pick<SoloConfig, 'datasetId' | 'difficulty' | 'entityType' | 'variation'>> & {
+      roundDurationMs?: number
+      clueRevealIntervalMs?: number
+    } = {}
+  ) => {
+    const nextDatasetId = overrides.datasetId ?? datasetId
+    if (!nextDatasetId) return
+    saveSoloSetupPreferences({
+      datasetId: nextDatasetId,
+      difficulty: overrides.difficulty ?? difficulty,
+      entityType: overrides.entityType ?? entityType,
+      variation: overrides.variation ?? variation,
+      roundDurationMs: overrides.roundDurationMs ?? roundSeconds * 1000,
+      clueRevealIntervalMs: overrides.clueRevealIntervalMs ?? clueIntervalSeconds * 1000
+    })
+  }
+
   const start = async () => {
     if (!canStart) return
     setStarting(true)
@@ -256,7 +274,10 @@ function SoloSetup() {
                 Content
                 <select
                   value={datasetId}
-                  onChange={(event) => setDatasetId(event.target.value)}
+                  onChange={(event) => {
+                    setDatasetId(event.target.value)
+                    persistSetup({ datasetId: event.target.value })
+                  }}
                   className="mt-2 w-full rounded-lg bg-surface-muted p-2.5 font-normal"
                 >
                   {datasets.map((dataset) => (
@@ -271,7 +292,11 @@ function SoloSetup() {
               {ENTITY_TYPE_FIELD_LABEL}
               <select
                 value={entityType}
-                onChange={(event) => setEntityType(event.target.value as EntityTypeFilter)}
+                onChange={(event) => {
+                  const nextEntityType = event.target.value as EntityTypeFilter
+                  setEntityType(nextEntityType)
+                  persistSetup({ entityType: nextEntityType })
+                }}
                 className="mt-2 w-full rounded-lg bg-surface-muted p-2.5 font-normal"
               >
                 {ENTITY_TYPE_OPTIONS.map((option) => (
@@ -283,9 +308,12 @@ function SoloSetup() {
             </label>
             <DifficultyMultiSelect
               value={difficulty}
-              onChange={setDifficulty}
+              onChange={(next) => {
+                setDifficulty(next)
+                persistSetup({ difficulty: next })
+              }}
               disabled={eligibilityLoading}
-              anyCount={eligibility?.modes.any}
+              // anyCount={eligibility?.modes.any}
               tierCounts={{
                 easy: eligibility?.modes.easy,
                 medium: eligibility?.modes.medium,
@@ -310,7 +338,10 @@ function SoloSetup() {
                   <button
                     key={option.value}
                     type="button"
-                    onClick={() => setVariation(option.value)}
+                    onClick={() => {
+                      setVariation(option.value)
+                      persistSetup({ variation: option.value })
+                    }}
                     className={`rounded-lg border p-3 text-left ${
                       variation === option.value ? 'border-primary bg-primary/10' : 'border-edge'
                     }`}
@@ -326,7 +357,11 @@ function SoloSetup() {
                 Card timer
                 <select
                   value={roundSeconds}
-                  onChange={(event) => setRoundSeconds(Number(event.target.value))}
+                  onChange={(event) => {
+                    const nextRoundSeconds = Number(event.target.value)
+                    setRoundSeconds(nextRoundSeconds)
+                    persistSetup({ roundDurationMs: nextRoundSeconds * 1000 })
+                  }}
                   className="mt-2 w-full rounded-lg bg-surface-muted p-2.5 font-normal"
                 >
                   {TIMER_OPTIONS.map((seconds) => (
@@ -340,7 +375,11 @@ function SoloSetup() {
                 New clue every
                 <select
                   value={clueIntervalSeconds}
-                  onChange={(event) => setClueIntervalSeconds(Number(event.target.value))}
+                  onChange={(event) => {
+                    const nextClueIntervalSeconds = Number(event.target.value)
+                    setClueIntervalSeconds(nextClueIntervalSeconds)
+                    persistSetup({ clueRevealIntervalMs: nextClueIntervalSeconds * 1000 })
+                  }}
                   className="mt-2 w-full rounded-lg bg-surface-muted p-2.5 font-normal"
                 >
                   {CLUE_INTERVAL_OPTIONS.map((seconds) => (
