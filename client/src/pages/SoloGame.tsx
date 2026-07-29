@@ -10,10 +10,11 @@ import {
   continueEndurancePool,
   createSoloSession,
   formatSoloTime,
-  getSoloRecord,
+  listSoloRecords,
   loadSoloSession,
   saveSoloRecord,
   saveSoloSession,
+  saveSoloSetupPreferences,
   type SoloRecord,
   type SoloSession
 } from '../lib/soloSession'
@@ -37,7 +38,9 @@ function SoloGame() {
   const roundStartedAt = useRef(0)
   const activeSession = useRef<SoloSession | null>(null)
   const guessInputRef = useRef<HTMLInputElement | null>(null)
+  const cluesScrollRef = useRef<HTMLElement | null>(null)
   const viewportStyle = useVisualViewportLock()
+  const viewportLocked = Object.keys(viewportStyle).length > 0
 
   const loadCard = useCallback(async (nextSession: SoloSession) => {
     const entityId = nextSession.entityIds[nextSession.index]
@@ -154,6 +157,13 @@ function SoloGame() {
     guessInputRef.current?.focus({ preventScroll: true })
   }, [status, loading, card?.entity.id])
 
+  useEffect(() => {
+    if (!session || !card || status === 'finished') return
+    const el = cluesScrollRef.current
+    if (!el) return
+    el.scrollTop = el.scrollHeight
+  }, [session, card, remainingMs, status, loading])
+
   const tryAgain = async () => {
     if (!session || restarting) return
     setRestarting(true)
@@ -185,6 +195,14 @@ function SoloGame() {
       activeSession.current = nextSession
       setSession(nextSession)
       setResult(null)
+      saveSoloSetupPreferences({
+        datasetId: nextSession.datasetId,
+        difficulty: nextSession.difficulty,
+        entityType: nextSession.entityType,
+        variation: nextSession.variation,
+        roundDurationMs: nextSession.roundDurationMs,
+        clueRevealIntervalMs: nextSession.clueRevealIntervalMs
+      })
       await loadCard(nextSession)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to restart')
@@ -221,7 +239,11 @@ function SoloGame() {
             <div className="rounded-lg bg-surface-muted p-4"><p className="text-3xl font-black">{formatSoloTime(result.record.activeElapsedMs)}</p><p className="text-xs font-bold uppercase tracking-wider text-foreground-muted">Active time</p></div>
           </div>
           {result.isPersonalBest && <p className="rounded-lg bg-green-50 p-3 text-sm font-semibold text-green-800">New personal best on this device!</p>}
-          {!result.isPersonalBest && <p className="text-sm text-foreground-muted">Personal best: {getSoloRecord(session)?.correctCount ?? 0} correct.</p>}
+          {!result.isPersonalBest && (
+            <p className="text-sm text-foreground-muted">
+              Personal best: {listSoloRecords(session.variation, session.datasetId)[0]?.correctCount ?? 0} correct.
+            </p>
+          )}
           {error && (
             <p className="rounded-lg border border-red-400 bg-red-100 p-3 text-sm text-red-700">{error}</p>
           )}
@@ -252,7 +274,7 @@ function SoloGame() {
 
   return (
     <div
-      className="min-h-dvh overflow-hidden bg-app-bg font-display text-foreground flex flex-col"
+      className={`bg-app-bg font-display text-foreground flex flex-col overflow-hidden ${viewportLocked ? '' : 'min-h-dvh'}`}
       style={viewportStyle}
     >
       <header className="shrink-0 border-b border-edge bg-surface px-3 py-2">
@@ -266,7 +288,10 @@ function SoloGame() {
           <SoundToggle />
         </div>
       </header>
-      <main className="flex-1 min-h-0 max-w-lg w-full mx-auto overflow-y-auto px-3 py-4 space-y-3">
+      <main
+        ref={cluesScrollRef}
+        className="flex-1 min-h-0 max-w-lg w-full mx-auto overflow-y-auto px-3 py-4 space-y-3"
+      >
         {loading && <LoadingState label="Loading card" layout="page" />}
         {error && <div className="space-y-3"><p className="rounded-lg border border-red-400 bg-red-100 p-3 text-sm text-red-700">{error}</p><button type="button" onClick={() => void loadCard(session)} className="w-full rounded-lg border-2 border-edge py-3 font-semibold">Try again</button></div>}
         {card && !loading && (

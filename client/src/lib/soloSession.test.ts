@@ -1,13 +1,16 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
   SOLO_CHALLENGE_ROUNDS,
+  SOLO_RECORDS_PER_MODE,
   continueEndurancePool,
   createSoloSession,
   getSoloRecord,
   isBetterRecord,
   listSoloRecords,
+  loadSoloSetupPreferences,
   saveSoloRecord,
   saveSoloSession,
+  saveSoloSetupPreferences,
   loadSoloSession,
   type SoloConfig
 } from './soloSession'
@@ -46,23 +49,86 @@ describe('soloSession', () => {
     expect(loadSoloSession()).toEqual(session)
   })
 
+  it('persists setup preferences for the next visit', () => {
+    saveSoloSetupPreferences({
+      ...config,
+      roundDurationMs: 45_000,
+      clueRevealIntervalMs: 5_000,
+      variation: 'endurance'
+    })
+    expect(loadSoloSetupPreferences()).toMatchObject({
+      datasetId: 'ds-1',
+      variation: 'endurance',
+      roundDurationMs: 45_000,
+      clueRevealIntervalMs: 5_000
+    })
+  })
+
   it('orders records by correct count then active time', () => {
     expect(isBetterRecord({ correctCount: 8, activeElapsedMs: 1000 }, { correctCount: 7, activeElapsedMs: 1 })).toBe(true)
     expect(isBetterRecord({ correctCount: 8, activeElapsedMs: 900 }, { correctCount: 8, activeElapsedMs: 1000 })).toBe(true)
     expect(isBetterRecord({ correctCount: 8, activeElapsedMs: 1100 }, { correctCount: 8, activeElapsedMs: 1000 })).toBe(false)
   })
 
-  it('keeps the best record only within the same configuration', () => {
+  it('keeps every attempt in the top list, including try-again scores', () => {
     const first = { ...config, correctCount: 7, activeElapsedMs: 40_000, achievedAt: '2026-01-01T00:00:00.000Z' }
-    const better = { ...first, correctCount: 8, activeElapsedMs: 42_000, achievedAt: '2026-01-02T00:00:00.000Z' }
+    const retry = { ...first, correctCount: 4, activeElapsedMs: 35_000, achievedAt: '2026-01-02T00:00:00.000Z' }
     saveSoloRecord(first)
-    const saved = saveSoloRecord(better)
-    expect(saved.isPersonalBest).toBe(true)
-    expect(getSoloRecord(config)).toEqual(better)
-    expect(getSoloRecord({ ...config, roundDurationMs: 45_000 })).toBeNull()
+    saveSoloRecord(retry)
+    expect(listSoloRecords('challenge', 'ds-1')).toHaveLength(2)
+    expect(listSoloRecords('challenge', 'ds-1').map((r) => r.correctCount)).toEqual([7, 4])
   })
 
-  it('returns this attempt on the results payload even when it is not a personal best', () => {
+  it('caps each mode to the best five scores for a dataset', () => {
+    for (let i = 0; i < SOLO_RECORDS_PER_MODE + 2; i += 1) {
+      saveSoloRecord({
+        ...config,
+        correctCount: i + 1,
+        activeElapsedMs: 50_000 - i * 1000,
+        achievedAt: `2026-01-${String(i + 1).padStart(2, '0')}T00:00:00.000Z`
+      })
+    }
+    const challenge = listSoloRecords('challenge', 'ds-1')
+    expect(challenge).toHaveLength(SOLO_RECORDS_PER_MODE)
+    expect(challenge.map((r) => r.correctCount)).toEqual([7, 6, 5, 4, 3])
+  })
+
+  it('scopes personal bests to the selected dataset', () => {
+    saveSoloRecord({
+      ...config,
+      correctCount: 9,
+      activeElapsedMs: 30_000,
+      achievedAt: '2026-01-01T00:00:00.000Z'
+    })
+    saveSoloRecord({
+      ...config,
+      datasetId: 'ds-2',
+      correctCount: 2,
+      activeElapsedMs: 10_000,
+      achievedAt: '2026-01-02T00:00:00.000Z'
+    })
+    expect(listSoloRecords('challenge', 'ds-1')).toHaveLength(1)
+    expect(listSoloRecords('challenge', 'ds-2')[0]?.correctCount).toBe(2)
+  })
+
+  it('marks a new number-one score as a personal best', () => {
+    saveSoloRecord({
+      ...config,
+      correctCount: 5,
+      activeElapsedMs: 40_000,
+      achievedAt: '2026-01-01T00:00:00.000Z'
+    })
+    const better = saveSoloRecord({
+      ...config,
+      correctCount: 8,
+      activeElapsedMs: 42_000,
+      achievedAt: '2026-01-02T00:00:00.000Z'
+    })
+    expect(better.isPersonalBest).toBe(true)
+    expect(getSoloRecord(config)?.correctCount).toBe(8)
+  })
+
+  it('returns this attempt even when it is not a personal best', () => {
     const first = { ...config, correctCount: 8, activeElapsedMs: 40_000, achievedAt: '2026-01-01T00:00:00.000Z' }
     const worse = { ...first, correctCount: 3, activeElapsedMs: 50_000, achievedAt: '2026-01-02T00:00:00.000Z' }
     saveSoloRecord(first)

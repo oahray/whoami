@@ -24,7 +24,9 @@ import {
   formatSoloTime,
   getSoloRecord,
   listSoloRecords,
+  loadSoloSetupPreferences,
   saveSoloSession,
+  saveSoloSetupPreferences,
   soloConfigSummary,
   type SoloConfig,
   type SoloVariation
@@ -39,13 +41,20 @@ function SoloSetup() {
   const navigate = useNavigate()
   const { status: maintenanceStatus } = useMaintenanceStatus()
   const maintenanceBlocking = isMaintenanceBlockingNewGames(maintenanceStatus)
+  const savedPrefs = loadSoloSetupPreferences()
   const [datasets, setDatasets] = useState<PublicDataset[]>([])
   const [datasetId, setDatasetId] = useState('')
-  const [entityType, setEntityType] = useState<EntityTypeFilter>(DEFAULT_ENTITY_TYPE_FILTER)
-  const [difficulty, setDifficulty] = useState<GameDifficultyMode>('any')
-  const [variation, setVariation] = useState<SoloVariation>('challenge')
-  const [roundSeconds, setRoundSeconds] = useState(30)
-  const [clueIntervalSeconds, setClueIntervalSeconds] = useState(10)
+  const [entityType, setEntityType] = useState<EntityTypeFilter>(
+    savedPrefs?.entityType ?? DEFAULT_ENTITY_TYPE_FILTER
+  )
+  const [difficulty, setDifficulty] = useState<GameDifficultyMode>(savedPrefs?.difficulty ?? 'any')
+  const [variation, setVariation] = useState<SoloVariation>(savedPrefs?.variation ?? 'challenge')
+  const [roundSeconds, setRoundSeconds] = useState(
+    savedPrefs ? savedPrefs.roundDurationMs / 1000 : 30
+  )
+  const [clueIntervalSeconds, setClueIntervalSeconds] = useState(
+    savedPrefs ? savedPrefs.clueRevealIntervalMs / 1000 : 10
+  )
   const [eligibility, setEligibility] = useState<InPersonEligibility | null>(null)
   const [loading, setLoading] = useState(true)
   const [eligibilityLoading, setEligibilityLoading] = useState(false)
@@ -74,39 +83,30 @@ function SoloSetup() {
     : null
 
   const currentBest = currentConfig ? getSoloRecord(currentConfig) : null
-  const challengeRecords = listSoloRecords('challenge')
-  const enduranceRecords = listSoloRecords('endurance')
+  const challengeRecords = datasetId ? listSoloRecords('challenge', datasetId) : []
+  const enduranceRecords = datasetId ? listSoloRecords('endurance', datasetId) : []
   const hasAnyRecords = challengeRecords.length > 0 || enduranceRecords.length > 0
+  const selectedDatasetName = datasets.find((dataset) => dataset.id === datasetId)?.name
 
   const renderRecordList = (records: typeof challengeRecords) => (
     <ul className="space-y-2">
       {records.map((record) => {
         const isCurrent =
           currentConfig !== null &&
-          record.datasetId === currentConfig.datasetId &&
           record.difficulty === currentConfig.difficulty &&
           record.entityType === currentConfig.entityType &&
-          record.variation === currentConfig.variation &&
           record.roundDurationMs === currentConfig.roundDurationMs &&
           record.clueRevealIntervalMs === currentConfig.clueRevealIntervalMs
         return (
           <li
-            key={[
-              record.datasetId,
-              record.entityType,
-              record.difficulty,
-              record.variation,
-              record.roundDurationMs,
-              record.clueRevealIntervalMs
-            ].join(':')}
+            key={`${record.achievedAt}:${record.correctCount}:${record.activeElapsedMs}:${record.roundDurationMs}`}
             className={`rounded-lg border p-3 ${
               isCurrent ? 'border-primary bg-primary/5' : 'border-edge bg-surface-muted'
             }`}
           >
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-sm font-bold truncate">{datasetName(record.datasetId)}</p>
-                <p className="text-xs text-foreground-muted mt-0.5">
+                <p className="text-sm font-bold">
                   {soloConfigSummary(record, { includeVariation: false })}
                 </p>
               </div>
@@ -144,7 +144,13 @@ function SoloSetup() {
       .then((rows) => {
         if (cancelled) return
         setDatasets(rows)
-        setDatasetId(rows.find((dataset) => dataset.is_default)?.id ?? rows[0]?.id ?? '')
+        const prefs = loadSoloSetupPreferences()
+        const preferred =
+          (prefs?.datasetId && rows.some((row) => row.id === prefs.datasetId) && prefs.datasetId) ||
+          rows.find((dataset) => dataset.is_default)?.id ||
+          rows[0]?.id ||
+          ''
+        setDatasetId(preferred)
       })
       .catch((err) => !cancelled && setError(err instanceof Error ? err.message : 'Failed to load content'))
       .finally(() => !cancelled && setLoading(false))
@@ -186,17 +192,16 @@ function SoloSetup() {
         throw new Error(body.error ?? `Failed to load cards (${response.status})`)
       }
       const { entityIds } = (await response.json()) as { entityIds: string[] }
-      const session = createSoloSession(
-        {
-          datasetId,
-          difficulty,
-          entityType,
-          variation,
-          roundDurationMs: roundSeconds * 1000,
-          clueRevealIntervalMs: clueIntervalSeconds * 1000
-        },
-        entityIds
-      )
+      const config = {
+        datasetId,
+        difficulty,
+        entityType,
+        variation,
+        roundDurationMs: roundSeconds * 1000,
+        clueRevealIntervalMs: clueIntervalSeconds * 1000
+      }
+      const session = createSoloSession(config, entityIds)
+      saveSoloSetupPreferences(config)
       saveSoloSession(session)
       navigate('/solo/play')
     } catch (err) {
@@ -205,8 +210,6 @@ function SoloSetup() {
       setStarting(false)
     }
   }
-
-  const datasetName = (id: string) => datasets.find((dataset) => dataset.id === id)?.name ?? 'Content'
 
   return (
     <div className="min-h-screen bg-app-bg font-display text-foreground">
@@ -377,7 +380,10 @@ function SoloSetup() {
               <span className="material-symbols-outlined text-primary">leaderboard</span>
               <h2 className="text-base font-bold">Personal bests</h2>
             </div>
-            <p className="text-xs text-foreground-muted">Saved on this device only.</p>
+            <p className="text-xs text-foreground-muted">
+              Top 5 per mode on this device
+              {selectedDatasetName ? ` · ${selectedDatasetName}` : ''}.
+            </p>
             {!hasAnyRecords ? (
               <p className="text-sm text-foreground-muted">No records yet. Finish a run to set one.</p>
             ) : (
