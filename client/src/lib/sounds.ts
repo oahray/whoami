@@ -34,12 +34,37 @@ const unavailable = new Set<SoundId>()
 const lastPlayedAt = new Map<SoundId, number>()
 
 /** Call from a user gesture (join, start cards, etc.) so later socket-driven sounds can play. */
+const AUDIO_UNLOCK_KEY = 'whoami_audio_unlocked'
+
 export function unlockAudio(): void {
   audioUnlocked = true
+  try {
+    sessionStorage.setItem(AUDIO_UNLOCK_KEY, '1')
+  } catch {
+    // ignore
+  }
+}
+
+/** Warm common SFX so press → hear is tighter. Call after unlock from UI. */
+export function warmSoundCache(): void {
+  if (typeof window === 'undefined' || !isAudioUnlocked()) return
+  preloadSound('card-flip')
+  preloadSound('go')
+  preloadSound('clue-pop')
+  preloadSound('correct')
 }
 
 export function isAudioUnlocked(): boolean {
-  return audioUnlocked
+  if (audioUnlocked) return true
+  try {
+    if (sessionStorage.getItem(AUDIO_UNLOCK_KEY) === '1') {
+      audioUnlocked = true
+      return true
+    }
+  } catch {
+    // ignore
+  }
+  return false
 }
 
 /** Reset internal state (tests only). */
@@ -48,6 +73,17 @@ export function resetSoundStateForTests(): void {
   cache.clear()
   unavailable.clear()
   lastPlayedAt.clear()
+  try {
+    sessionStorage.removeItem(AUDIO_UNLOCK_KEY)
+  } catch {
+    // ignore
+  }
+}
+
+/** Warm the audio element cache so the first play is less delayed. */
+export function preloadSound(id: SoundId): void {
+  if (typeof window === 'undefined') return
+  getAudio(id)
 }
 
 function shouldPlay(id: SoundId): boolean {

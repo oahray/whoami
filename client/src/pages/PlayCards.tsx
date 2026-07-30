@@ -26,7 +26,7 @@ import {
 } from '../lib/inPersonDeck'
 import { DEFAULT_ENTITY_TYPE_FILTER, type EntityTypeFilter } from '../lib/entityTypeFilter'
 import { IN_PERSON_MASK_PLACEHOLDER } from '../lib/inPersonMask'
-import { playSound, unlockAudio } from '../lib/sounds'
+import { playSound, unlockAudio, warmSoundCache } from '../lib/sounds'
 import type { InPersonCard } from '../types'
 
 function PlayCards() {
@@ -190,6 +190,7 @@ function PlayCards() {
       navigate('/play', { replace: true })
       return
     }
+    warmSoundCache()
     void loadCurrentCard()
   }, [datasetId, navigate, loadCurrentCard])
 
@@ -229,6 +230,7 @@ function PlayCards() {
   const handleToggleAnswer = () => {
     if (!deckSession || !card) return
     unlockAudio()
+    warmSoundCache()
     const next = !showAnswer
     setShowAnswer(next)
     persistSnapshot(deckSession, card, revealedCount, next)
@@ -246,13 +248,13 @@ function PlayCards() {
     const session = syncDeckSession()
     if (!session || session.index <= 0 || !card) return
 
+    playSound('card-flip')
     persistSnapshot(session, card, revealedCount, showAnswer)
 
     const prevIndex = session.index - 1
     const updated = { ...session, index: prevIndex }
     saveDeckSession(updated)
     setDeckSession(updated)
-    playSound('card-flip')
 
     const snapshot = snapshotForIndex(updated, prevIndex)
     if (snapshot) {
@@ -271,6 +273,7 @@ function PlayCards() {
       return
     }
 
+    playSound('card-flip')
     const sessionWithSnapshot = persistSnapshot(session, card, revealedCount, showAnswer)
     const nextIndex = sessionWithSnapshot.index + 1
     const updated = { ...sessionWithSnapshot, index: nextIndex }
@@ -283,18 +286,22 @@ function PlayCards() {
       return
     }
 
-    playSound('card-flip')
     const nextEntityId = currentEntityId(updated)
     if (!nextEntityId) return
 
     const snapshot = snapshotForIndex(updated, nextIndex)
-    void loadCardForEntity(nextEntityId, updated, snapshot)
+    if (snapshot) {
+      applySnapshot(snapshot)
+      return
+    }
+    void loadCardForEntity(nextEntityId, updated)
   }
 
   const handleNextDeck = () => {
     const session = syncDeckSession()
     if (!session || !hasNextDeck(session)) return
 
+    playSound('card-flip')
     const nextSession = advanceToNextDeck(session)
     saveDeckSession(nextSession)
     setDeckSession(nextSession)
@@ -302,10 +309,7 @@ function PlayCards() {
     setSessionComplete(false)
 
     const entityId = currentEntityId(nextSession)
-    if (entityId) {
-      playSound('card-flip')
-      void loadCardForEntity(entityId, nextSession)
-    }
+    if (entityId) void loadCardForEntity(entityId, nextSession)
   }
 
   const handlePlayAgain = async () => {
