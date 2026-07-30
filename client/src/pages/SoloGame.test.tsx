@@ -34,7 +34,7 @@ describe('SoloGame', () => {
       vi.fn().mockResolvedValue({
         ok: true,
         json: async () => ({
-          entity: { id: 'ent-1', name: 'Moses', type: 'character', aliases: [] },
+          entity: { id: 'ent-1', name: 'Moses', type: 'character', aliases: ['Moshe'] },
           clues: [{ order: 1, text: 'A clue', citations: 'Exodus 2:1' }]
         })
       } as Response)
@@ -71,6 +71,7 @@ describe('SoloGame', () => {
 
     expect(screen.getByText(/time's up/i)).toBeInTheDocument()
     expect(screen.getByText('Moses')).toBeInTheDocument()
+    expect(screen.getByText('Moshe')).toBeInTheDocument()
     expect(screen.getByText('Exodus 2:1')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /see results/i })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: /endurance complete/i })).not.toBeInTheDocument()
@@ -171,7 +172,7 @@ describe('SoloGame', () => {
             id: url.includes('ent-2') ? 'ent-2' : 'ent-1',
             name: url.includes('ent-2') ? 'Aaron' : 'Moses',
             type: 'character',
-            aliases: []
+            aliases: url.includes('ent-2') ? [] : ['Moshe']
           },
           clues: [
             {
@@ -191,6 +192,7 @@ describe('SoloGame', () => {
     fireEvent.click(screen.getByRole('button', { name: /^guess$/i }))
 
     expect(screen.getByText(/correct!/i)).toBeInTheDocument()
+    expect(screen.getByText('Moshe')).toBeInTheDocument()
     expect(screen.getByText('Exodus 2:1')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /next round/i })).toBeInTheDocument()
 
