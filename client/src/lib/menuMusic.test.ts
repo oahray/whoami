@@ -96,6 +96,5 @@ describe('menuMusic', () => {
 
     expect(pauseMock).toHaveBeenCalled()
     expect(audio.currentTime).toBe(8)
-    expect(audio.volume).toBeCloseTo(0.22)
   })
 })

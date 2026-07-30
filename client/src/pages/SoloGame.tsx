@@ -48,15 +48,15 @@ function SoloGame() {
   const viewportStyle = useVisualViewportLock()
   const viewportLocked = Object.keys(viewportStyle).length > 0
 
-  const loadCard = useCallback(async (nextSession: SoloSession) => {
+  const loadCard = useCallback(async (nextSession: SoloSession, opts?: { freshRound?: boolean }) => {
     const entityId = nextSession.entityIds[nextSession.index]
     if (!entityId) return
+    const freshRound = opts?.freshRound ?? !nextSession.roundStartedAt
     setLoading(true)
     setError(null)
     setCard(null)
     setGuess('')
     setFeedback(null)
-    setStatus('active')
     lastClueCountRef.current = 0
     try {
       const query = new URLSearchParams({
@@ -69,9 +69,44 @@ function SoloGame() {
         const body = await response.json().catch(() => ({}))
         throw new Error(body.error ?? `Failed to load card (${response.status})`)
       }
-      setCard((await response.json()) as InPersonCard)
-      roundStartedAt.current = Date.now()
-      setRemainingMs(nextSession.roundDurationMs)
+      const loadedCard = (await response.json()) as InPersonCard
+      setCard(loadedCard)
+
+      const startedAt = freshRound ? Date.now() : (nextSession.roundStartedAt as number)
+      roundStartedAt.current = startedAt
+      const remaining = Math.max(0, nextSession.roundDurationMs - (Date.now() - startedAt))
+      setRemainingMs(remaining)
+
+      const restoredStatus = nextSession.roundStatus
+      if (!freshRound && (restoredStatus === 'correct' || restoredStatus === 'timeout')) {
+        setStatus(restoredStatus)
+      } else if (!freshRound && remaining === 0) {
+        setStatus('timeout')
+      } else {
+        setStatus('active')
+      }
+
+      lastClueCountRef.current = Math.min(
+        loadedCard.clues.length,
+        Math.max(
+          1,
+          1 + Math.floor((nextSession.roundDurationMs - remaining) / nextSession.clueRevealIntervalMs)
+        )
+      )
+
+      const withRound: SoloSession = {
+        ...nextSession,
+        roundStartedAt: startedAt,
+        roundStatus:
+          !freshRound && (restoredStatus === 'correct' || restoredStatus === 'timeout')
+            ? restoredStatus
+            : remaining === 0 && !freshRound
+              ? 'timeout'
+              : 'active'
+      }
+      activeSession.current = withRound
+      setSession(withRound)
+      saveSoloSession(withRound)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load card')
     } finally {
@@ -135,9 +170,9 @@ function SoloGame() {
 
     activeSession.current = updated
     setSession(updated)
-    saveSoloSession(updated)
+    saveSoloSession({ ...updated, roundStartedAt: null, roundStatus: null })
     playSound('card-flip')
-    void loadCard(updated)
+    void loadCard({ ...updated, roundStartedAt: null, roundStatus: null }, { freshRound: true })
   }, [finishRun, loadCard, status])
 
   useEffect(() => {
@@ -148,6 +183,13 @@ function SoloGame() {
       if (next === 0) {
         setStatus('timeout')
         playSound('uh-oh')
+        const current = activeSession.current
+        if (current) {
+          const settled = { ...current, roundStatus: 'timeout' as const }
+          activeSession.current = settled
+          setSession(settled)
+          saveSoloSession(settled)
+        }
       }
     }
     tick()
@@ -242,7 +284,7 @@ function SoloGame() {
         roundDurationMs: nextSession.roundDurationMs,
         clueRevealIntervalMs: nextSession.clueRevealIntervalMs
       })
-      await loadCard(nextSession)
+      await loadCard({ ...nextSession, roundStartedAt: null, roundStatus: null }, { freshRound: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to restart')
     } finally {
@@ -260,6 +302,13 @@ function SoloGame() {
     setStatus('correct')
     setFeedback('Correct!')
     playSound('correct')
+    const current = activeSession.current
+    if (current) {
+      const settled = { ...current, roundStatus: 'correct' as const }
+      activeSession.current = settled
+      setSession(settled)
+      saveSoloSession(settled)
+    }
   }
 
   if (result && session) {

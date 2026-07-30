@@ -73,11 +73,21 @@ export function startMenuMusic(): void {
 
 /** Pause without resetting position so re-enable / return can resume. */
 export function stopMenuMusic(): void {
+  pauseMenuMusic()
+  if (!themeAudio) return
+  try {
+    themeAudio.volume = THEME_VOLUME
+  } catch {
+    // ignore
+  }
+}
+
+/** Pause without resetting position (tab hidden / app backgrounded). */
+export function pauseMenuMusic(): void {
   clearFade()
   if (!themeAudio) return
   try {
     themeAudio.pause()
-    themeAudio.volume = THEME_VOLUME
   } catch {
     // ignore
   }
@@ -109,6 +119,11 @@ export function fadeOutMenuMusic(durationMs = FADE_MS): void {
       }
     }
   }, 40)
+}
+
+/** Begin loading the theme file early so playback can start sooner. */
+export function preloadMenuMusic(): void {
+  getThemeAudio()
 }
 
 /** Enable music from a user gesture and attempt playback. */

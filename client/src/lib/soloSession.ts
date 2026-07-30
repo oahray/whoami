@@ -29,6 +29,10 @@ export type SoloSession = SoloConfig & {
   index: number
   correctCount: number
   activeElapsedMs: number
+  /** Wall-clock ms when the current round timer started; kept across refresh. */
+  roundStartedAt?: number | null
+  /** In-round UI status; restored after refresh so settle screens survive. */
+  roundStatus?: 'active' | 'correct' | 'timeout' | null
 }
 
 export type SoloRecord = SoloConfig & {
@@ -56,7 +60,9 @@ export function createSoloSession(config: SoloConfig, entityIds: string[]): Solo
     entityIds: config.variation === 'challenge' ? entityIds.slice(0, SOLO_CHALLENGE_ROUNDS) : entityIds,
     index: 0,
     correctCount: 0,
-    activeElapsedMs: 0
+    activeElapsedMs: 0,
+    roundStartedAt: null,
+    roundStatus: null
   }
 }
 
