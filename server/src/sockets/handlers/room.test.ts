@@ -47,6 +47,7 @@ describe('room socket handlers', () => {
     const oldPlayer = {
       id: 'old-socket',
       nickname: 'Paul',
+      avatarId: 'avatar-01',
       isHost: false,
       isConnected: false,
       disconnectedAt: Date.now() - 1000,
@@ -164,6 +165,7 @@ describe('room socket handlers', () => {
     room.players.set('player-1', {
       id: 'player-1',
       nickname: 'Paul',
+      avatarId: 'avatar-01',
       isHost: false,
       isConnected: true,
       disconnectedAt: null,
@@ -199,6 +201,7 @@ describe('room socket handlers', () => {
     room.players.set('p2', {
       id: 'p2',
       nickname: 'Paul',
+      avatarId: 'avatar-01',
       isHost: false,
       isConnected: true,
       disconnectedAt: null,
@@ -234,6 +237,7 @@ describe('room socket handlers', () => {
     room.players.set('p2', {
       id: 'p2',
       nickname: 'Paul',
+      avatarId: 'avatar-01',
       isHost: false,
       isConnected: true,
       disconnectedAt: null,
@@ -261,7 +265,7 @@ describe('room socket handlers', () => {
   })
 
   it('creates a room and emits ROOM_JOINED for the host', () => {
-    const room = actualStore.createRoom('host-1', 'Host')
+    const room = actualStore.createRoom('host-1', 'Host', 'avatar-03')
     const socket = {
       id: 'host-1',
       join: vi.fn(),
@@ -270,14 +274,51 @@ describe('room socket handlers', () => {
 
     vi.mocked(createRoomInStore).mockReturnValue(room)
 
-    handleCreateRoom({} as any, socket, { nickname: 'Host' })
+    handleCreateRoom({} as any, socket, { nickname: 'Host', avatarId: 'avatar-03' })
 
+    expect(createRoomInStore).toHaveBeenCalledWith('host-1', 'Host', 'avatar-03')
     expect(socket.join).toHaveBeenCalledWith(room.code)
     expect(socket.emit).toHaveBeenCalledWith('ROOM_JOINED', expect.objectContaining({
       playerId: 'host-1',
       isHost: true,
-      roomCode: room.code
+      roomCode: room.code,
+      players: expect.arrayContaining([
+        expect.objectContaining({ id: 'host-1', nickname: 'Host', avatarId: 'avatar-03' })
+      ])
     }))
+  })
+
+  it('assigns a join avatar and broadcasts PLAYER_JOINED with avatarId', () => {
+    const room = actualStore.createRoom('host-1', 'Host', 'avatar-01')
+    const roomEmit = vi.fn()
+    const socket = {
+      id: 'player-2',
+      emit: vi.fn(),
+      join: vi.fn(),
+      to: vi.fn(() => ({ emit: roomEmit }))
+    } as any
+
+    vi.mocked(getRoom).mockReturnValue(room)
+    vi.mocked(findReturningPlayer).mockReturnValue(null)
+
+    handleJoinRoom({} as any, socket, {
+      roomCode: room.code,
+      nickname: 'Paul',
+      avatarId: 'avatar-07'
+    })
+
+    expect(room.players.get('player-2')?.avatarId).toBe('avatar-07')
+    expect(socket.emit).toHaveBeenCalledWith('ROOM_JOINED', expect.objectContaining({
+      players: expect.arrayContaining([
+        expect.objectContaining({ id: 'player-2', nickname: 'Paul', avatarId: 'avatar-07' })
+      ])
+    }))
+    expect(socket.to).toHaveBeenCalledWith(room.code)
+    expect(roomEmit).toHaveBeenCalledWith('PLAYER_JOINED', {
+      id: 'player-2',
+      nickname: 'Paul',
+      avatarId: 'avatar-07'
+    })
   })
 
   it('deletes the room when the last player disconnects past grace period', () => {

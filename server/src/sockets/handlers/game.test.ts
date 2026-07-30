@@ -75,6 +75,7 @@ describe('game socket handlers', () => {
     room.players.set('p2', {
       id: 'p2',
       nickname: 'Paul',
+      avatarId: 'avatar-01',
       isHost: false,
       isConnected: true,
       disconnectedAt: null,
@@ -117,6 +118,7 @@ describe('game socket handlers', () => {
     room.players.set('p2', {
       id: 'p2',
       nickname: 'Paul',
+      avatarId: 'avatar-01',
       isHost: false,
       isConnected: true,
       disconnectedAt: null,
@@ -159,6 +161,7 @@ describe('game socket handlers', () => {
     room.players.set('p2', {
       id: 'p2',
       nickname: 'Paul',
+      avatarId: 'avatar-01',
       isHost: false,
       isConnected: true,
       disconnectedAt: null,

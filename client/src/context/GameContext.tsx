@@ -9,6 +9,7 @@ const RECONNECT_GRACE_MS = 5 * 60 * 1000
 interface Player {
   id: string
   nickname: string
+  avatarId?: string
   isHost: boolean
   isConnected: boolean
 }
@@ -169,8 +170,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
       playSound('success-small')
     }
 
-    const handlePlayerJoined = (data: { id: string; nickname: string }) => {
-      setPlayers(prev => [...prev, { id: data.id, nickname: data.nickname, isHost: false, isConnected: true }])
+    const handlePlayerJoined = (data: { id: string; nickname: string; avatarId?: string }) => {
+      setPlayers(prev => [
+        ...prev,
+        { id: data.id, nickname: data.nickname, avatarId: data.avatarId, isHost: false, isConnected: true }
+      ])
     }
 
     const handlePlayerLeft = (data: { id: string; nickname: string; newHost: string | null }) => {
@@ -180,7 +184,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    const handlePlayerReconnected = (data: { id: string; nickname: string; players?: Array<{ id: string; nickname: string; isHost: boolean; isConnected: boolean }> }) => {
+    const handlePlayerReconnected = (data: {
+      id: string
+      nickname: string
+      players?: Array<{ id: string; nickname: string; avatarId?: string; isHost: boolean; isConnected: boolean }>
+    }) => {
       if (data.players) {
         setPlayers(data.players)
       } else {

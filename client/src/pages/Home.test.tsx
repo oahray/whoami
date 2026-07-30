@@ -89,7 +89,8 @@ describe('Home', () => {
     expect(localStorage.getItem('whoami_nickname')).toBe('Paul')
     expect(emit).toHaveBeenCalledWith('JOIN_ROOM', {
       roomCode: 'AB12CD',
-      nickname: 'Paul'
+      nickname: 'Paul',
+      avatarId: expect.stringMatching(/^avatar-\d{2}$/)
     })
     expect(setError).toHaveBeenCalledWith(null)
   })

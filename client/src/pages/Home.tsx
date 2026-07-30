@@ -3,12 +3,21 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useGame } from '../hooks/useGame'
 import { useSocket } from '../hooks/useSocket'
 import { unlockAudio } from '../lib/sounds'
+import {
+  isAvatarId,
+  pickRandomAvatarId,
+  readStoredAvatarId,
+  writeStoredAvatarId,
+  type AvatarId
+} from '../lib/avatars'
 import { getErrorMessage, isFatalError } from '../utils/errorMessages'
+import AvatarPicker from '../components/AvatarPicker'
 import IosInstallHint from '../components/IosInstallHint'
 import FeedbackLink from '../components/FeedbackLink'
 import LoadingState from '../components/LoadingState'
 import Logo from '../components/Logo'
 import MaintenanceBanner from '../components/MaintenanceBanner'
+import PlayerAvatar from '../components/PlayerAvatar'
 import { useMaintenanceStatus } from '../hooks/useMaintenanceStatus'
 
 function Home() {
@@ -18,6 +27,8 @@ function Home() {
   const { socket, emit, connected } = useSocket()
   const { roomCode, error, setError, setRoomCode } = useGame()
   const [nickname, setNickname] = useState('')
+  const [avatarId, setAvatarId] = useState<AvatarId>(() => readStoredAvatarId() ?? pickRandomAvatarId())
+  const [avatarPickerOpen, setAvatarPickerOpen] = useState(false)
   const [joinCode, setJoinCode] = useState('')
   const [loading, setLoading] = useState(false)
   const lastPrefilledRoomParamRef = useRef<string | null>(null)
@@ -32,7 +43,8 @@ function Home() {
         if (roomData.roomCode && roomData.nickname) {
           emit('JOIN_ROOM', {
             roomCode: roomData.roomCode,
-            nickname: roomData.nickname
+            nickname: roomData.nickname,
+            avatarId: readStoredAvatarId() ?? pickRandomAvatarId()
           })
         }
       } catch (e) {
@@ -61,6 +73,10 @@ function Home() {
   }, [])
 
   useEffect(() => {
+    writeStoredAvatarId(avatarId)
+  }, [avatarId])
+
+  useEffect(() => {
     if (typeof window === 'undefined') return
     const msg = window.sessionStorage.getItem('whoami_kick_message')
     if (msg) {
@@ -85,6 +101,10 @@ function Home() {
             playerId: data.playerId,
             isHost: data.isHost
           }))
+          if (isAvatarId(player.avatarId)) {
+            writeStoredAvatarId(player.avatarId)
+            setAvatarId(player.avatarId)
+          }
         }
       }
       setTimeout(() => {
@@ -124,7 +144,8 @@ function Home() {
     setError(null)
     unlockAudio()
     localStorage.setItem('whoami_nickname', nickname.trim())
-    emit('CREATE_ROOM', { nickname: nickname.trim() })
+    writeStoredAvatarId(avatarId)
+    emit('CREATE_ROOM', { nickname: nickname.trim(), avatarId })
   }
 
   const handleJoinRoom = (e: React.FormEvent | React.MouseEvent) => {
@@ -141,9 +162,11 @@ function Home() {
     setError(null)
     unlockAudio()
     localStorage.setItem('whoami_nickname', nickname.trim())
+    writeStoredAvatarId(avatarId)
     emit('JOIN_ROOM', {
       roomCode: joinCode.trim().toUpperCase(),
-      nickname: nickname.trim()
+      nickname: nickname.trim(),
+      avatarId
     })
   }
 
@@ -172,16 +195,48 @@ function Home() {
             <div className="flex flex-col gap-2">
               <label className="text-foreground text-sm font-semibold ml-1">Your Nickname</label>
               <div className="relative">
-                <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-foreground-muted">person</span>
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={() => setAvatarPickerOpen((open) => !open)}
+                  aria-expanded={avatarPickerOpen}
+                  aria-label={avatarPickerOpen ? 'Hide avatar choices' : 'Change avatar'}
+                  className={`absolute left-2.5 top-1/2 z-10 -translate-y-1/2 size-10 rounded-full overflow-visible border-2 transition-colors disabled:opacity-60 ${
+                    avatarPickerOpen
+                      ? 'border-primary ring-2 ring-primary/30'
+                      : 'border-transparent hover:border-primary/40'
+                  }`}
+                >
+                  <PlayerAvatar
+                    avatarId={avatarId}
+                    nickname={nickname || '?'}
+                    sizeClassName="size-full"
+                  />
+                  <span className="absolute -bottom-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full bg-primary text-white border border-surface">
+                    <span className="material-symbols-outlined text-[10px] leading-none" aria-hidden>
+                      edit
+                    </span>
+                  </span>
+                </button>
                 <input
                   type="text"
                   value={nickname}
                   onChange={(e) => setNickname(e.target.value)}
                   placeholder="e.g. Samuel"
                   disabled={loading}
-                  className="w-full pl-12 pr-4 py-4 bg-surface-muted border-2 border-edge rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors text-foreground placeholder:text-foreground-muted font-medium disabled:opacity-60"
+                  className="w-full pl-[3.75rem] pr-4 py-4 bg-surface-muted border-2 border-edge rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors text-foreground placeholder:text-foreground-muted font-medium disabled:opacity-60"
                 />
               </div>
+              {avatarPickerOpen && (
+                <AvatarPicker
+                  value={avatarId}
+                  onChange={(next) => {
+                    setAvatarId(next)
+                    setAvatarPickerOpen(false)
+                  }}
+                  disabled={loading}
+                />
+              )}
             </div>
 
             <div className="flex flex-col gap-2">

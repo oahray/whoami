@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { DifficultyMultiSelect } from '../components/DifficultyMultiSelect'
+import PlayerAvatar from '../components/PlayerAvatar'
 import PreferencesMenu from '../components/PreferencesMenu'
 import { unlockAudio } from '../lib/sounds'
 import {
@@ -241,9 +242,11 @@ function Lobby() {
                   }`}
                 >
                   <div className="relative shrink-0">
-                    <div className="size-12 rounded-full bg-surface-elevated flex items-center justify-center text-foreground-muted font-bold text-sm">
-                      {player.nickname.slice(0, 2).toUpperCase()}
-                    </div>
+                    <PlayerAvatar
+                      avatarId={player.avatarId}
+                      nickname={player.nickname}
+                      sizeClassName="size-12"
+                    />
                     <div className="absolute bottom-0 right-0 size-3 rounded-full bg-green-500 border-2 border-surface" title="Connected" />
                   </div>
                   <div className="flex-1 min-w-0">

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import LoadingState from '../components/LoadingState'
+import PlayerAvatar from '../components/PlayerAvatar'
 import SoundToggle from '../components/SoundToggle'
 import { INTER_ROUND_DELAY_MS } from '../lib/gameTiming'
 import { useGame } from '../hooks/useGame'
@@ -222,9 +223,11 @@ function Game() {
                   }`}
                 >
                   <div className="relative">
-                    <div className="size-14 rounded-full bg-surface-elevated flex items-center justify-center text-foreground-muted font-bold shrink-0">
-                      {player.nickname?.slice(0, 2).toUpperCase() || '?'}
-                    </div>
+                    <PlayerAvatar
+                      avatarId={players.find(p => p.id === player.playerId)?.avatarId}
+                      nickname={player.nickname || '?'}
+                      sizeClassName="size-14"
+                    />
                     {isWinner && (
                       <div className="absolute -top-2 -right-1 bg-amber-400 text-white rounded-full p-1 border-2 border-white">
                         <span className="material-symbols-outlined text-sm block">military_tech</span>
@@ -484,9 +487,12 @@ function Game() {
                     >
                       <div className="flex items-center gap-2 lg:gap-3 min-w-0">
                         <span className="text-xs font-bold text-foreground-muted w-4">{player.rank}</span>
-                        <div className="size-7 lg:size-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs border border-primary/20 shrink-0">
-                          {player.nickname.slice(0, 2).toUpperCase()}
-                        </div>
+                        <PlayerAvatar
+                          avatarId={players.find(p => p.id === player.playerId)?.avatarId}
+                          nickname={player.nickname}
+                          sizeClassName="size-7 lg:size-8"
+                          className="border border-primary/20"
+                        />
                         <span className={`truncate text-xs lg:text-sm ${player.playerId === playerId ? 'font-semibold' : 'font-medium text-foreground-muted'}`}>
                           {player.nickname}
                           {player.playerId === playerId && ' (You)'}

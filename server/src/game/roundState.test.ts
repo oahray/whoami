@@ -80,6 +80,7 @@ describe('roundState unit', () => {
     room.players.set('player-1', {
       id: 'player-1',
       nickname: 'Player1',
+      avatarId: 'avatar-01',
       isHost: false,
       isConnected: true,
       disconnectedAt: null,
@@ -90,6 +91,7 @@ describe('roundState unit', () => {
     room.players.set('player-2', {
       id: 'player-2',
       nickname: 'Player2',
+      avatarId: 'avatar-01',
       isHost: false,
       isConnected: true,
       disconnectedAt: null,

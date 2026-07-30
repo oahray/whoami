@@ -1,4 +1,5 @@
 import type { Entity } from '../db/entities.js'
+import { coerceAvatarId, type AvatarId } from '../game/avatars.js'
 import { ROUND_START_DELAY_MS } from '../game/config.js'
 
 type Difficulty = 'easy' | 'medium' | 'hard' | 'nightmare'
@@ -10,6 +11,7 @@ type RoundPhase = 'starting' | 'active' | 'clue_revealed' | 'ended'
 export interface Player {
   id: string
   nickname: string
+  avatarId: AvatarId
   isHost: boolean
   isConnected: boolean
   disconnectedAt: number | null
@@ -105,7 +107,7 @@ function generateRoomCode(): string {
   return code
 }
 
-export function createRoom(hostId: string, hostNickname: string): RoomState {
+export function createRoom(hostId: string, hostNickname: string, avatarId?: unknown): RoomState {
   const code = generateRoomCode()
 
   const room: RoomState = {
@@ -136,6 +138,7 @@ export function createRoom(hostId: string, hostNickname: string): RoomState {
   room.players.set(hostId, {
     id: hostId,
     nickname: hostNickname,
+    avatarId: coerceAvatarId(avatarId),
     isHost: true,
     isConnected: true,
     disconnectedAt: null,
