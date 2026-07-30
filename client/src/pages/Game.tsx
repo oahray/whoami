@@ -4,6 +4,7 @@ import LoadingState from '../components/LoadingState'
 import PlayerAvatar from '../components/PlayerAvatar'
 import SoundToggle from '../components/SoundToggle'
 import { INTER_ROUND_DELAY_MS } from '../lib/gameTiming'
+import { playSound } from '../lib/sounds'
 import { useGame } from '../hooks/useGame'
 import { useSocket } from '../hooks/useSocket'
 import { useVisualViewportLock } from '../hooks/useVisualViewportLock'
@@ -51,6 +52,10 @@ function Game() {
   const guessInputRef = useRef<HTMLInputElement | null>(null)
   const cluesScrollRef = useRef<HTMLDivElement | null>(null)
   const guessesScrollRef = useRef<HTMLDivElement | null>(null)
+  const gameStateRef = useRef(gameState)
+  const settingsRef = useRef(settings)
+  const gameEndedRef = useRef(false)
+  const goHandledRef = useRef(false)
   const viewportStyle = useVisualViewportLock()
   const isFinalScoresView = gameState?.roundNumber === 0
   const canGuess = !!gameState && !isFinalScoresView && (currentPhase === 'active' || currentPhase === 'clue_revealed')
@@ -58,10 +63,35 @@ function Game() {
   const hasStoredRoom = typeof window !== 'undefined' && !!localStorage.getItem('whoami_room')
 
   useEffect(() => {
+    gameStateRef.current = gameState
+  }, [gameState])
+
+  useEffect(() => {
+    settingsRef.current = settings
+  }, [settings])
+
+  useEffect(() => {
     if (!roomCode && !isReconnecting && !hasStoredRoom) {
       navigate('/')
     }
   }, [roomCode, isReconnecting, hasStoredRoom, navigate])
+
+  // Non-host players: Go when the game screen appears for round 1.
+  // Host already heard Go on Start (session flag skips a second play).
+  useEffect(() => {
+    if (!gameState || gameState.roundNumber !== 1 || goHandledRef.current) return
+    goHandledRef.current = true
+    let skip = false
+    try {
+      if (sessionStorage.getItem('whoami_go_played') === '1') {
+        sessionStorage.removeItem('whoami_go_played')
+        skip = true
+      }
+    } catch {
+      // ignore
+    }
+    if (!skip) playSound('go')
+  }, [gameState?.roundNumber])
 
   useEffect(() => {
     if (gameState) {
@@ -92,12 +122,21 @@ function Game() {
     const handleRoundEnded = (data: any) => {
       setRoundEndData(data)
       setCurrentPhase('ended')
-      setTimeout(() => {
+      const roundNumber = gameStateRef.current?.roundNumber ?? 0
+      const totalRounds = settingsRef.current?.totalRounds ?? 0
+      const moreRounds = roundNumber > 0 && roundNumber < totalRounds
+
+      window.setTimeout(() => {
         setRoundEndData(null)
         setNextRoundSeconds(null)
+        // Local countdown end = next-round cue (not waiting on ROUND_STARTED).
+        if (moreRounds && !gameEndedRef.current) playSound('card-flip')
       }, INTER_ROUND_DELAY_MS)
     }
-    const handleGameEnded = (data: any) => setGameEndData(data)
+    const handleGameEnded = (data: any) => {
+      gameEndedRef.current = true
+      setGameEndData(data)
+    }
     const handleGuessBroadcast = (data: { nickname: string; guess?: string; correct: boolean }) => {
       setGuessFeed(prev => [...prev.slice(-4), data])
     }

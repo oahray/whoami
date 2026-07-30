@@ -72,7 +72,6 @@ function SoloGame() {
       setCard((await response.json()) as InPersonCard)
       roundStartedAt.current = Date.now()
       setRemainingMs(nextSession.roundDurationMs)
-      playSound(nextSession.index === 0 ? 'go' : 'card-flip')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load card')
     } finally {
@@ -137,6 +136,7 @@ function SoloGame() {
     activeSession.current = updated
     setSession(updated)
     saveSoloSession(updated)
+    playSound('card-flip')
     void loadCard(updated)
   }, [finishRun, loadCard, status])
 
@@ -206,6 +206,7 @@ function SoloGame() {
     if (!session || restarting) return
     setRestarting(true)
     setError(null)
+    playSound('go')
     try {
       const query = new URLSearchParams({
         datasetId: session.datasetId,

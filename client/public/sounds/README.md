@@ -6,11 +6,11 @@ Drop MP3 files below. The app loads them from `/sounds/<name>.mp3`. Missing file
 
 | File | Used for |
 |------|----------|
-| `go.mp3` | Multiplayer / solo: first round of a game or session |
+| `go.mp3` | Start pressed in lobby (host immediate; other players when game screen opens); solo Start / Try again |
 | `clue-pop.mp3` | New clue revealed (multiplayer, solo, pass & play) |
 | `correct.mp3` | Your own correct guess (multiplayer self only, solo) |
 | `uh-oh.mp3` | Round miss: nobody scored (multiplayer) or timeout (solo) |
-| `card-flip.mp3` | Later rounds (multiplayer / solo); next / previous card (pass & play) |
+| `card-flip.mp3` | Next / prev card actions; endurance auto-next; multiplayer later rounds at end of local inter-round countdown |
 | `player-join.mp3` | Someone joins the lobby |
 | `player-kick.mp3` | Someone is kicked from the lobby |
 | `yay.mp3` | Winners / tied winners on multiplayer results; solo finish with at least one correct |

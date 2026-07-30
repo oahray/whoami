@@ -288,7 +288,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
         serverStartTime: data.serverStartTime
       })
       setError(null)
-      playSound(data.roundNumber === 1 ? 'go' : 'card-flip')
     }
 
     const handleClueRevealed = (data: { clue: { order: number; text: string } }) => {
