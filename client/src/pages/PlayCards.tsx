@@ -143,9 +143,7 @@ function PlayCards() {
         })
         saveDeckSession(updated)
         setDeckSession(updated)
-        if (session.index === 0) {
-          playSound('round-start')
-        }
+        // Pass & play: no Go; flip is on next/prev only.
       } catch (err) {
         setCard(null)
         setError(err instanceof Error ? err.message : 'Failed to load card')
@@ -232,7 +230,6 @@ function PlayCards() {
     if (!deckSession || !card) return
     unlockAudio()
     const next = !showAnswer
-    if (next) playSound('card-flip')
     setShowAnswer(next)
     persistSnapshot(deckSession, card, revealedCount, next)
   }
@@ -242,6 +239,7 @@ function PlayCards() {
     const nextRevealed = revealedCount + 1
     setRevealedCount(nextRevealed)
     persistSnapshot(deckSession, card, nextRevealed, showAnswer)
+    playSound('clue-pop')
   }
 
   const handlePreviousCard = () => {
@@ -254,6 +252,7 @@ function PlayCards() {
     const updated = { ...session, index: prevIndex }
     saveDeckSession(updated)
     setDeckSession(updated)
+    playSound('card-flip')
 
     const snapshot = snapshotForIndex(updated, prevIndex)
     if (snapshot) {
@@ -281,10 +280,10 @@ function PlayCards() {
     if (nextIndex >= currentDeckEntityIds(updated).length) {
       setDeckComplete(true)
       setSessionComplete(isSessionComplete(updated))
-      playSound('round-end')
       return
     }
 
+    playSound('card-flip')
     const nextEntityId = currentEntityId(updated)
     if (!nextEntityId) return
 
@@ -303,7 +302,10 @@ function PlayCards() {
     setSessionComplete(false)
 
     const entityId = currentEntityId(nextSession)
-    if (entityId) void loadCardForEntity(entityId, nextSession)
+    if (entityId) {
+      playSound('card-flip')
+      void loadCardForEntity(entityId, nextSession)
+    }
   }
 
   const handlePlayAgain = async () => {

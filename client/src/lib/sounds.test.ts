@@ -37,20 +37,20 @@ describe('sounds', () => {
   })
 
   it('does not play before unlockAudio', () => {
-    playSound('success-small')
+    playSound('correct')
     expect(playMock).not.toHaveBeenCalled()
   })
 
   it('does not play when sound effects are disabled', () => {
     localStorage.setItem('whoami_sfx_enabled', 'false')
     unlockAudio()
-    playSound('success-small')
+    playSound('correct')
     expect(playMock).not.toHaveBeenCalled()
   })
 
   it('plays after unlock when enabled', () => {
     unlockAudio()
-    playSound('success-small')
+    playSound('correct')
     expect(playMock).toHaveBeenCalled()
     expect(isAudioUnlocked()).toBe(true)
   })
@@ -67,12 +67,12 @@ describe('sounds', () => {
       }
     }))
 
-    playSound('round-start')
+    playSound('go')
     expect(playMock).toHaveBeenCalledTimes(1)
 
     errorHandler?.()
     playMock.mockClear()
-    playSound('round-start')
+    playSound('go')
     expect(playMock).not.toHaveBeenCalled()
   })
 })

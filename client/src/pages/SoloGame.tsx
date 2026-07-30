@@ -44,6 +44,7 @@ function SoloGame() {
   const activeSession = useRef<SoloSession | null>(null)
   const guessInputRef = useRef<HTMLInputElement | null>(null)
   const cluesScrollRef = useRef<HTMLElement | null>(null)
+  const lastClueCountRef = useRef(0)
   const viewportStyle = useVisualViewportLock()
   const viewportLocked = Object.keys(viewportStyle).length > 0
 
@@ -56,6 +57,7 @@ function SoloGame() {
     setGuess('')
     setFeedback(null)
     setStatus('active')
+    lastClueCountRef.current = 0
     try {
       const query = new URLSearchParams({
         datasetId: nextSession.datasetId,
@@ -70,6 +72,7 @@ function SoloGame() {
       setCard((await response.json()) as InPersonCard)
       roundStartedAt.current = Date.now()
       setRemainingMs(nextSession.roundDurationMs)
+      playSound(nextSession.index === 0 ? 'go' : 'card-flip')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load card')
     } finally {
@@ -98,6 +101,7 @@ function SoloGame() {
     setStatus('finished')
     // Use this run's stats even when it did not beat the personal best.
     setResult({ record, isPersonalBest: saved.isPersonalBest })
+    if (record.correctCount > 0) playSound('yay')
   }, [])
 
   const advance = useCallback((correct: boolean) => {
@@ -143,13 +147,25 @@ function SoloGame() {
       setRemainingMs(next)
       if (next === 0) {
         setStatus('timeout')
-        playSound('round-end')
+        playSound('uh-oh')
       }
     }
     tick()
     const interval = window.setInterval(tick, 100)
     return () => window.clearInterval(interval)
   }, [session, card, status, loading])
+
+  useEffect(() => {
+    if (!session || !card || status !== 'active' || loading) return
+    const revealedCount = Math.min(
+      card.clues.length,
+      1 + Math.floor((session.roundDurationMs - remainingMs) / session.clueRevealIntervalMs)
+    )
+    if (revealedCount > lastClueCountRef.current) {
+      if (lastClueCountRef.current > 0) playSound('clue-pop')
+      lastClueCountRef.current = revealedCount
+    }
+  }, [session, card, status, loading, remainingMs])
 
   useEffect(() => {
     if (status !== 'timeout' && status !== 'correct') {
@@ -242,7 +258,7 @@ function SoloGame() {
     }
     setStatus('correct')
     setFeedback('Correct!')
-    playSound('success-small')
+    playSound('correct')
   }
 
   if (result && session) {

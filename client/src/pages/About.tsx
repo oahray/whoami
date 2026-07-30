@@ -205,6 +205,37 @@ function About() {
             </a>
             , produced for Who Am I? © 2026 Oare Arene. All rights reserved.
           </p>
+          <p className="text-foreground text-sm leading-relaxed">
+            Some sound effects use clips from{' '}
+            <a
+              href="https://pixabay.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary font-semibold hover:text-primary/80"
+            >
+              Pixabay
+            </a>{' '}
+            (
+            <a
+              href="https://pixabay.com/service/license/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary font-semibold hover:text-primary/80"
+            >
+              Pixabay Content License
+            </a>
+            ), including work uploaded by freesound_community, universfield, wefgf, and
+            alexis_gaming_cam, mixed with original audio by{' '}
+            <a
+              href="https://oarearene.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary font-semibold hover:text-primary/80"
+            >
+              Oare Arene
+            </a>
+            .
+          </p>
         </section>
 
         {isFeedbackConfigured() ? (
