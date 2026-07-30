@@ -21,6 +21,18 @@ describe('About', () => {
     expect(screen.getByRole('heading', { name: 'Install the app' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Content' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Credits' })).toBeInTheDocument()
+    expect(screen.getAllByRole('link', { name: /^oare arene$/i })[0]).toHaveAttribute(
+      'href',
+      'https://oarearene.com'
+    )
+    expect(screen.getByRole('link', { name: /^pixabay$/i })).toHaveAttribute(
+      'href',
+      'https://pixabay.com/'
+    )
+    expect(screen.getByRole('link', { name: /^pixabay content license$/i })).toHaveAttribute(
+      'href',
+      'https://pixabay.com/service/license/'
+    )
     expect(screen.getByRole('link', { name: /^cc by 4\.0$/i })).toHaveAttribute(
       'href',
       'https://creativecommons.org/licenses/by/4.0/'

@@ -4,6 +4,8 @@ import { DifficultyMultiSelect } from '../components/DifficultyMultiSelect'
 import PlayerAvatar from '../components/PlayerAvatar'
 import PreferencesMenu from '../components/PreferencesMenu'
 import { unlockAudio } from '../lib/sounds'
+import { fadeOutMenuMusic } from '../lib/menuMusic'
+import { useMenuMusic } from '../hooks/useMenuMusic'
 import {
   coerceDifficultySelection,
   encodeDifficultySelection,
@@ -29,6 +31,7 @@ const API_BASE_URL =
 
 function Lobby() {
   const navigate = useNavigate()
+  useMenuMusic()
   const { emit, on, off } = useSocket()
   const { status: maintenanceStatus } = useMaintenanceStatus()
   const maintenanceBlocking = isMaintenanceBlockingNewGames(maintenanceStatus)
@@ -113,6 +116,7 @@ function Lobby() {
       return
     }
     unlockAudio()
+    fadeOutMenuMusic()
     emit('START_GAME', {})
   }
 

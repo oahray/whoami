@@ -219,7 +219,8 @@ describe('room socket handlers', () => {
     expect(roomEmit).toHaveBeenCalledWith('PLAYER_LEFT', {
       id: 'host-1',
       nickname: 'Host',
-      newHost: 'Paul'
+      newHost: 'Paul',
+      reason: 'left'
     })
   })
 
@@ -260,7 +261,8 @@ describe('room socket handlers', () => {
     expect(roomEmit).toHaveBeenCalledWith('PLAYER_LEFT', {
       id: 'host-1',
       nickname: 'Host',
-      newHost: 'Paul'
+      newHost: 'Paul',
+      reason: 'left'
     })
   })
 

@@ -1,12 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { stubMatchMedia } from '../test/matchMedia'
 import {
+  isMusicPlaybackAllowed,
   isSfxPlaybackAllowed,
+  readMusicEnabled,
   readSfxEnabled,
   readTheme,
   resolveTheme,
+  STORAGE_KEY_MUSIC_ENABLED,
   STORAGE_KEY_SFX_ENABLED,
   STORAGE_KEY_THEME,
+  writeMusicEnabled,
   writeSfxEnabled,
   writeTheme
 } from './preferences'
@@ -32,15 +36,28 @@ describe('preferences', () => {
     expect(readSfxEnabled()).toBe(false)
   })
 
+  it('defaults music to on', () => {
+    expect(readMusicEnabled()).toBe(true)
+  })
+
+  it('persists music preference', () => {
+    writeMusicEnabled(false)
+    expect(localStorage.getItem(STORAGE_KEY_MUSIC_ENABLED)).toBe('false')
+    expect(readMusicEnabled()).toBe(false)
+  })
+
   it('blocks playback when reduced motion is preferred', () => {
     stubMatchMedia({ reducedMotion: true })
     expect(isSfxPlaybackAllowed(true)).toBe(false)
     expect(isSfxPlaybackAllowed(false)).toBe(false)
+    expect(isMusicPlaybackAllowed(true)).toBe(false)
   })
 
   it('allows playback when enabled and motion is not reduced', () => {
     expect(isSfxPlaybackAllowed(true)).toBe(true)
     expect(isSfxPlaybackAllowed(false)).toBe(false)
+    expect(isMusicPlaybackAllowed(true)).toBe(true)
+    expect(isMusicPlaybackAllowed(false)).toBe(false)
   })
 
   it('defaults theme to system', () => {

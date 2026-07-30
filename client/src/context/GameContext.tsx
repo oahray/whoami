@@ -167,7 +167,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
         }
       }
       setError(null)
-      playSound('success-small')
     }
 
     const handlePlayerJoined = (data: { id: string; nickname: string; avatarId?: string }) => {
@@ -175,12 +174,21 @@ export function GameProvider({ children }: { children: ReactNode }) {
         ...prev,
         { id: data.id, nickname: data.nickname, avatarId: data.avatarId, isHost: false, isConnected: true }
       ])
+      playSound('player-join')
     }
 
-    const handlePlayerLeft = (data: { id: string; nickname: string; newHost: string | null }) => {
+    const handlePlayerLeft = (data: {
+      id: string
+      nickname: string
+      newHost: string | null
+      reason?: 'left' | 'kicked'
+    }) => {
       setPlayers(prev => prev.filter(p => p.id !== data.id))
       if (data.newHost) {
         setPlayers(prev => prev.map(p => ({ ...p, isHost: p.nickname === data.newHost })))
+      }
+      if (data.reason === 'kicked') {
+        playSound('player-kick')
       }
     }
 
@@ -247,6 +255,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
 
     const handleKicked = (data: { nickname: string; banned: boolean }) => {
+      playSound('player-kick')
       const message = data.banned
         ? getErrorMessage('PLAYER_BANNED')
         : 'You have been removed from the room by the host.'
@@ -279,7 +288,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         serverStartTime: data.serverStartTime
       })
       setError(null)
-      playSound('round-start')
+      playSound(data.roundNumber === 1 ? 'go' : 'card-flip')
     }
 
     const handleClueRevealed = (data: { clue: { order: number; text: string } }) => {
@@ -294,7 +303,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         }
       })
       if (data.clue.order > 1) {
-        playSound('clue-reveal')
+        playSound('clue-pop')
       }
     }
 
@@ -302,8 +311,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       const currentPlayer = players.find(p => p.id === playerId)
       if (currentPlayer && data.nickname === currentPlayer.nickname) {
         setGameState(prev => prev ? { ...prev, isLocked: true } : null)
+        playSound('correct')
       }
-      playSound('success-small')
     }
 
     const handleRoundEnded = (data: any) => {
@@ -325,7 +334,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
           cluesRevealed: []
         } : null)
       }, INTER_ROUND_DELAY_MS)
-      playSound('round-end')
+
+      if (!data.answerRevealed) {
+        playSound('uh-oh')
+      }
     }
 
     const handleGameEnded = (data: { finalScoreboard: Array<{ playerId: string; nickname: string; score: number }> }) => {
@@ -336,13 +348,19 @@ export function GameProvider({ children }: { children: ReactNode }) {
         isLocked: false,
         currentScoreboard: data.finalScoreboard
       })
-      playSound('game-win')
+
+      const topScore = Math.max(0, ...data.finalScoreboard.map((entry) => entry.score))
+      if (topScore > 0) {
+        const isWinner = data.finalScoreboard.some(
+          (entry) => entry.playerId === playerId && entry.score === topScore
+        )
+        if (isWinner) playSound('yay')
+      }
     }
 
     const handleRoomError = (data: { code: string; message: string }) => {
       const userMessage = getErrorMessage(data.code, data.message)
       setError(userMessage)
-      playSound('ui-error')
       if (isFatalError(data.code)) {
         localStorage.removeItem('whoami_room')
       }

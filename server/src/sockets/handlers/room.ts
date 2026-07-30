@@ -323,7 +323,8 @@ export function handleLeaveRoom(io: Server, socket: Socket) {
     io.to(room.code).emit('PLAYER_LEFT', {
       id: socket.id,
       nickname,
-      newHost: newHostId ? room.players.get(newHostId)?.nickname : null
+      newHost: newHostId ? room.players.get(newHostId)?.nickname : null,
+      reason: 'left'
     })
   } catch (error: any) {
     logger.error('Error in handleLeaveRoom', error, { socketId: socket.id })
@@ -383,7 +384,8 @@ export function handleKickPlayer(io: Server, socket: Socket, payload: any) {
     io.to(room.code).emit('PLAYER_LEFT', {
       id: payload.playerId,
       nickname,
-      newHost: null
+      newHost: null,
+      reason: 'kicked'
     })
   } catch (error: any) {
     logger.error('Error in handleKickPlayer', error, { socketId: socket.id })
@@ -431,7 +433,8 @@ export function handleDisconnect(io: Server, socket: Socket) {
         io.to(roomAfterDelay.code).emit('PLAYER_LEFT', {
           id: socket.id,
           nickname,
-          newHost: newHostId ? roomAfterDelay.players.get(newHostId)?.nickname : null
+          newHost: newHostId ? roomAfterDelay.players.get(newHostId)?.nickname : null,
+          reason: 'left'
         })
       })
     }, GRACE_PERIOD_MS)

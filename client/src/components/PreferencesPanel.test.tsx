@@ -29,11 +29,24 @@ describe('PreferencesPanel', () => {
     expect(checkbox).toBeChecked()
   })
 
+  it('renders music toggle defaulting to on', () => {
+    renderPanel()
+    const checkbox = screen.getByRole('checkbox', { name: /^music$/i })
+    expect(checkbox).toBeChecked()
+  })
+
   it('persists when toggled off', () => {
     renderPanel()
     fireEvent.click(screen.getByRole('checkbox', { name: /sound effects/i }))
     expect(screen.getByRole('checkbox', { name: /sound effects/i })).not.toBeChecked()
     expect(localStorage.getItem('whoami_sfx_enabled')).toBe('false')
+  })
+
+  it('persists music when toggled off', () => {
+    renderPanel()
+    fireEvent.click(screen.getByRole('checkbox', { name: /^music$/i }))
+    expect(screen.getByRole('checkbox', { name: /^music$/i })).not.toBeChecked()
+    expect(localStorage.getItem('whoami_music_enabled')).toBe('false')
   })
 
   it('shows reduced motion notice when applicable', () => {

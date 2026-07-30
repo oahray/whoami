@@ -36,6 +36,8 @@ import {
   type SoloVariation
 } from '../lib/soloSession'
 import { unlockAudio } from '../lib/sounds'
+import { fadeOutMenuMusic } from '../lib/menuMusic'
+import { useMenuMusic } from '../hooks/useMenuMusic'
 import type { PublicDataset } from '../types'
 
 const TIMER_OPTIONS = [15, 30, 45, 60]
@@ -43,6 +45,7 @@ const CLUE_INTERVAL_OPTIONS = [5, 10, 15]
 
 function SoloSetup() {
   const navigate = useNavigate()
+  useMenuMusic()
   const { status: maintenanceStatus } = useMaintenanceStatus()
   const maintenanceBlocking = isMaintenanceBlockingNewGames(maintenanceStatus)
   const savedPrefs = loadSoloSetupPreferences()
@@ -207,6 +210,7 @@ function SoloSetup() {
     setStarting(true)
     setError(null)
     unlockAudio()
+    fadeOutMenuMusic()
     try {
       const query = new URLSearchParams({
         datasetId,

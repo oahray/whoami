@@ -1,4 +1,5 @@
 import { usePreferences } from '../context/PreferencesContext'
+import { unlockAudio } from '../lib/sounds'
 import type { ThemeMode } from '../lib/preferences'
 
 type PreferencesFormProps = {
@@ -12,8 +13,18 @@ const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
 ]
 
 function PreferencesForm({ idPrefix = 'pref' }: PreferencesFormProps) {
-  const { sfxEnabled, setSfxEnabled, reducedMotion, sfxAllowed, theme, setTheme } = usePreferences()
+  const {
+    sfxEnabled,
+    setSfxEnabled,
+    musicEnabled,
+    setMusicEnabled,
+    reducedMotion,
+    sfxAllowed,
+    theme,
+    setTheme
+  } = usePreferences()
   const sfxId = `${idPrefix}-sfx-enabled`
+  const musicId = `${idPrefix}-music-enabled`
   const themeGroupId = `${idPrefix}-theme`
 
   return (
@@ -61,7 +72,10 @@ function PreferencesForm({ idPrefix = 'pref' }: PreferencesFormProps) {
           type="checkbox"
           id={sfxId}
           checked={sfxEnabled}
-          onChange={(e) => setSfxEnabled(e.target.checked)}
+          onChange={(e) => {
+            if (e.target.checked) unlockAudio()
+            setSfxEnabled(e.target.checked)
+          }}
           className="mt-1 rounded accent-primary"
         />
         <div className="min-w-0 flex-1">
@@ -69,15 +83,34 @@ function PreferencesForm({ idPrefix = 'pref' }: PreferencesFormProps) {
             Sound effects
           </label>
           <p className="text-xs text-foreground-muted mt-0.5">
-            Plays on this device only. Other players keep their own setting.
+            Game cues and reactions on this device only.
+          </p>
+        </div>
+      </div>
+
+      <div className="flex items-start gap-3">
+        <input
+          type="checkbox"
+          id={musicId}
+          checked={musicEnabled}
+          onChange={(e) => setMusicEnabled(e.target.checked)}
+          className="mt-1 rounded accent-primary"
+        />
+        <div className="min-w-0 flex-1">
+          <label htmlFor={musicId} className="text-foreground text-sm font-medium">
+            Music
+          </label>
+          <p className="text-xs text-foreground-muted mt-0.5">
+            Soft theme on lobby and setup screens. Separate from sound effects.
           </p>
         </div>
       </div>
 
       {reducedMotion && (
         <p className="text-xs text-amber-900 dark:text-amber-100 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">
-          Sounds are off because <strong>Reduce motion</strong> is on in your system settings.
-          {sfxEnabled && !sfxAllowed ? ' Your checkbox setting is saved for later.' : null}
+          Sounds and music are off because <strong>Reduce motion</strong> is on in your system
+          settings.
+          {sfxEnabled && !sfxAllowed ? ' Your checkbox settings are saved for later.' : null}
         </p>
       )}
     </div>

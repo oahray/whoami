@@ -8,12 +8,16 @@ import {
   type ReactNode
 } from 'react'
 import { applyThemeMode } from '../lib/applyTheme'
+import { enableAndStartMenuMusic, stopMenuMusic } from '../lib/menuMusic'
 import {
+  isMusicPlaybackAllowed,
   isSfxPlaybackAllowed,
   prefersReducedMotion,
+  readMusicEnabled,
   readSfxEnabled,
   readTheme,
   resolveTheme,
+  writeMusicEnabled,
   writeSfxEnabled,
   writeTheme,
   type ResolvedTheme,
@@ -24,10 +28,15 @@ type PreferencesContextValue = {
   /** User wants sound effects when the system allows them. */
   sfxEnabled: boolean
   setSfxEnabled: (enabled: boolean) => void
-  /** System prefers reduced motion; SFX stay off even if sfxEnabled is true. */
+  /** User wants menu theme music when the system allows it. */
+  musicEnabled: boolean
+  setMusicEnabled: (enabled: boolean) => void
+  /** System prefers reduced motion; SFX and music stay off even if enabled. */
   reducedMotion: boolean
-  /** Effective gate for playback (phase 2+). */
+  /** Effective gate for SFX playback. */
   sfxAllowed: boolean
+  /** Effective gate for menu music playback. */
+  musicAllowed: boolean
   theme: ThemeMode
   setTheme: (mode: ThemeMode) => void
   resolvedTheme: ResolvedTheme
@@ -37,6 +46,7 @@ const PreferencesContext = createContext<PreferencesContextValue | null>(null)
 
 export function PreferencesProvider({ children }: { children: ReactNode }) {
   const [sfxEnabled, setSfxEnabledState] = useState(readSfxEnabled)
+  const [musicEnabled, setMusicEnabledState] = useState(readMusicEnabled)
   const [reducedMotion, setReducedMotion] = useState(prefersReducedMotion)
   const [theme, setThemeState] = useState<ThemeMode>(readTheme)
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() => resolveTheme(readTheme()))
@@ -69,6 +79,16 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     writeSfxEnabled(enabled)
   }, [])
 
+  const setMusicEnabled = useCallback((enabled: boolean) => {
+    setMusicEnabledState(enabled)
+    writeMusicEnabled(enabled)
+    if (enabled) {
+      enableAndStartMenuMusic()
+    } else {
+      stopMenuMusic()
+    }
+  }, [])
+
   const setTheme = useCallback((mode: ThemeMode) => {
     setThemeState(mode)
     writeTheme(mode)
@@ -80,13 +100,25 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     () => ({
       sfxEnabled,
       setSfxEnabled,
+      musicEnabled,
+      setMusicEnabled,
       reducedMotion,
       sfxAllowed: isSfxPlaybackAllowed(sfxEnabled),
+      musicAllowed: isMusicPlaybackAllowed(musicEnabled),
       theme,
       setTheme,
       resolvedTheme
     }),
-    [sfxEnabled, setSfxEnabled, reducedMotion, theme, setTheme, resolvedTheme]
+    [
+      sfxEnabled,
+      setSfxEnabled,
+      musicEnabled,
+      setMusicEnabled,
+      reducedMotion,
+      theme,
+      setTheme,
+      resolvedTheme
+    ]
   )
 
   return (

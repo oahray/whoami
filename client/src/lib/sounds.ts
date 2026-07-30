@@ -2,29 +2,30 @@ import { isSfxPlaybackAllowed, readSfxEnabled } from './preferences'
 
 /** Matches filenames in `public/sounds/` (without extension). */
 export type SoundId =
-  | 'ui-click'
-  | 'ui-error'
-  | 'success-small'
-  | 'round-start'
-  | 'clue-reveal'
-  | 'round-end'
-  | 'game-win'
+  | 'go'
+  | 'clue-pop'
+  | 'correct'
+  | 'uh-oh'
   | 'card-flip'
+  | 'player-join'
+  | 'player-kick'
+  | 'yay'
 
 const SOUND_PATHS: Record<SoundId, string> = {
-  'ui-click': '/sounds/ui-click.mp3',
-  'ui-error': '/sounds/ui-error.mp3',
-  'success-small': '/sounds/success-small.mp3',
-  'round-start': '/sounds/round-start.mp3',
-  'clue-reveal': '/sounds/clue-reveal.mp3',
-  'round-end': '/sounds/round-end.mp3',
-  'game-win': '/sounds/game-win.mp3',
-  'card-flip': '/sounds/card-flip.mp3'
+  go: '/sounds/go.mp3',
+  'clue-pop': '/sounds/clue-pop.mp3',
+  correct: '/sounds/correct.mp3',
+  'uh-oh': '/sounds/uh-oh.mp3',
+  'card-flip': '/sounds/card-flip.mp3',
+  'player-join': '/sounds/player-join.mp3',
+  'player-kick': '/sounds/player-kick.mp3',
+  yay: '/sounds/yay.mp3'
 }
 
 const THROTTLE_MS: Partial<Record<SoundId, number>> = {
-  'clue-reveal': 400,
-  'ui-error': 600
+  'clue-pop': 400,
+  'player-join': 500,
+  'player-kick': 500
 }
 
 let audioUnlocked = false

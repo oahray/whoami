@@ -76,7 +76,7 @@ function Privacy() {
           </p>
           <ul className="list-disc list-inside space-y-2 text-foreground text-sm leading-relaxed">
             <li>Nickname reminder and last online room reconnect details</li>
-            <li>Sound and theme preferences</li>
+            <li>Sound effects, music, and appearance preferences</li>
             <li>Solo setup choices, in-progress solo session, and personal bests</li>
             <li>Pass &amp; play setup choices and the current card deck for that session</li>
             <li>Optional install-hint dismissals for the mobile app shell</li>
