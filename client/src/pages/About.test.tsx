@@ -20,6 +20,11 @@ describe('About', () => {
     expect(screen.getByRole('heading', { name: 'Pass & play' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Install the app' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Content' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Credits' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /^cc by 4\.0$/i })).toHaveAttribute(
+      'href',
+      'https://creativecommons.org/licenses/by/4.0/'
+    )
     expect(screen.getByRole('heading', { name: 'Feedback' })).toBeInTheDocument()
     expect(screen.getByText(/report issues and share feedback shortly/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /your preferences/i })).toBeInTheDocument()

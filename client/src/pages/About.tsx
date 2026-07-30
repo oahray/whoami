@@ -149,6 +149,52 @@ function About() {
           </p>
         </section>
 
+        <section className="bg-surface rounded-lg border border-edge shadow-sm p-5 space-y-3">
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-primary">face</span>
+            <h2 className="text-lg font-bold text-foreground">Credits</h2>
+          </div>
+          <p className="text-foreground text-sm leading-relaxed">
+            Player avatars use the{' '}
+            <a
+              href="https://www.dicebear.com/styles/adventurer-neutral/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary font-semibold hover:text-primary/80"
+            >
+              Adventurer Neutral
+            </a>{' '}
+            style from DiceBear, a remix of{' '}
+            <a
+              href="https://www.figma.com/community/file/1184595184137881796"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary font-semibold hover:text-primary/80"
+            >
+              Adventurer Neutral
+            </a>{' '}
+            by{' '}
+            <a
+              href="https://www.instagram.com/lischi_art/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary font-semibold hover:text-primary/80"
+            >
+              Lisa Wischofsky
+            </a>
+            , licensed under{' '}
+            <a
+              href="https://creativecommons.org/licenses/by/4.0/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary font-semibold hover:text-primary/80"
+            >
+              CC BY 4.0
+            </a>
+            .
+          </p>
+        </section>
+
         {isFeedbackConfigured() ? (
           <section className="bg-surface rounded-lg border border-edge shadow-sm p-5 space-y-3">
             <div className="flex items-center gap-2">

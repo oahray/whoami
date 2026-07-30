@@ -1,6 +1,13 @@
 import { Server, Socket } from 'socket.io'
+import { coerceAvatarId } from '../../game/avatars.js'
 import { getRoom, getRoomBySocket, createRoom, deleteRoom } from '../../rooms/store.js'
-import { findReturningPlayer, transferHost, buildReconnectPayload, GRACE_PERIOD_MS } from './utils.js'
+import {
+  findReturningPlayer,
+  transferHost,
+  buildReconnectPayload,
+  toPublicPlayer,
+  GRACE_PERIOD_MS
+} from './utils.js'
 import { safeTimer } from '../dispatch.js'
 import { logger } from '../../utils/logger.js'
 
@@ -56,7 +63,8 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
       return
     }
 
-    const { roomCode, nickname } = payload
+    const { roomCode, nickname, avatarId: rawAvatarId } = payload
+    const avatarId = coerceAvatarId(rawAvatarId)
 
     if (!roomCode || typeof roomCode !== 'string' || roomCode.trim().length === 0) {
       socket.emit('ROOM_ERROR', {
@@ -127,12 +135,7 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
           socket.emit('ROOM_JOINED', {
             playerId: socket.id,
             isHost: returning.isHost,
-            players: Array.from(room.players.values()).map(p => ({
-              id: p.id,
-              nickname: p.nickname,
-              isHost: p.isHost,
-              isConnected: p.isConnected
-            })),
+            players: Array.from(room.players.values()).map(toPublicPlayer),
             settings: room.settings,
             roomCode: room.code
           })
@@ -141,12 +144,7 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
         socket.to(roomCode).emit('PLAYER_RECONNECTED', {
           id: socket.id,
           nickname,
-          players: Array.from(room.players.values()).map(p => ({
-            id: p.id,
-            nickname: p.nickname,
-            isHost: p.isHost,
-            isConnected: p.isConnected
-          }))
+          players: Array.from(room.players.values()).map(toPublicPlayer)
         })
         return
       }
@@ -188,12 +186,7 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
       socket.emit('ROOM_JOINED', {
         playerId: socket.id,
         isHost: existingPlayer.isHost,
-        players: Array.from(room.players.values()).map(p => ({
-          id: p.id,
-          nickname: p.nickname,
-          isHost: p.isHost,
-          isConnected: p.isConnected
-        })),
+        players: Array.from(room.players.values()).map(toPublicPlayer),
         settings: room.settings,
         roomCode: room.code
       })
@@ -201,12 +194,7 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
       socket.to(roomCode).emit('PLAYER_RECONNECTED', {
         id: socket.id,
         nickname,
-        players: Array.from(room.players.values()).map(p => ({
-          id: p.id,
-          nickname: p.nickname,
-          isHost: p.isHost,
-          isConnected: p.isConnected
-        }))
+        players: Array.from(room.players.values()).map(toPublicPlayer)
       })
       return
     }
@@ -222,6 +210,7 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
     const player = {
       id: socket.id,
       nickname,
+      avatarId,
       isHost: false,
       isConnected: true,
       disconnectedAt: null,
@@ -236,18 +225,14 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
     socket.emit('ROOM_JOINED', {
       playerId: socket.id,
       isHost: false,
-      players: Array.from(room.players.values()).map(p => ({
-        id: p.id,
-        nickname: p.nickname,
-        isHost: p.isHost,
-        isConnected: p.isConnected
-      })),
+      players: Array.from(room.players.values()).map(toPublicPlayer),
       settings: room.settings
     })
 
     socket.to(roomCode).emit('PLAYER_JOINED', {
       id: socket.id,
-      nickname
+      nickname,
+      avatarId
     })
   } catch (error: any) {
     logger.error('Error in handleJoinRoom', error, {
@@ -271,7 +256,7 @@ export function handleCreateRoom(_io: Server, socket: Socket, payload: any) {
       return
     }
 
-    const { nickname } = payload
+    const { nickname, avatarId: rawAvatarId } = payload
 
     if (!nickname || typeof nickname !== 'string' || nickname.trim().length === 0) {
       socket.emit('ROOM_ERROR', {
@@ -289,18 +274,13 @@ export function handleCreateRoom(_io: Server, socket: Socket, payload: any) {
       return
     }
 
-    const room = createRoom(socket.id, nickname)
+    const room = createRoom(socket.id, nickname, coerceAvatarId(rawAvatarId))
     socket.join(room.code)
 
     socket.emit('ROOM_JOINED', {
       playerId: socket.id,
       isHost: true,
-      players: Array.from(room.players.values()).map(p => ({
-        id: p.id,
-        nickname: p.nickname,
-        isHost: p.isHost,
-        isConnected: p.isConnected
-      })),
+      players: Array.from(room.players.values()).map(toPublicPlayer),
       settings: room.settings,
       roomCode: room.code
     })

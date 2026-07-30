@@ -61,6 +61,11 @@ describe('socket handler utils', () => {
 
       const payload = buildReconnectPayload(room, host)
 
+      expect(payload.players).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: 'host-1', nickname: 'Host', avatarId: host.avatarId })
+        ])
+      )
       expect(payload.gameState.serverStartTime).toBe(123456789)
       expect(payload.gameState.cluesRevealed).toEqual([
         { order: 1, text: 'Led Israel out of Egypt' }
@@ -77,6 +82,7 @@ describe('socket handler utils', () => {
       room.players.set('p2', {
         id: 'p2',
         nickname: 'Paul',
+        avatarId: 'avatar-01',
         isHost: false,
         isConnected: true,
         disconnectedAt: null,

@@ -100,16 +100,21 @@ export function transferHost(room: RoomState): string | null {
   return null
 }
 
+export function toPublicPlayer(player: Player) {
+  return {
+    id: player.id,
+    nickname: player.nickname,
+    avatarId: player.avatarId,
+    isHost: player.isHost,
+    isConnected: player.isConnected
+  }
+}
+
 export function buildReconnectPayload(room: RoomState, player: Player) {
   const payload: any = {
     playerId: player.id,
     isHost: player.isHost,
-    players: Array.from(room.players.values()).map(p => ({
-      id: p.id,
-      nickname: p.nickname,
-      isHost: p.isHost,
-      isConnected: p.isConnected
-    })),
+    players: Array.from(room.players.values()).map(toPublicPlayer),
     settings: room.settings
   }
 

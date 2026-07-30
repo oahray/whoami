@@ -348,6 +348,11 @@ function SoloGame() {
               <section className="rounded-lg border border-green-300 bg-green-50 p-4 text-center">
                 <p className="text-sm text-green-800">Correct!</p>
                 <p className="mt-1 text-2xl font-black text-green-950">{card.entity.name}</p>
+                {card.entity.aliases.map((alias) => (
+                  <p key={alias} className="mt-0.5 text-base font-semibold text-green-900/80">
+                    {alias}
+                  </p>
+                ))}
                 <button
                   type="button"
                   onClick={() => advance(true)}
@@ -364,6 +369,11 @@ function SoloGame() {
               <section className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-center">
                 <p className="text-sm text-amber-900">Time&apos;s up. The answer was</p>
                 <p className="mt-1 text-2xl font-black text-amber-950">{card.entity.name}</p>
+                {card.entity.aliases.map((alias) => (
+                  <p key={alias} className="mt-0.5 text-base font-semibold text-amber-900/80">
+                    {alias}
+                  </p>
+                ))}
                 <button
                   type="button"
                   onClick={() => advance(false)}
