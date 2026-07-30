@@ -193,6 +193,18 @@ function About() {
             </a>
             .
           </p>
+          <p className="text-foreground text-sm leading-relaxed">
+            Menu theme: original composition by{' '}
+            <a
+              href="https://oarearene.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary font-semibold hover:text-primary/80"
+            >
+              Oare Arene
+            </a>
+            , produced for Who Am I? © 2026 Oare Arene. All rights reserved.
+          </p>
         </section>
 
         {isFeedbackConfigured() ? (

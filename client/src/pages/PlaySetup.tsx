@@ -25,7 +25,9 @@ import {
   type EntityTypeFilter
 } from '../lib/entityTypeFilter'
 import { fetchInPersonDeck } from '../lib/inPersonDeck'
+import { fadeOutMenuMusic } from '../lib/menuMusic'
 import { unlockAudio } from '../lib/sounds'
+import { useMenuMusic } from '../hooks/useMenuMusic'
 import type { PublicDataset } from '../types'
 
 const SETUP_KEY = 'whoami-in-person-setup'
@@ -62,6 +64,7 @@ function saveSetupPreferences(prefs: InPersonSetupPreferences): void {
 
 function PlaySetup() {
   const navigate = useNavigate()
+  useMenuMusic()
   const { status: maintenanceStatus } = useMaintenanceStatus()
   const maintenanceBlocking = isMaintenanceBlockingNewGames(maintenanceStatus)
   const savedPrefs = loadSetupPreferences()
@@ -182,6 +185,7 @@ function PlaySetup() {
     setStarting(true)
     setError(null)
     unlockAudio()
+    fadeOutMenuMusic()
     try {
       await fetchInPersonDeck(datasetId, difficulty, entityType)
       const params = new URLSearchParams({
