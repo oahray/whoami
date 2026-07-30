@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { DifficultyMultiSelect } from '../components/DifficultyMultiSelect'
 import PlayerAvatar from '../components/PlayerAvatar'
 import PreferencesMenu from '../components/PreferencesMenu'
-import { unlockAudio } from '../lib/sounds'
 import { fadeOutMenuMusic } from '../lib/menuMusic'
+import { playSound, unlockAudio } from '../lib/sounds'
 import { useMenuMusic } from '../hooks/useMenuMusic'
 import {
   coerceDifficultySelection,
@@ -117,6 +117,12 @@ function Lobby() {
     }
     unlockAudio()
     fadeOutMenuMusic()
+    playSound('go')
+    try {
+      sessionStorage.setItem('whoami_go_played', '1')
+    } catch {
+      // ignore
+    }
     emit('START_GAME', {})
   }
 

@@ -35,8 +35,8 @@ import {
   type SoloConfig,
   type SoloVariation
 } from '../lib/soloSession'
-import { unlockAudio } from '../lib/sounds'
 import { fadeOutMenuMusic } from '../lib/menuMusic'
+import { playSound, unlockAudio } from '../lib/sounds'
 import { useMenuMusic } from '../hooks/useMenuMusic'
 import type { PublicDataset } from '../types'
 
@@ -211,6 +211,7 @@ function SoloSetup() {
     setError(null)
     unlockAudio()
     fadeOutMenuMusic()
+    playSound('go')
     try {
       const query = new URLSearchParams({
         datasetId,
