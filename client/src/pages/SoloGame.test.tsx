@@ -81,40 +81,54 @@ describe('SoloGame', () => {
     expect(screen.getByRole('heading', { name: /endurance complete/i })).toBeInTheDocument()
   })
 
-  it('auto-advances Endurance after 10s on timeout but allows early next', async () => {
+  it('does not auto-advance Endurance after correct; waits for Next round', async () => {
     saveSoloSession({
       datasetId: 'ds-1',
       difficulty: [],
       entityType: 'character',
       variation: 'endurance',
-      roundDurationMs: 100,
-      clueRevealIntervalMs: 100,
-      entityIds: ['ent-1'],
+      roundDurationMs: 30_000,
+      clueRevealIntervalMs: 10_000,
+      entityIds: ['ent-1', 'ent-2'],
       index: 0,
-      correctCount: 2,
+      correctCount: 0,
       activeElapsedMs: 0
     })
     vi.useFakeTimers()
 
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const url = String(input)
+      return {
+        ok: true,
+        json: async () => ({
+          entity: {
+            id: url.includes('ent-2') ? 'ent-2' : 'ent-1',
+            name: url.includes('ent-2') ? 'Aaron' : 'Moses',
+            type: 'character',
+            aliases: []
+          },
+          clues: [{ order: 1, text: url.includes('ent-2') ? 'New clue' : 'A clue', citations: null }]
+        })
+      } as Response
+    })
+
     renderSoloPlay()
     await flushCardLoad()
 
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(200)
-    })
-    expect(screen.getByText(/time's up/i)).toBeInTheDocument()
-    expect(screen.getByText(/results in 10s/i)).toBeInTheDocument()
+    fireEvent.change(screen.getByPlaceholderText(/enter your guess/i), { target: { value: 'Moses' } })
+    fireEvent.click(screen.getByRole('button', { name: /^guess$/i }))
+
+    expect(screen.getByRole('button', { name: /next round/i })).toBeInTheDocument()
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(9_000)
+      await vi.advanceTimersByTimeAsync(15_000)
     })
-    expect(screen.queryByRole('heading', { name: /endurance complete/i })).not.toBeInTheDocument()
-    expect(screen.getByText(/results in 1s/i)).toBeInTheDocument()
+    expect(screen.getByText(/correct!/i)).toBeInTheDocument()
+    expect(screen.queryByText('New clue')).not.toBeInTheDocument()
 
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(1_000)
-    })
-    expect(screen.getByRole('heading', { name: /endurance complete/i })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /next round/i }))
+    await flushCardLoad()
+    expect(screen.getByText('New clue')).toBeInTheDocument()
   })
 
   it('does not auto-advance Challenge after timeout', async () => {
