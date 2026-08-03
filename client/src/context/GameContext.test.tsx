@@ -33,6 +33,7 @@ function TestConsumer() {
         <div>
           <div data-testid="room-code">{value?.roomCode ?? ''}</div>
           <div data-testid="error">{value?.error ?? ''}</div>
+          <div data-testid="reconnecting">{value?.isReconnecting ? 'yes' : 'no'}</div>
           <div data-testid="scoreboard">{JSON.stringify(value?.gameState?.currentScoreboard ?? [])}</div>
           <div data-testid="round">{value?.gameState?.roundNumber ?? ''}</div>
         </div>
@@ -91,6 +92,36 @@ describe('GameProvider', () => {
       socket.handlers.connect?.()
     })
     expect(screen.getByTestId('error')).toHaveTextContent('')
+  })
+
+  it('clears reconnecting state on fatal room errors so Home is not blocked', () => {
+    const socket = createMockSocket(true)
+    mockUseSocket.mockReturnValue({ socket })
+
+    localStorage.setItem('whoami_room', JSON.stringify({
+      roomCode: 'ABC123',
+      nickname: 'Paul'
+    }))
+
+    render(
+      <GameProvider>
+        <TestConsumer />
+      </GameProvider>
+    )
+
+    act(() => {
+      socket.handlers.connect?.()
+    })
+    expect(screen.getByTestId('reconnecting')).toHaveTextContent('yes')
+
+    act(() => {
+      socket.handlers.ROOM_ERROR?.({ code: 'ROOM_NOT_FOUND', message: 'gone' })
+    })
+
+    expect(screen.getByTestId('reconnecting')).toHaveTextContent('no')
+    expect(screen.getByTestId('room-code')).toHaveTextContent('')
+    expect(screen.getByTestId('error')).toHaveTextContent(/no longer exists/i)
+    expect(localStorage.getItem('whoami_room')).toBeNull()
   })
 
   it('uses the server-provided scoreboard on ROUND_STARTED', () => {

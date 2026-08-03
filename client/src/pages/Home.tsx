@@ -24,8 +24,8 @@ function Home() {
   const navigate = useNavigate()
   const { status: maintenanceStatus } = useMaintenanceStatus()
   const location = useLocation()
-  const { socket, emit, connected } = useSocket()
-  const { roomCode, error, setError, setRoomCode } = useGame()
+  const { socket, emit, connected, transportStatus, retryConnect } = useSocket()
+  const { error, setError, setRoomCode } = useGame()
   const [nickname, setNickname] = useState('')
   const [avatarId, setAvatarId] = useState<AvatarId>(() => readStoredAvatarId() ?? pickRandomAvatarId())
   const [avatarPickerOpen, setAvatarPickerOpen] = useState(false)
@@ -34,24 +34,6 @@ function Home() {
   const lastPrefilledRoomParamRef = useRef<string | null>(null)
   const params = new URLSearchParams(location.search)
   const roomParam = params.get('room')
-
-  useEffect(() => {
-    const stored = localStorage.getItem('whoami_room')
-    if (stored && socket && connected && !roomCode) {
-      try {
-        const roomData = JSON.parse(stored)
-        if (roomData.roomCode && roomData.nickname) {
-          emit('JOIN_ROOM', {
-            roomCode: roomData.roomCode,
-            nickname: roomData.nickname,
-            avatarId: readStoredAvatarId() ?? pickRandomAvatarId()
-          })
-        }
-      } catch (e) {
-        localStorage.removeItem('whoami_room')
-      }
-    }
-  }, [socket, connected, roomCode, emit])
 
   useEffect(() => {
     if (!roomParam) {
@@ -173,10 +155,31 @@ function Home() {
   return (
     <div className="relative flex min-h-screen min-h-full w-full flex-col bg-primary home-hero-pattern overflow-x-hidden font-display antialiased">
       <IosInstallHint />
-      {!connected && (
-        <div className="w-full bg-yellow-400/90 backdrop-blur-sm px-4 py-2 flex items-center justify-center gap-2">
-          <span className="material-symbols-outlined text-yellow-900 text-sm">sync</span>
+      {transportStatus === 'connecting' && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="w-full bg-yellow-400/90 backdrop-blur-sm px-4 py-2 flex items-center justify-center gap-2"
+        >
+          <span className="material-symbols-outlined text-yellow-900 text-sm animate-pulse">sync</span>
           <p className="text-yellow-900 text-xs font-semibold uppercase tracking-wider">Connecting to server...</p>
+        </div>
+      )}
+      {transportStatus === 'failed' && (
+        <div
+          role="alert"
+          className="w-full bg-amber-500/95 backdrop-blur-sm px-4 py-2 flex flex-wrap items-center justify-center gap-2"
+        >
+          <p className="text-amber-950 text-xs font-semibold uppercase tracking-wider">
+            Couldn&apos;t reach the server
+          </p>
+          <button
+            type="button"
+            onClick={retryConnect}
+            className="rounded-md bg-amber-950/15 px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-amber-950 hover:bg-amber-950/25"
+          >
+            Retry
+          </button>
         </div>
       )}
 
@@ -336,8 +339,16 @@ function Home() {
       </div>
 
       {error && (
-        <div className="fixed bottom-4 left-4 right-4 max-w-md mx-auto p-3 bg-red-100 dark:bg-red-950/60 border border-red-400 dark:border-red-800 text-red-700 dark:text-red-200 rounded-lg text-sm z-50">
-          {error}
+        <div className="fixed bottom-4 left-4 right-4 max-w-md mx-auto p-3 bg-red-100 dark:bg-red-950/60 border border-red-400 dark:border-red-800 text-red-700 dark:text-red-200 rounded-lg text-sm z-50 flex items-start gap-2">
+          <p className="min-w-0 flex-1">{error}</p>
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            aria-label="Dismiss"
+            className="shrink-0 rounded-md p-0.5 text-red-700/80 hover:bg-red-200/60 hover:text-red-900 dark:text-red-200/80 dark:hover:bg-red-900/40"
+          >
+            <span className="material-symbols-outlined text-base leading-none">close</span>
+          </button>
         </div>
       )}
     </div>
