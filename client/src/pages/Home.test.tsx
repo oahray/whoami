@@ -29,10 +29,13 @@ describe('Home', () => {
     mockUseSocket.mockReturnValue({
       socket: {
         on: vi.fn(),
-        off: vi.fn()
+        off: vi.fn(),
+        connect: vi.fn()
       },
       emit: vi.fn(),
-      connected: true
+      connected: true,
+      transportStatus: 'connected',
+      retryConnect: vi.fn()
     })
   })
 
@@ -66,10 +69,13 @@ describe('Home', () => {
     mockUseSocket.mockReturnValue({
       socket: {
         on: vi.fn(),
-        off: vi.fn()
+        off: vi.fn(),
+        connect: vi.fn()
       },
       emit,
-      connected: true
+      connected: true,
+      transportStatus: 'connected',
+      retryConnect: vi.fn()
     })
 
     render(
@@ -108,10 +114,13 @@ describe('Home', () => {
     mockUseSocket.mockReturnValue({
       socket: {
         on: vi.fn(),
-        off: vi.fn()
+        off: vi.fn(),
+        connect: vi.fn()
       },
       emit,
-      connected: true
+      connected: true,
+      transportStatus: 'connected',
+      retryConnect: vi.fn()
     })
 
     localStorage.setItem('whoami_room', JSON.stringify({
@@ -180,5 +189,57 @@ describe('Home', () => {
       'You have been removed from the room by the host.'
     )
     expect(window.sessionStorage.getItem('whoami_kick_message')).toBeNull()
+  })
+
+  it('shows connecting banner only while transport is connecting', () => {
+    mockUseSocket.mockReturnValue({
+      socket: { on: vi.fn(), off: vi.fn(), connect: vi.fn() },
+      emit: vi.fn(),
+      connected: false,
+      transportStatus: 'connecting',
+      retryConnect: vi.fn()
+    })
+
+    render(
+      <MemoryRouter>
+        <Home />
+      </MemoryRouter>
+    )
+
+    expect(screen.getByText(/connecting to server/i)).toBeInTheDocument()
+  })
+
+  it('shows retry when the transport failed and dismisses sticky errors', () => {
+    const setError = vi.fn()
+    const retryConnect = vi.fn()
+
+    mockUseGame.mockReturnValue({
+      roomCode: null,
+      error: 'This room no longer exists. Please create or join a different room.',
+      setError,
+      setRoomCode: vi.fn()
+    })
+
+    mockUseSocket.mockReturnValue({
+      socket: { on: vi.fn(), off: vi.fn(), connect: vi.fn() },
+      emit: vi.fn(),
+      connected: false,
+      transportStatus: 'failed',
+      retryConnect
+    })
+
+    render(
+      <MemoryRouter>
+        <Home />
+      </MemoryRouter>
+    )
+
+    expect(screen.queryByText(/connecting to server/i)).not.toBeInTheDocument()
+    expect(screen.getByText(/couldn't reach the server/i)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /^retry$/i }))
+    expect(retryConnect).toHaveBeenCalled()
+
+    fireEvent.click(screen.getByRole('button', { name: /dismiss/i }))
+    expect(setError).toHaveBeenCalledWith(null)
   })
 })

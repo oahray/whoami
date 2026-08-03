@@ -1,9 +1,10 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   SOLO_CHALLENGE_ROUNDS,
   SOLO_RECORDS_PER_MODE,
   continueEndurancePool,
   createSoloSession,
+  formatSoloRecordAchievedAt,
   getSoloRecord,
   isBetterRecord,
   listSoloRecords,
@@ -186,5 +187,13 @@ describe('soloSession', () => {
     expect(continued.entityIds).toHaveLength(3)
     expect(continued.entityIds[0]).not.toBe('a')
     vi.restoreAllMocks()
+  })
+
+  it('formats personal-best timestamps as relative or calendar dates', () => {
+    const now = Date.parse('2026-08-03T12:00:00.000Z')
+    expect(formatSoloRecordAchievedAt('2026-08-03T11:59:30.000Z', now)).toBe('Just now')
+    expect(formatSoloRecordAchievedAt('2026-08-03T10:00:00.000Z', now)).toBe('2h ago')
+    expect(formatSoloRecordAchievedAt('2026-08-01T12:00:00.000Z', now)).toBe('2d ago')
+    expect(formatSoloRecordAchievedAt('2026-01-15T12:00:00.000Z', now)).toMatch(/2026|Jan/)
   })
 })

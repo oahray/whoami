@@ -7,6 +7,7 @@ import { INTER_ROUND_DELAY_MS } from '../lib/gameTiming'
 import { playSound } from '../lib/sounds'
 import { useGame } from '../hooks/useGame'
 import { useSocket } from '../hooks/useSocket'
+import { useStickToBottom } from '../hooks/useStickToBottom'
 import { useVisualViewportLock } from '../hooks/useVisualViewportLock'
 
 /**
@@ -40,7 +41,7 @@ function rankScoreboard<T extends Record<string, any>>(items: T[], getScore: (t:
 function Game() {
   const navigate = useNavigate()
   const { emit, on, off } = useSocket()
-  const { roomCode, playerId, gameState, settings, error, players, isReconnecting } = useGame()
+  const { roomCode, playerId, gameState, settings, error, players, isReconnecting, setError } = useGame()
   const [guess, setGuess] = useState('')
   const [timeRemaining, setTimeRemaining] = useState(0)
   const [roundEndData, setRoundEndData] = useState<any>(null)
@@ -50,14 +51,23 @@ function Game() {
   const [guessFeed, setGuessFeed] = useState<Array<{ nickname: string; guess?: string; correct: boolean }>>([])
   const [currentPhase, setCurrentPhase] = useState<'starting' | 'active' | 'clue_revealed' | 'ended'>('starting')
   const guessInputRef = useRef<HTMLInputElement | null>(null)
-  const cluesScrollRef = useRef<HTMLDivElement | null>(null)
-  const guessesScrollRef = useRef<HTMLDivElement | null>(null)
   const gameStateRef = useRef(gameState)
   const settingsRef = useRef(settings)
   const gameEndedRef = useRef(false)
   const goHandledRef = useRef(false)
   const viewportStyle = useVisualViewportLock()
   const isFinalScoresView = gameState?.roundNumber === 0
+  const cluesRevealedCount = gameState?.cluesRevealed.length ?? 0
+  const {
+    ref: cluesScrollRef,
+    onScroll: onCluesScroll,
+    resetStick: resetCluesStick
+  } = useStickToBottom<HTMLDivElement>([cluesRevealedCount])
+  const {
+    ref: guessesScrollRef,
+    onScroll: onGuessesScroll,
+    resetStick: resetGuessesStick
+  } = useStickToBottom<HTMLDivElement>([guessFeed.length])
   const canGuess = !!gameState && !isFinalScoresView && (currentPhase === 'active' || currentPhase === 'clue_revealed')
   const preGuessPhase = !!gameState && !isFinalScoresView && currentPhase === 'starting'
   const hasStoredRoom = typeof window !== 'undefined' && !!localStorage.getItem('whoami_room')
@@ -185,16 +195,9 @@ function Game() {
   }, [canGuess, gameState?.isLocked, gameState?.roundNumber, gameState?.phase])
 
   useEffect(() => {
-    if (cluesScrollRef.current) {
-      cluesScrollRef.current.scrollTop = cluesScrollRef.current.scrollHeight
-    }
-  }, [gameState?.cluesRevealed])
-
-  useEffect(() => {
-    if (guessesScrollRef.current) {
-      guessesScrollRef.current.scrollTop = guessesScrollRef.current.scrollHeight
-    }
-  }, [guessFeed])
+    resetCluesStick()
+    resetGuessesStick()
+  }, [gameState?.roundNumber, resetCluesStick, resetGuessesStick])
 
   useEffect(() => {
     if (autoReturnSeconds === null) return
@@ -382,6 +385,7 @@ function Game() {
                   </div>
                   <div
                     ref={cluesScrollRef}
+                    onScroll={onCluesScroll}
                     className="space-y-2 lg:space-y-3 max-h-64 overflow-y-auto lg:max-h-[26rem] pr-1"
                   >
                     {(() => {
@@ -452,7 +456,11 @@ function Game() {
                     <h3 className="font-bold text-foreground text-sm lg:text-base">Recent Guesses</h3>
                     <span className="text-xs font-medium text-foreground-muted">{guessFeed.length} recent</span>
                   </div>
-                  <div ref={guessesScrollRef} className="bg-surface rounded-md border border-edge shadow-sm p-2 lg:p-4 max-h-28 lg:max-h-52 overflow-y-auto">
+                  <div
+                    ref={guessesScrollRef}
+                    onScroll={onGuessesScroll}
+                    className="bg-surface rounded-md border border-edge shadow-sm p-2 lg:p-4 max-h-28 lg:max-h-52 overflow-y-auto"
+                  >
                     {guessFeed.length > 0 ? (
                       <div className="space-y-1.5">
                         {guessFeed.slice(-12).map((item, index) => {
@@ -486,8 +494,16 @@ function Game() {
               )}
 
               {error && (
-                <div className="p-3 bg-red-100 dark:bg-red-950/60 border border-red-400 dark:border-red-800 text-red-700 dark:text-red-200 rounded-lg text-sm">
-                  {error}
+                <div className="p-3 bg-red-100 dark:bg-red-950/60 border border-red-400 dark:border-red-800 text-red-700 dark:text-red-200 rounded-lg text-sm flex items-start gap-2">
+                  <p className="min-w-0 flex-1">{error}</p>
+                  <button
+                    type="button"
+                    onClick={() => setError(null)}
+                    aria-label="Dismiss"
+                    className="shrink-0 rounded-md p-0.5 hover:bg-red-200/60 dark:hover:bg-red-900/40"
+                  >
+                    <span className="material-symbols-outlined text-base leading-none">close</span>
+                  </button>
                 </div>
               )}
             </div>

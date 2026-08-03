@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import LoadingState from '../components/LoadingState'
 import SoundToggle from '../components/SoundToggle'
+import { useStickToBottom } from '../hooks/useStickToBottom'
 import { useVisualViewportLock } from '../hooks/useVisualViewportLock'
 import { API_BASE_URL } from '../lib/apiBase'
 import { encodeDifficultySelection } from '../lib/difficultySelection'
@@ -39,10 +40,23 @@ function SoloGame() {
   const roundStartedAt = useRef(0)
   const activeSession = useRef<SoloSession | null>(null)
   const guessInputRef = useRef<HTMLInputElement | null>(null)
-  const cluesScrollRef = useRef<HTMLElement | null>(null)
   const lastClueCountRef = useRef(0)
   const viewportStyle = useVisualViewportLock()
   const viewportLocked = Object.keys(viewportStyle).length > 0
+
+  const settledForScroll = status === 'correct' || status === 'timeout'
+  const revealedCountForScroll =
+    session && card
+      ? Math.min(
+          card.clues.length,
+          1 + Math.floor((session.roundDurationMs - remainingMs) / session.clueRevealIntervalMs)
+        )
+      : 0
+  const { ref: cluesScrollRef, onScroll: onCluesScroll, resetStick } = useStickToBottom<HTMLElement>([
+    revealedCountForScroll,
+    settledForScroll,
+    loading
+  ])
 
   const loadCard = useCallback(async (nextSession: SoloSession, opts?: { freshRound?: boolean }) => {
     const entityId = nextSession.entityIds[nextSession.index]
@@ -211,11 +225,8 @@ function SoloGame() {
   }, [status, loading, card?.entity.id])
 
   useEffect(() => {
-    if (!session || !card || status === 'finished') return
-    const el = cluesScrollRef.current
-    if (!el) return
-    el.scrollTop = el.scrollHeight
-  }, [session, card, remainingMs, status, loading])
+    resetStick()
+  }, [card?.entity.id, resetStick])
 
   const tryAgain = async () => {
     if (!session || restarting) return
@@ -353,6 +364,7 @@ function SoloGame() {
       </header>
       <main
         ref={cluesScrollRef}
+        onScroll={onCluesScroll}
         className="flex-1 min-h-0 max-w-lg w-full mx-auto overflow-y-auto px-3 py-4 space-y-3"
       >
         {loading && <LoadingState label="Loading card" layout="page" />}

@@ -82,6 +82,7 @@ describe('SoloSetup', () => {
     expect(screen.getByRole('heading', { name: /^endurance$/i })).toBeInTheDocument()
     expect(screen.getByText('7')).toBeInTheDocument()
     expect(screen.getByText('12')).toBeInTheDocument()
+    expect(screen.getAllByText(/ago|Jan|2026/i).length).toBeGreaterThan(0)
     expect(screen.queryByText(/^Bible$/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/12 character/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/available/i)).not.toBeInTheDocument()

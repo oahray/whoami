@@ -236,6 +236,21 @@ export function formatSoloTime(milliseconds: number): string {
   return `${minutes}:${String(totalSeconds % 60).padStart(2, '0')}`
 }
 
+/** Relative or short absolute date for when a personal best was set. */
+export function formatSoloRecordAchievedAt(iso: string, now = Date.now()): string {
+  const t = Date.parse(iso)
+  if (Number.isNaN(t)) return ''
+  const diff = now - t
+  const minute = 60_000
+  const hour = 60 * minute
+  const day = 24 * hour
+  if (diff < minute) return 'Just now'
+  if (diff < hour) return `${Math.floor(diff / minute)}m ago`
+  if (diff < day) return `${Math.floor(diff / hour)}h ago`
+  if (diff < 7 * day) return `${Math.floor(diff / day)}d ago`
+  return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(t))
+}
+
 export function soloVariationLabel(variation: SoloVariation): string {
   return variation === 'challenge' ? 'Solo challenge' : 'Endurance'
 }

@@ -127,7 +127,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const handleDisconnect = () => {
       if (roomCode) {
         setIsReconnecting(true)
-        setError(getErrorMessage('CONNECTION_LOST'))
 
         if (reconnectTimeoutRef.current) {
           clearTimeout(reconnectTimeoutRef.current)
@@ -360,8 +359,17 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const handleRoomError = (data: { code: string; message: string }) => {
       const userMessage = getErrorMessage(data.code, data.message)
       setError(userMessage)
+      setIsReconnecting(false)
       if (isFatalError(data.code)) {
         localStorage.removeItem('whoami_room')
+        // Drop dead room state so Home/Lobby aren't stuck "reconnecting",
+        // but keep the error visible until the user dismisses or retries.
+        setRoomCode(null)
+        setPlayerId(null)
+        setIsHost(false)
+        setPlayers([])
+        setSettings(null)
+        setGameState(null)
       }
     }
 

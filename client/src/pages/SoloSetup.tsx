@@ -25,6 +25,7 @@ import {
 import { isMaintenanceBlockingNewGames } from '../lib/maintenance'
 import {
   createSoloSession,
+  formatSoloRecordAchievedAt,
   formatSoloTime,
   getSoloRecord,
   listSoloRecords,
@@ -33,6 +34,7 @@ import {
   saveSoloSetupPreferences,
   soloConfigSummary,
   type SoloConfig,
+  type SoloRecord,
   type SoloVariation
 } from '../lib/soloSession'
 import { fadeOutMenuMusic } from '../lib/menuMusic'
@@ -97,40 +99,73 @@ function SoloSetup() {
   const hasAnyRecords = challengeRecords.length > 0 || enduranceRecords.length > 0
   const selectedDatasetName = datasets.find((dataset) => dataset.id === datasetId)?.name
 
-  const renderRecordList = (records: typeof challengeRecords) => (
-    <ul className="space-y-2">
-      {records.map((record) => {
-        const isCurrent =
-          currentConfig !== null &&
-          record.difficulty === currentConfig.difficulty &&
-          record.entityType === currentConfig.entityType &&
-          record.roundDurationMs === currentConfig.roundDurationMs &&
-          record.clueRevealIntervalMs === currentConfig.clueRevealIntervalMs
-        return (
-          <li
-            key={`${record.achievedAt}:${record.correctCount}:${record.activeElapsedMs}:${record.roundDurationMs}`}
-            className={`rounded-lg border p-3 ${
-              isCurrent ? 'border-primary bg-primary/5' : 'border-edge bg-surface-muted'
-            }`}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-sm font-bold">
-                  {soloConfigSummary(record, { includeVariation: false })}
-                </p>
+  const renderRecordRow = (record: SoloRecord, opts?: { highlightCurrent?: boolean }) => {
+    const isCurrent =
+      opts?.highlightCurrent !== false &&
+      currentConfig !== null &&
+      record.difficulty === currentConfig.difficulty &&
+      record.entityType === currentConfig.entityType &&
+      record.roundDurationMs === currentConfig.roundDurationMs &&
+      record.clueRevealIntervalMs === currentConfig.clueRevealIntervalMs
+    const when = formatSoloRecordAchievedAt(record.achievedAt)
+    return (
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className={`text-sm font-bold ${isCurrent ? 'text-primary' : ''}`}>
+            {soloConfigSummary(record, { includeVariation: false })}
+          </p>
+          {when && <p className="mt-0.5 text-xs text-foreground-muted">{when}</p>}
+        </div>
+        <div className="text-right shrink-0">
+          <p className="font-black text-primary">{record.correctCount}</p>
+          <p className="text-[10px] uppercase tracking-wider text-foreground-muted">
+            {formatSoloTime(record.activeElapsedMs)}
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  const renderRecordMode = (title: string, records: SoloRecord[]) => {
+    if (records.length === 0) {
+      return (
+        <div className="space-y-1">
+          <h3 className="text-sm font-bold">{title}</h3>
+          <p className="text-sm text-foreground-muted">No records yet.</p>
+        </div>
+      )
+    }
+
+    const [best, ...rest] = records
+    return (
+      <details className="group rounded-lg border border-edge bg-surface-muted open:bg-surface">
+        <summary className="cursor-pointer list-none p-3 [&::-webkit-details-marker]:hidden">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                <h3 className="text-sm font-bold">{title}</h3>
+                {rest.length > 0 && (
+                  <span className="material-symbols-outlined text-base text-foreground-muted transition-transform group-open:rotate-180">
+                    expand_more
+                  </span>
+                )}
               </div>
-              <div className="text-right shrink-0">
-                <p className="font-black text-primary">{record.correctCount}</p>
-                <p className="text-[10px] uppercase tracking-wider text-foreground-muted">
-                  {formatSoloTime(record.activeElapsedMs)}
-                </p>
-              </div>
+              <div className="mt-2">{renderRecordRow(best)}</div>
             </div>
-          </li>
-        )
-      })}
-    </ul>
-  )
+          </div>
+        </summary>
+        {rest.length > 0 && (
+          <ul className="space-y-2 border-t border-edge px-3 pb-3 pt-2">
+            {rest.map((record) => (
+              <li key={`${record.achievedAt}:${record.correctCount}:${record.activeElapsedMs}`}>
+                {renderRecordRow(record)}
+              </li>
+            ))}
+          </ul>
+        )}
+      </details>
+    )
+  }
 
   useEffect(() => {
     const online = () => setOffline(false)
@@ -433,24 +468,10 @@ function SoloSetup() {
             {!hasAnyRecords ? (
               <p className="text-sm text-foreground-muted">No records yet. Finish a run to set one.</p>
             ) : (
-              <>
-                <div className="space-y-2">
-                  <h3 className="text-sm font-bold">Solo challenge</h3>
-                  {challengeRecords.length === 0 ? (
-                    <p className="text-sm text-foreground-muted">No challenge records yet.</p>
-                  ) : (
-                    renderRecordList(challengeRecords)
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <h3 className="text-sm font-bold">Endurance</h3>
-                  {enduranceRecords.length === 0 ? (
-                    <p className="text-sm text-foreground-muted">No endurance records yet.</p>
-                  ) : (
-                    renderRecordList(enduranceRecords)
-                  )}
-                </div>
-              </>
+              <div className="space-y-2">
+                {renderRecordMode('Solo challenge', challengeRecords)}
+                {renderRecordMode('Endurance', enduranceRecords)}
+              </div>
             )}
           </section>
         )}
