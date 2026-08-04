@@ -72,3 +72,12 @@ export interface Stats {
   }
   readyToPublishCount: number
 }
+
+/** Anonymous multiplayer presence from the game server. */
+export interface LiveMultiplayerStats {
+  connectedPlayers: number
+  roomsWaiting: number
+  roomsInProgress: number
+  totalRooms: number
+  asOf: string
+}

@@ -15,6 +15,7 @@ describe('Privacy', () => {
     expect(screen.getByRole('heading', { name: 'Privacy' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Privacy policy' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'What we collect' })).toBeInTheDocument()
+    expect(screen.getAllByText(/cloudflare web analytics/i).length).toBeGreaterThan(0)
     expect(screen.getByRole('heading', { name: 'Stored on your device' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'How we use information' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Feedback' })).toBeInTheDocument()

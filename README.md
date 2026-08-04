@@ -50,6 +50,8 @@ whoami/
    ```
    VITE_SOCKET_URL=http://localhost:3001
    VITE_ADMIN_URL=http://localhost:5174
+   # Optional: Cloudflare Web Analytics (production)
+   # VITE_CF_ANALYTICS_TOKEN=your_cf_beacon_token
    ```
 
    **Admin** (`admin/.env`):
