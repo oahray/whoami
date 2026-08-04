@@ -30,7 +30,7 @@ function Privacy() {
             </div>
             <div>
               <h2 className="text-xl font-bold text-foreground">Privacy policy</h2>
-              <p className="text-foreground-muted text-sm">Last updated: 29 July 2026</p>
+              <p className="text-foreground-muted text-sm">Last updated: 4 August 2026</p>
             </div>
           </div>
           <p className="text-foreground leading-relaxed">
@@ -58,6 +58,11 @@ function Privacy() {
               <strong>Technical connection data:</strong> our hosting and game server may see IP
               address, browser details, and similar request metadata needed to run the service and keep
               it secure.
+            </li>
+            <li>
+              <strong>Anonymous site analytics:</strong> we use Cloudflare Web Analytics to understand
+              overall traffic and which pages are visited. It does not use cookies for analytics and is
+              not used to build advertising profiles.
             </li>
             <li>
               <strong>Published game content:</strong> datasets, entities, and clues are loaded from our
@@ -97,10 +102,12 @@ function Privacy() {
             <li>To load clue content for solo and pass &amp; play</li>
             <li>To remember your preferences and reconnect you to a room on this device</li>
             <li>To operate, secure, and maintain the service, including scheduled maintenance</li>
+            <li>To understand site traffic in aggregate (Cloudflare Web Analytics)</li>
           </ul>
           <p className="text-foreground text-sm leading-relaxed">
             We do not sell your personal information. We do not use player nicknames or guesses for
-            advertising profiles.
+            advertising profiles. Live multiplayer counts shown to administrators (players connected and
+            games in progress) are anonymous totals from the game server, not individual profiles.
           </p>
         </section>
 

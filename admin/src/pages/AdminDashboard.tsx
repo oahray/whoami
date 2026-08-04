@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import LoadingState from '../components/LoadingState'
 import { useAuth } from '../context/AuthContext'
@@ -6,7 +6,7 @@ import { useAdminDataset } from '../context/AdminDatasetContext'
 import { AdminLayout } from '../components/AdminLayout'
 import DatasetDangerZone from '../components/DatasetDangerZone'
 import MaintenancePanel from '../components/MaintenancePanel'
-import type { Stats } from '../types'
+import type { LiveMultiplayerStats, Stats } from '../types'
 
 const API_BASE_URL = import.meta.env.VITE_SOCKET_URL?.replace('ws://', 'http://').replace('wss://', 'https://') || 'http://localhost:3001'
 
@@ -16,8 +16,10 @@ function AdminDashboard() {
   const { datasetId: datasetIdParam } = useParams<{ datasetId?: string }>()
   const { selectedDatasetId, setSelectedDatasetId, selectedDataset } = useAdminDataset()
   const [stats, setStats] = useState<Stats | null>(null)
+  const [live, setLive] = useState<LiveMultiplayerStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [liveError, setLiveError] = useState('')
 
   useEffect(() => {
     if (datasetIdParam && datasetIdParam !== selectedDatasetId) {
@@ -27,9 +29,33 @@ function AdminDashboard() {
 
   const activeDatasetId = datasetIdParam ?? selectedDatasetId
 
+  const loadLive = useCallback(async () => {
+    try {
+      const token = await getAccessToken()
+      if (!token) return
+      const res = await fetch(`${API_BASE_URL}/admin/live`, {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      })
+      if (!res.ok) throw new Error('Failed to load live multiplayer stats')
+      setLive((await res.json()) as LiveMultiplayerStats)
+      setLiveError('')
+    } catch (err: unknown) {
+      setLiveError(err instanceof Error ? err.message : 'Failed to load live stats')
+    }
+  }, [getAccessToken])
+
   useEffect(() => {
     loadData()
   }, [activeDatasetId])
+
+  useEffect(() => {
+    void loadLive()
+    const id = window.setInterval(() => void loadLive(), 15_000)
+    return () => window.clearInterval(id)
+  }, [loadLive])
 
   const loadData = async () => {
     try {
@@ -90,6 +116,64 @@ function AdminDashboard() {
           {error}
         </div>
       )}
+
+      <section className="mb-6">
+        <div className="flex flex-wrap items-end justify-between gap-2 mb-1">
+          <h2 className="text-admin-fg text-lg font-bold">Live multiplayer</h2>
+          <button
+            type="button"
+            onClick={() => void loadLive()}
+            className="text-xs font-semibold text-primary hover:text-primary/80"
+          >
+            Refresh
+          </button>
+        </div>
+        <p className="text-admin-muted text-sm mb-4">
+          Anonymous counts from open rooms on this game server. Updates every 15s.
+          {live?.asOf ? ` Last: ${new Date(live.asOf).toLocaleTimeString()}.` : ''}
+        </p>
+        {liveError && (
+          <p className="mb-3 text-sm text-red-700">{liveError}</p>
+        )}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-admin-panel rounded-md border border-admin-border shadow-sm p-4 min-w-0 flex items-center gap-4">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-700">
+              <span className="material-symbols-outlined text-xl">group</span>
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-admin-fg text-sm font-medium leading-tight">Players connected</p>
+            </div>
+            <p className="text-admin-fg text-2xl font-bold shrink-0">{live?.connectedPlayers ?? '—'}</p>
+          </div>
+          <div className="bg-admin-panel rounded-md border border-admin-border shadow-sm p-4 min-w-0 flex items-center gap-4">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <span className="material-symbols-outlined text-xl">sports_esports</span>
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-admin-fg text-sm font-medium leading-tight">Games in progress</p>
+            </div>
+            <p className="text-admin-fg text-2xl font-bold shrink-0">{live?.roomsInProgress ?? '—'}</p>
+          </div>
+          <div className="bg-admin-panel rounded-md border border-admin-border shadow-sm p-4 min-w-0 flex items-center gap-4">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <span className="material-symbols-outlined text-xl">hourglass_top</span>
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-admin-fg text-sm font-medium leading-tight">Lobbies waiting</p>
+            </div>
+            <p className="text-admin-fg text-2xl font-bold shrink-0">{live?.roomsWaiting ?? '—'}</p>
+          </div>
+          <div className="bg-admin-panel rounded-md border border-admin-border shadow-sm p-4 min-w-0 flex items-center gap-4">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <span className="material-symbols-outlined text-xl">meeting_room</span>
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-admin-fg text-sm font-medium leading-tight">Open rooms</p>
+            </div>
+            <p className="text-admin-fg text-2xl font-bold shrink-0">{live?.totalRooms ?? '—'}</p>
+          </div>
+        </div>
+      </section>
 
       <section className="mb-6">
         <h2 className="text-admin-fg text-lg font-bold mb-1">Statistics</h2>

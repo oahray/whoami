@@ -171,3 +171,32 @@ export function deleteRoom(code: string): void {
 export function getAllRooms(): Map<string, RoomState> {
   return rooms
 }
+
+/** Anonymous multiplayer presence for operators (no nicknames or room codes). */
+export type LiveMultiplayerStats = {
+  connectedPlayers: number
+  roomsWaiting: number
+  roomsInProgress: number
+  totalRooms: number
+}
+
+export function getLiveMultiplayerStats(): LiveMultiplayerStats {
+  let connectedPlayers = 0
+  let roomsWaiting = 0
+  let roomsInProgress = 0
+
+  for (const room of rooms.values()) {
+    for (const player of room.players.values()) {
+      if (player.isConnected) connectedPlayers += 1
+    }
+    if (room.status === 'waiting') roomsWaiting += 1
+    else if (room.status === 'in_progress') roomsInProgress += 1
+  }
+
+  return {
+    connectedPlayers,
+    roomsWaiting,
+    roomsInProgress,
+    totalRooms: rooms.size
+  }
+}

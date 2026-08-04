@@ -204,7 +204,10 @@ function SoloSetup() {
   }, [])
 
   useEffect(() => {
-    if (!datasetId || offline) return
+    if (!datasetId || offline) {
+      setEligibilityLoading(false)
+      return
+    }
     let cancelled = false
     setEligibilityLoading(true)
     fetchInPersonEligibility(datasetId, entityType, { difficulty })
@@ -216,7 +219,9 @@ function SoloSetup() {
         }
       })
       .catch((err) => !cancelled && setError(err instanceof Error ? err.message : 'Failed to load eligibility'))
-      .finally(() => !cancelled && setEligibilityLoading(false))
+      .finally(() => {
+        if (!cancelled) setEligibilityLoading(false)
+      })
     return () => {
       cancelled = true
     }
