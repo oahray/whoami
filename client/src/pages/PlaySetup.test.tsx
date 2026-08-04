@@ -169,6 +169,8 @@ describe('PlaySetup', () => {
     await waitFor(() => {
       expect(screen.getByText(/internet required to load cards/i)).toBeInTheDocument()
     })
+
+    Object.defineProperty(navigator, 'onLine', { value: true, configurable: true })
   })
 
   it('restores the current setup selection after refresh', async () => {

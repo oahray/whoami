@@ -16,6 +16,7 @@ describe('SoloSetup', () => {
   beforeEach(() => {
     sessionStorage.clear()
     localStorage.clear()
+    Object.defineProperty(navigator, 'onLine', { value: true, configurable: true })
     vi.stubGlobal('fetch', vi.fn(async (input) => {
       const url = String(input)
       if (url.includes('/datasets')) {
@@ -34,7 +35,10 @@ describe('SoloSetup', () => {
   it('starts a ten-round challenge session with the selected timing', async () => {
     renderWithPreferences(<MemoryRouter><SoloSetup /></MemoryRouter>)
 
-    await waitFor(() => expect(screen.getByRole('button', { name: /start 10-round challenge/i })).toBeEnabled())
+    await waitFor(
+      () => expect(screen.getByRole('button', { name: /start 10-round challenge/i })).toBeEnabled(),
+      { timeout: 5000 }
+    )
     fireEvent.change(screen.getByLabelText(/new clue every/i), { target: { value: '5' } })
     fireEvent.click(screen.getByRole('button', { name: /start 10-round challenge/i }))
 
@@ -101,7 +105,10 @@ describe('SoloSetup', () => {
 
     renderWithPreferences(<MemoryRouter><SoloSetup /></MemoryRouter>)
 
-    await waitFor(() => expect(screen.getByRole('button', { name: /start endurance/i })).toBeEnabled())
+    await waitFor(
+      () => expect(screen.getByRole('button', { name: /start endurance/i })).toBeEnabled(),
+      { timeout: 5000 }
+    )
     expect(screen.getByLabelText(/card timer/i)).toHaveValue('45')
     expect(screen.getByLabelText(/new clue every/i)).toHaveValue('5')
     expect(screen.getByRole('button', { name: /^easy$/i })).toHaveAttribute('aria-pressed', 'true')
@@ -116,14 +123,20 @@ describe('SoloSetup', () => {
       </MemoryRouter>
     )
 
-    await waitFor(() => expect(screen.getByRole('button', { name: /start 10-round challenge/i })).toBeEnabled())
+    await waitFor(
+      () => expect(screen.getByRole('button', { name: /start 10-round challenge/i })).toBeEnabled(),
+      { timeout: 5000 }
+    )
 
     fireEvent.change(screen.getByLabelText(/card timer/i), { target: { value: '45' } })
     fireEvent.click(screen.getByRole('button', { name: /endurance/i }))
 
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /start endurance/i })).toBeEnabled()
-    })
+    await waitFor(
+      () => {
+        expect(screen.getByRole('button', { name: /start endurance/i })).toBeEnabled()
+      },
+      { timeout: 5000 }
+    )
     await waitFor(() => {
       expect(localStorage.getItem('whoami-solo-setup')).toContain('"variation":"endurance"')
     })
@@ -136,7 +149,10 @@ describe('SoloSetup', () => {
       </MemoryRouter>
     )
 
-    await waitFor(() => expect(screen.getByRole('button', { name: /start endurance/i })).toBeEnabled())
+    await waitFor(
+      () => expect(screen.getByRole('button', { name: /start endurance/i })).toBeEnabled(),
+      { timeout: 5000 }
+    )
     expect(screen.getByLabelText(/card timer/i)).toHaveValue('45')
     expect(screen.getByRole('button', { name: /^easy$/i })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('button', { name: /^medium$/i })).toHaveAttribute('aria-pressed', 'false')

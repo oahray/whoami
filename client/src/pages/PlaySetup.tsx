@@ -140,6 +140,7 @@ function PlaySetup() {
   useEffect(() => {
     if (!datasetId || offline) {
       setEligibility(null)
+      setEligibilityLoading(false)
       return
     }
 
