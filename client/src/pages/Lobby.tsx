@@ -5,6 +5,7 @@ import PlayerAvatar from '../components/PlayerAvatar'
 import PreferencesMenu from '../components/PreferencesMenu'
 import { fadeOutMenuMusic } from '../lib/menuMusic'
 import { playSound, unlockAudio } from '../lib/sounds'
+import { shareOrCopyInvite } from '../lib/roomCode'
 import { useMenuMusic } from '../hooks/useMenuMusic'
 import {
   coerceDifficultySelection,
@@ -36,7 +37,7 @@ function Lobby() {
   const { status: maintenanceStatus } = useMaintenanceStatus()
   const maintenanceBlocking = isMaintenanceBlockingNewGames(maintenanceStatus)
   const [copiedCode, setCopiedCode] = useState(false)
-  const [copiedLink, setCopiedLink] = useState(false)
+  const [shareFeedback, setShareFeedback] = useState<'shared' | 'copied' | null>(null)
   const [datasets, setDatasets] = useState<PublicDataset[]>([])
   const {
     roomCode,
@@ -102,12 +103,18 @@ function Lobby() {
     })
   }
 
-  const handleCopyLink = () => {
+  const handleShareInvite = () => {
     if (!roomCode || typeof window === 'undefined') return
-    navigator.clipboard.writeText(`${window.location.origin}/?room=${roomCode}`).then(() => {
-      setCopiedLink(true)
-      setTimeout(() => setCopiedLink(false), COPIED_FEEDBACK_MS)
-    })
+    void shareOrCopyInvite(roomCode)
+      .then((result) => {
+        setShareFeedback(result)
+        setTimeout(() => setShareFeedback(null), COPIED_FEEDBACK_MS)
+      })
+      .catch((err) => {
+        // User dismissed the share sheet — no toast needed
+        if (err instanceof Error && err.name === 'AbortError') return
+        console.warn('Share invite failed:', err)
+      })
   }
 
   const handleStartGame = () => {
@@ -207,19 +214,21 @@ function Lobby() {
               </button>
               <button
                 type="button"
-                onClick={handleCopyLink}
-                title="Copy link"
+                onClick={handleShareInvite}
+                title="Share invite"
                 className="flex size-10 items-center justify-center rounded-full bg-primary text-white hover:bg-primary/90 transition-colors md:size-auto md:px-4 md:py-2 md:rounded-lg md:bg-surface-elevated md:text-primary md:font-semibold md:flex md:items-center md:gap-2 md:hover:bg-surface-elevated"
               >
-                {copiedLink ? (
+                {shareFeedback ? (
                   <>
                     <span className="material-symbols-outlined text-xl md:text-lg">check</span>
-                    <span className="hidden md:inline text-sm">Copied!</span>
+                    <span className="hidden md:inline text-sm">
+                      {shareFeedback === 'shared' ? 'Shared!' : 'Copied!'}
+                    </span>
                   </>
                 ) : (
                   <>
                     <span className="material-symbols-outlined text-xl md:text-lg">share</span>
-                    <span className="hidden md:inline text-sm">Copy Link</span>
+                    <span className="hidden md:inline text-sm">Share</span>
                   </>
                 )}
               </button>
