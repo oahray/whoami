@@ -11,6 +11,7 @@ import {
   type AvatarId
 } from '../lib/avatars'
 import { getErrorMessage, isFatalError } from '../utils/errorMessages'
+import { parseRoomCodeInput, ROOM_CODE_LENGTH } from '../lib/roomCode'
 import AvatarPicker from '../components/AvatarPicker'
 import IosInstallHint from '../components/IosInstallHint'
 import FeedbackLink from '../components/FeedbackLink'
@@ -42,7 +43,7 @@ function Home() {
     }
 
     if (lastPrefilledRoomParamRef.current !== roomParam) {
-      setJoinCode(roomParam.toUpperCase())
+      setJoinCode(parseRoomCodeInput(roomParam))
       lastPrefilledRoomParamRef.current = roomParam
     }
   }, [roomParam])
@@ -132,7 +133,8 @@ function Home() {
 
   const handleJoinRoom = (e: React.FormEvent | React.MouseEvent) => {
     e.preventDefault()
-    if (!nickname.trim() || !joinCode.trim()) {
+    const roomCode = parseRoomCodeInput(joinCode)
+    if (!nickname.trim() || roomCode.length !== ROOM_CODE_LENGTH) {
       setError('Please enter both nickname and room code')
       return
     }
@@ -146,7 +148,7 @@ function Home() {
     localStorage.setItem('whoami_nickname', nickname.trim())
     writeStoredAvatarId(avatarId)
     emit('JOIN_ROOM', {
-      roomCode: joinCode.trim().toUpperCase(),
+      roomCode,
       nickname: nickname.trim(),
       avatarId
     })
@@ -249,9 +251,18 @@ function Home() {
                 <input
                   type="text"
                   value={joinCode}
-                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
-                  placeholder="6-character code"
-                  maxLength={6}
+                  onChange={(e) => setJoinCode(parseRoomCodeInput(e.target.value))}
+                  onPaste={(e) => {
+                    const pasted = e.clipboardData.getData('text')
+                    if (!pasted) return
+                    e.preventDefault()
+                    setJoinCode(parseRoomCodeInput(pasted))
+                  }}
+                  placeholder="Code or invite link"
+                  inputMode="text"
+                  autoCapitalize="characters"
+                  autoCorrect="off"
+                  spellCheck={false}
                   disabled={loading}
                   enterKeyHint="go"
                   className="w-full pl-12 pr-4 py-4 bg-surface-muted border-2 border-edge rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors text-foreground placeholder:text-foreground-muted font-medium tracking-[0.2em] uppercase disabled:opacity-60"
@@ -261,7 +272,7 @@ function Home() {
 
             <button
               type="submit"
-              disabled={loading || !nickname.trim() || !joinCode.trim() || !connected}
+              disabled={loading || !nickname.trim() || joinCode.length !== ROOM_CODE_LENGTH || !connected}
               className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-5 rounded-lg shadow-lg shadow-primary/30 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
             >
               {loading ? (

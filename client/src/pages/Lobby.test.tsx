@@ -97,20 +97,47 @@ describe('Lobby', () => {
     expect(screen.getByText('Copy Code')).toBeInTheDocument()
   })
 
-  it('shows copied feedback after copying the invite link', async () => {
+  it('shows copied feedback after copying the invite link when share is unavailable', async () => {
     renderWithPreferences(
       <MemoryRouter>
         <Lobby />
       </MemoryRouter>
     )
 
-    fireEvent.click(screen.getByTitle('Copy link'))
+    fireEvent.click(screen.getByTitle('Share invite'))
     await act(async () => {
       await Promise.resolve()
     })
 
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(`${window.location.origin}/?room=ABC123`)
     expect(screen.getByText('Copied!')).toBeInTheDocument()
+  })
+
+  it('opens the native share sheet when available', async () => {
+    const share = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'share', {
+      value: share,
+      configurable: true
+    })
+
+    renderWithPreferences(
+      <MemoryRouter>
+        <Lobby />
+      </MemoryRouter>
+    )
+
+    fireEvent.click(screen.getByTitle('Share invite'))
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    expect(share).toHaveBeenCalledWith({
+      title: 'Who Am I?',
+      text: 'Join my Who Am I? room (ABC123)',
+      url: `${window.location.origin}/?room=ABC123`
+    })
+    expect(navigator.clipboard.writeText).not.toHaveBeenCalled()
+    expect(screen.getByText('Shared!')).toBeInTheDocument()
   })
 
   it('hides the dataset picker when there is at most one enabled dataset', async () => {

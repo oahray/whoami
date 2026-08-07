@@ -46,13 +46,28 @@ describe('Home', () => {
       </MemoryRouter>
     )
 
-    const roomCodeInput = screen.getByPlaceholderText('6-character code') as HTMLInputElement
+    const roomCodeInput = screen.getByPlaceholderText('Code or invite link') as HTMLInputElement
 
     expect(roomCodeInput.value).toBe('ABC123')
 
     fireEvent.change(roomCodeInput, { target: { value: '' } })
 
     expect(roomCodeInput.value).toBe('')
+  })
+
+  it('strips an invite URL pasted into the room code field', () => {
+    render(
+      <MemoryRouter>
+        <Home />
+      </MemoryRouter>
+    )
+
+    const roomCodeInput = screen.getByPlaceholderText('Code or invite link') as HTMLInputElement
+    fireEvent.change(roomCodeInput, {
+      target: { value: 'https://play.example.com/?room=ab12cd&utm=1' }
+    })
+
+    expect(roomCodeInput.value).toBe('AB12CD')
   })
 
   it('stores nickname and emits JOIN_ROOM with uppercase code', () => {
@@ -87,7 +102,7 @@ describe('Home', () => {
     fireEvent.change(screen.getByPlaceholderText('e.g. Samuel'), {
       target: { value: 'Paul' }
     })
-    fireEvent.change(screen.getByPlaceholderText('6-character code'), {
+    fireEvent.change(screen.getByPlaceholderText('Code or invite link'), {
       target: { value: 'ab12cd' }
     })
     fireEvent.click(screen.getByRole('button', { name: /join room/i }))
