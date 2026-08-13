@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import LoadingState from '../components/LoadingState'
 import PlayerAvatar from '../components/PlayerAvatar'
 import SoundToggle from '../components/SoundToggle'
+import { downloadLeaderboardPng } from '../lib/exportLeaderboardPng'
 import { INTER_ROUND_DELAY_MS } from '../lib/gameTiming'
 import { playSound } from '../lib/sounds'
 import { useGame } from '../hooks/useGame'
@@ -41,15 +42,18 @@ function rankScoreboard<T extends Record<string, any>>(items: T[], getScore: (t:
 function Game() {
   const navigate = useNavigate()
   const { emit, on, off } = useSocket()
-  const { roomCode, playerId, gameState, settings, error, players, isReconnecting, setError } = useGame()
+  const { roomCode, playerId, gameState, settings, error, players, isReconnecting, gameHistory, setError } = useGame()
   const [guess, setGuess] = useState('')
   const [timeRemaining, setTimeRemaining] = useState(0)
   const [roundEndData, setRoundEndData] = useState<any>(null)
   const [gameEndData, setGameEndData] = useState<any>(null)
   const [autoReturnSeconds, setAutoReturnSeconds] = useState<number | null>(null)
   const [nextRoundSeconds, setNextRoundSeconds] = useState<number | null>(null)
-  const [guessFeed, setGuessFeed] = useState<Array<{ nickname: string; guess?: string; correct: boolean }>>([])
+  const [guessFeed, setGuessFeed] = useState<Array<{ nickname: string; avatarId?: string; guess?: string; correct: boolean }>>([])
   const [currentPhase, setCurrentPhase] = useState<'starting' | 'active' | 'clue_revealed' | 'ended'>('starting')
+  const [standingOpen, setStandingOpen] = useState(false)
+  const [exportState, setExportState] = useState<'idle' | 'working' | 'downloaded' | 'error'>('idle')
+  const standingListRef = useRef<HTMLDivElement | null>(null)
   const guessInputRef = useRef<HTMLInputElement | null>(null)
   const gameStateRef = useRef(gameState)
   const settingsRef = useRef(settings)
@@ -109,9 +113,16 @@ function Game() {
       if (gameState.phase === 'starting') {
         setGuessFeed([])
         setRoundEndData(null)
+        setStandingOpen(false)
       }
     }
   }, [gameState])
+
+  useEffect(() => {
+    if (!standingOpen) return
+    const youRow = standingListRef.current?.querySelector('[data-you-standing="true"]')
+    youRow?.scrollIntoView({ block: 'nearest' })
+  }, [standingOpen, gameState?.currentScoreboard])
 
   useEffect(() => {
     if (!roundEndData) {
@@ -147,8 +158,8 @@ function Game() {
       gameEndedRef.current = true
       setGameEndData(data)
     }
-    const handleGuessBroadcast = (data: { nickname: string; guess?: string; correct: boolean }) => {
-      setGuessFeed(prev => [...prev.slice(-4), data])
+    const handleGuessBroadcast = (data: { nickname: string; avatarId?: string; guess?: string; correct: boolean }) => {
+      setGuessFeed(prev => [...prev.slice(-14), data])
     }
     const handlePlayerCorrect = () => {}
     on('ROUND_ENDED', handleRoundEnded)
@@ -230,6 +241,7 @@ function Game() {
       : players.map(p => ({ playerId: p.id, nickname: p.nickname, score: 0 })),
     p => p.score
   )
+  const yourStanding = scoreboard.find((entry) => entry.playerId === playerId)
 
   if (gameEndData) {
     const ranked = rankScoreboard<any>(gameEndData.finalScoreboard || [], p => p.score)
@@ -306,7 +318,40 @@ function Game() {
               )
             })}
           </div>
-          <div className="p-6 bg-surface border-t border-edge">
+          <div className="p-6 bg-surface border-t border-edge space-y-3">
+            {roomCode && gameHistory.length > 0 && (
+              <button
+                type="button"
+                disabled={exportState === 'working'}
+                onClick={() => {
+                  const entry = gameHistory[gameHistory.length - 1]
+                  if (!entry) return
+                  setExportState('working')
+                  void downloadLeaderboardPng({ roomCode, entry })
+                    .then(() => {
+                      setExportState('downloaded')
+                      window.setTimeout(() => setExportState('idle'), 2200)
+                    })
+                    .catch((err) => {
+                      console.warn('Leaderboard download failed:', err)
+                      setExportState('error')
+                      window.setTimeout(() => setExportState('idle'), 2200)
+                    })
+                }}
+                className="w-full border-2 border-edge bg-surface-muted hover:bg-surface-elevated text-foreground font-bold py-3.5 rounded-lg flex items-center justify-center gap-2 transition-all disabled:opacity-60"
+              >
+                <span className="material-symbols-outlined">
+                  {exportState === 'working' ? 'hourglass_top' : 'download'}
+                </span>
+                {exportState === 'working'
+                  ? 'Saving…'
+                  : exportState === 'downloaded'
+                    ? 'Saved!'
+                    : exportState === 'error'
+                      ? 'Couldn’t save'
+                      : 'Download leaderboard image'}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => { setGameEndData(null); navigate('/lobby') }}
@@ -316,7 +361,7 @@ function Game() {
               Return to Lobby
             </button>
             {autoReturnSeconds !== null && (
-              <div className="mt-4 flex flex-col items-center">
+              <div className="mt-1 flex flex-col items-center">
                 <p className="text-foreground-muted text-sm font-medium">Returning to lobby in {autoReturnSeconds}s...</p>
                 <div className="w-full h-1 bg-surface-elevated rounded-full mt-2 overflow-hidden">
                   <div className="h-full bg-primary/40 rounded-full transition-all" style={{ width: `${((30 - autoReturnSeconds) / 30) * 100}%` }} />
@@ -372,12 +417,30 @@ function Game() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto px-3 py-3 md:px-6 md:py-6 lg:px-8 min-h-0">
-          <div className="grid gap-4 lg:gap-6 lg:grid-cols-[minmax(0,1.8fr)_320px] xl:grid-cols-[minmax(0,2fr)_360px]">
-            <div className="space-y-4 lg:space-y-6">
+        <main
+          className={`flex-1 min-h-0 px-3 py-3 md:px-6 md:py-6 lg:px-8 ${
+            isFinalScoresView
+              ? 'overflow-y-auto'
+              : 'flex flex-col overflow-hidden lg:block lg:overflow-y-auto'
+          }`}
+        >
+          <div
+            className={`gap-4 lg:gap-6 ${
+              isFinalScoresView
+                ? 'grid lg:grid-cols-[minmax(0,1.8fr)_320px] xl:grid-cols-[minmax(0,2fr)_360px]'
+                : 'flex min-h-0 flex-1 flex-col lg:grid lg:h-auto lg:flex-none lg:grid-cols-[minmax(0,1.8fr)_320px] xl:grid-cols-[minmax(0,2fr)_360px]'
+            }`}
+          >
+            <div
+              className={
+                isFinalScoresView
+                  ? 'space-y-4 lg:space-y-6'
+                  : 'flex min-h-0 flex-1 flex-col gap-2 lg:block lg:flex-none lg:space-y-6 lg:gap-0'
+              }
+            >
               {!isFinalScoresView && (
-                <section className="space-y-2 lg:space-y-4">
-                  <div className="flex items-center justify-between">
+                <section className="flex min-h-0 flex-1 flex-col space-y-2 lg:block lg:flex-none lg:space-y-4">
+                  <div className="flex shrink-0 items-center justify-between">
                     <h3 className="font-bold text-foreground text-sm lg:text-base">Current Clues</h3>
                     <span className="text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded-md">
                       {gameState.cluesRevealed.length} Revealed
@@ -386,7 +449,7 @@ function Game() {
                   <div
                     ref={cluesScrollRef}
                     onScroll={onCluesScroll}
-                    className="space-y-2 lg:space-y-3 max-h-64 overflow-y-auto lg:max-h-[26rem] pr-1"
+                    className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 lg:max-h-[26rem] lg:flex-none lg:space-y-3"
                   >
                     {(() => {
                       const sortedClues = gameState.cluesRevealed
@@ -450,51 +513,15 @@ function Game() {
                 </section>
               )}
 
-              {!isFinalScoresView && (
-                <section className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-bold text-foreground text-sm lg:text-base">Recent Guesses</h3>
-                    <span className="text-xs font-medium text-foreground-muted">{guessFeed.length} recent</span>
-                  </div>
-                  <div
-                    ref={guessesScrollRef}
-                    onScroll={onGuessesScroll}
-                    className="bg-surface rounded-md border border-edge shadow-sm p-2 lg:p-4 max-h-28 lg:max-h-52 overflow-y-auto"
-                  >
-                    {guessFeed.length > 0 ? (
-                      <div className="space-y-1.5">
-                        {guessFeed.slice(-12).map((item, index) => {
-                          const isFull = settings?.transparencyMode === 'full'
-                          const message = item.correct
-                            ? `${item.nickname} guessed correctly!`
-                            : isFull && item.guess
-                              ? `${item.nickname}: ${item.guess}`
-                              : `${item.nickname} guessed`
-                          return (
-                            <div key={index} className={`rounded bg-surface-muted px-2.5 py-1.5 text-xs lg:text-sm ${item.correct ? 'text-green-700' : 'text-foreground'}`}>
-                              {message}
-                            </div>
-                          )
-                        })}
-                      </div>
-                    ) : (
-                      <div className="flex min-h-12 items-center text-xs lg:text-sm text-foreground-muted px-1">
-                        No guesses yet.
-                      </div>
-                    )}
-                  </div>
-                </section>
-              )}
-
               {gameState.isLocked && (
-                <div className="p-3 lg:p-4 bg-green-50 border-2 border-green-400 rounded-lg text-center">
+                <div className="shrink-0 p-3 lg:p-4 bg-green-50 border-2 border-green-400 rounded-lg text-center">
                   <div className="text-green-800 font-semibold text-sm lg:text-base">✓ You guessed correctly!</div>
                   <div className="text-xs lg:text-sm text-green-600 mt-1">Waiting for other players...</div>
                 </div>
               )}
 
               {error && (
-                <div className="p-3 bg-red-100 dark:bg-red-950/60 border border-red-400 dark:border-red-800 text-red-700 dark:text-red-200 rounded-lg text-sm flex items-start gap-2">
+                <div className="shrink-0 p-3 bg-red-100 dark:bg-red-950/60 border border-red-400 dark:border-red-800 text-red-700 dark:text-red-200 rounded-lg text-sm flex items-start gap-2">
                   <p className="min-w-0 flex-1">{error}</p>
                   <button
                     type="button"
@@ -506,9 +533,135 @@ function Game() {
                   </button>
                 </div>
               )}
+
+              {!isFinalScoresView && (
+                <section className="shrink-0 lg:hidden">
+                  <button
+                    type="button"
+                    onClick={() => setStandingOpen((open) => !open)}
+                    aria-expanded={standingOpen}
+                    className="flex w-full items-center justify-between gap-2 rounded-lg border border-edge bg-surface px-3 py-2 text-left shadow-sm"
+                  >
+                    <span className="min-w-0">
+                      <span className="block text-sm font-bold text-foreground">Standing</span>
+                      <span className="text-[11px] text-foreground-muted">
+                        {yourStanding
+                          ? `You #${yourStanding.rank}${yourStanding.tied ? ' (tied)' : ''} · ${yourStanding.score} pt${yourStanding.score === 1 ? '' : 's'}`
+                          : `${scoreboard.length} player${scoreboard.length === 1 ? '' : 's'}`}
+                      </span>
+                    </span>
+                    <span
+                      className={`material-symbols-outlined shrink-0 text-foreground-muted transition-transform ${
+                        standingOpen ? 'rotate-180' : ''
+                      }`}
+                    >
+                      expand_more
+                    </span>
+                  </button>
+                  {standingOpen && (
+                    <div
+                      ref={standingListRef}
+                      className="mt-1.5 max-h-40 space-y-1 overflow-y-auto rounded-lg border border-edge bg-surface p-2 shadow-sm"
+                    >
+                      {scoreboard.map((player) => (
+                        <div
+                          key={player.playerId}
+                          data-you-standing={player.playerId === playerId ? 'true' : undefined}
+                          className={`flex items-center justify-between rounded-md p-2 ${
+                            player.playerId === playerId
+                              ? 'border border-primary/20 bg-primary/5'
+                              : 'bg-surface-muted'
+                          }`}
+                        >
+                          <div className="flex min-w-0 items-center gap-2">
+                            <span className="w-4 text-xs font-bold text-foreground-muted">{player.rank}</span>
+                            <PlayerAvatar
+                              avatarId={players.find((p) => p.id === player.playerId)?.avatarId}
+                              nickname={player.nickname}
+                              sizeClassName="size-6"
+                              className="border border-primary/20"
+                            />
+                            <span
+                              className={`truncate text-xs ${
+                                player.playerId === playerId
+                                  ? 'font-semibold'
+                                  : 'font-medium text-foreground-muted'
+                              }`}
+                            >
+                              {player.nickname}
+                              {player.playerId === playerId && ' (You)'}
+                            </span>
+                          </div>
+                          <span
+                            className={`shrink-0 text-xs font-black ${
+                              player.playerId === playerId ? 'text-primary' : 'text-foreground-muted'
+                            }`}
+                          >
+                            {player.score}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              )}
+
+              {!isFinalScoresView && (
+                <section className="shrink-0 space-y-1.5 border-t border-edge pt-2 lg:space-y-2 lg:border-t-0 lg:pt-0">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-bold text-foreground text-sm lg:text-base">Recent Guesses</h3>
+                    <span className="text-xs font-medium text-foreground-muted">{guessFeed.length} recent</span>
+                  </div>
+                  <div
+                    ref={guessesScrollRef}
+                    onScroll={onGuessesScroll}
+                    className="max-h-[6rem] overflow-y-auto rounded-md border border-edge bg-surface p-1.5 shadow-sm lg:max-h-52 lg:p-4"
+                  >
+                    {guessFeed.length > 0 ? (
+                      <div className="space-y-1 lg:space-y-1.5">
+                        {guessFeed.map((item, index) => {
+                          const isFull = settings?.transparencyMode === 'full'
+                          const message = item.correct
+                            ? `${item.nickname} guessed correctly!`
+                            : isFull && item.guess
+                              ? `${item.nickname}: ${item.guess}`
+                              : `${item.nickname} guessed`
+                          const avatarId =
+                            item.avatarId ??
+                            players.find((p) => p.nickname === item.nickname)?.avatarId
+                          return (
+                            <div
+                              key={index}
+                              className={`flex items-center gap-1.5 rounded bg-surface-muted px-2 py-1 text-xs lg:gap-2 lg:px-2.5 lg:py-1.5 lg:text-sm ${
+                                item.correct ? 'text-green-700' : 'text-foreground'
+                              }`}
+                            >
+                              <PlayerAvatar
+                                avatarId={avatarId}
+                                nickname={item.nickname}
+                                sizeClassName="size-5 lg:size-6"
+                                className="border border-primary/15"
+                              />
+                              <span className="min-w-0 truncate">{message}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    ) : (
+                      <div className="flex min-h-10 items-center px-1 text-xs text-foreground-muted lg:min-h-12 lg:text-sm">
+                        No guesses yet.
+                      </div>
+                    )}
+                  </div>
+                </section>
+              )}
             </div>
 
-            <aside className="space-y-4 lg:space-y-6">
+            <aside
+              className={`space-y-4 lg:space-y-6 ${
+                isFinalScoresView ? '' : 'hidden lg:block'
+              }`}
+            >
               {!isFinalScoresView && (
                 <div className="hidden lg:block bg-primary text-white rounded-2xl p-6 shadow-xl shadow-primary/20">
                   <p className="text-xs uppercase tracking-widest text-white/70 font-bold">

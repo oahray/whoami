@@ -9,7 +9,7 @@ import {
   resetRoomForNewGame,
   GameStartError
 } from '../../game/roundState.js'
-import { ROUND_START_DELAY_MS } from '../../game/config.js'
+import { ROUND_START_DELAY_MS } from '../../game/multiplayerDefaults.js'
 import { broadcastRoundEnd, scheduleClueReveals } from './utils.js'
 import { safeTimer } from '../dispatch.js'
 import { getMaintenanceBlock } from '../../db/maintenance.js'
@@ -201,8 +201,8 @@ export function handleSubmitGuess(io: Server, socket: Socket, payload: any) {
     }
 
     const broadcastPayload = room.settings.transparencyMode === 'full'
-      ? { nickname: player.nickname, guess: guessValue, correct: result.correct }
-      : { nickname: player.nickname, correct: result.correct }
+      ? { nickname: player.nickname, avatarId: player.avatarId, guess: guessValue, correct: result.correct }
+      : { nickname: player.nickname, avatarId: player.avatarId, correct: result.correct }
 
     io.to(room.code).emit('GUESS_BROADCAST', broadcastPayload)
 

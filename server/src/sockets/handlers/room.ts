@@ -51,6 +51,17 @@ function migratePlayerReferences(room: any, oldPlayerId: string, newPlayerId: st
       entry.playerId === oldPlayerId ? { ...entry, playerId: newPlayerId } : entry
     )
   }
+
+  if (Array.isArray(room.gameHistory)) {
+    room.gameHistory = room.gameHistory.map((game: any) => ({
+      ...game,
+      scoreboard: Array.isArray(game.scoreboard)
+        ? game.scoreboard.map((entry: any) =>
+          entry.playerId === oldPlayerId ? { ...entry, playerId: newPlayerId } : entry
+        )
+        : game.scoreboard
+    }))
+  }
 }
 
 export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
@@ -137,7 +148,8 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
             isHost: returning.isHost,
             players: Array.from(room.players.values()).map(toPublicPlayer),
             settings: room.settings,
-            roomCode: room.code
+            roomCode: room.code,
+            gameHistory: room.gameHistory
           })
         }
 
@@ -188,7 +200,8 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
         isHost: existingPlayer.isHost,
         players: Array.from(room.players.values()).map(toPublicPlayer),
         settings: room.settings,
-        roomCode: room.code
+        roomCode: room.code,
+        gameHistory: room.gameHistory
       })
 
       socket.to(roomCode).emit('PLAYER_RECONNECTED', {
@@ -226,7 +239,8 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
       playerId: socket.id,
       isHost: false,
       players: Array.from(room.players.values()).map(toPublicPlayer),
-      settings: room.settings
+      settings: room.settings,
+      gameHistory: room.gameHistory
     })
 
     socket.to(roomCode).emit('PLAYER_JOINED', {
@@ -282,7 +296,8 @@ export function handleCreateRoom(_io: Server, socket: Socket, payload: any) {
       isHost: true,
       players: Array.from(room.players.values()).map(toPublicPlayer),
       settings: room.settings,
-      roomCode: room.code
+      roomCode: room.code,
+      gameHistory: room.gameHistory
     })
   } catch (error: any) {
     logger.error('Error in handleCreateRoom', error, {

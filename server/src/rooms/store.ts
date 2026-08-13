@@ -1,6 +1,6 @@
 import type { Entity } from '../db/entities.js'
 import { coerceAvatarId, type AvatarId } from '../game/avatars.js'
-import { ROUND_START_DELAY_MS } from '../game/config.js'
+import { createDefaultMultiplayerRoomSettings, GAME_HISTORY_MAX } from '../game/multiplayerDefaults.js'
 
 type Difficulty = 'easy' | 'medium' | 'hard' | 'nightmare'
 /** Encoded selection: `any` or comma-separated tiers (`hard,nightmare`). */
@@ -76,6 +76,26 @@ export interface RoundState {
   }
 }
 
+export interface GameHistoryScoreEntry {
+  playerId: string
+  nickname: string
+  avatarId: AvatarId
+  score: number
+}
+
+/** Finished multiplayer game snapshot kept for the life of the room. */
+export interface GameHistoryEntry {
+  id: string
+  gameNumber: number
+  endedAt: number
+  totalRounds: number
+  /** Settings used for this game (frozen at game end). */
+  difficultyMode: string
+  roundDurationMs: number
+  clueRevealTimeMs: number
+  scoreboard: GameHistoryScoreEntry[]
+}
+
 export interface RoomState {
   code: string
   hostId: string
@@ -88,6 +108,8 @@ export interface RoomState {
   usedEntityIds: Set<string>
   scores: Map<string, number>
   finalScoreboard?: Array<{ playerId: string; nickname: string; score: number }>
+  /** Last N finished games in this room (newest last). Survives rematches. */
+  gameHistory: GameHistoryEntry[]
   kickedPlayers: Map<string, number>
 }
 
@@ -114,24 +136,14 @@ export function createRoom(hostId: string, hostNickname: string, avatarId?: unkn
     code,
     hostId,
     players: new Map(),
-    settings: {
-      roundDuration: 30000,
-      roundStartDelayMs: ROUND_START_DELAY_MS,
-      clueRevealTime: 10000,
-      totalRounds: 5,
-      difficultyMode: 'any',
-      strictMode: false,
-      transparencyMode: 'full',
-      maxGuessesPerRound: 10,
-      datasetId: null,
-      entityType: 'character'
-    },
+    settings: createDefaultMultiplayerRoomSettings(),
     status: 'waiting',
     currentRound: null,
     roundHistory: [],
     entityPool: [],
     usedEntityIds: new Set(),
     scores: new Map(),
+    gameHistory: [],
     kickedPlayers: new Map()
   }
 
@@ -170,6 +182,32 @@ export function deleteRoom(code: string): void {
 
 export function getAllRooms(): Map<string, RoomState> {
   return rooms
+}
+
+/** Append a finished-game snapshot; keeps at most GAME_HISTORY_MAX entries. */
+export function recordFinishedGame(room: RoomState): GameHistoryEntry {
+  const gameNumber = (room.gameHistory[room.gameHistory.length - 1]?.gameNumber ?? 0) + 1
+  const endedAt = Date.now()
+  const entry: GameHistoryEntry = {
+    id: `${room.code}-${endedAt}-${gameNumber}`,
+    gameNumber,
+    endedAt,
+    totalRounds: room.settings.totalRounds,
+    difficultyMode: room.settings.difficultyMode,
+    roundDurationMs: room.settings.roundDuration,
+    clueRevealTimeMs: room.settings.clueRevealTime,
+    scoreboard: (room.finalScoreboard ?? []).map((row) => {
+      const player = room.players.get(row.playerId)
+      return {
+        playerId: row.playerId,
+        nickname: row.nickname,
+        avatarId: player?.avatarId ?? coerceAvatarId(undefined),
+        score: row.score
+      }
+    })
+  }
+  room.gameHistory = [...room.gameHistory, entry].slice(-GAME_HISTORY_MAX)
+  return entry
 }
 
 /** Anonymous multiplayer presence for operators (no nicknames or room codes). */

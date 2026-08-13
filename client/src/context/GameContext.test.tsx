@@ -1,3 +1,4 @@
+import { DEFAULT_MULTIPLAYER_SETTINGS } from '../lib/multiplayerDefaults'
 import { act, render, screen } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { GameContext, GameProvider } from './GameContext'
@@ -36,6 +37,7 @@ function TestConsumer() {
           <div data-testid="reconnecting">{value?.isReconnecting ? 'yes' : 'no'}</div>
           <div data-testid="scoreboard">{JSON.stringify(value?.gameState?.currentScoreboard ?? [])}</div>
           <div data-testid="round">{value?.gameState?.roundNumber ?? ''}</div>
+          <div data-testid="clues">{JSON.stringify(value?.gameState?.cluesRevealed ?? [])}</div>
         </div>
       )}
     </GameContext.Consumer>
@@ -143,14 +145,8 @@ describe('GameProvider', () => {
           { id: 'p2', nickname: 'Paul', isHost: false, isConnected: true }
         ],
         settings: {
-          totalRounds: 5,
-          roundDuration: 30000,
-          clueRevealTime: 10000,
-          difficultyMode: 'any',
-          strictMode: false,
-          transparencyMode: 'full',
-          maxGuessesPerRound: 10,
-          datasetId: null
+          ...DEFAULT_MULTIPLAYER_SETTINGS,
+          maxGuessesPerRound: 10
         },
         roomCode: 'ABC123'
       })
@@ -176,5 +172,65 @@ describe('GameProvider', () => {
         { playerId: 'host', nickname: 'Host', score: 100 }
       ])
     )
+  })
+
+  it('keeps the next round first clue after the inter-round delay', () => {
+    vi.useFakeTimers()
+    const socket = createMockSocket(true)
+    mockUseSocket.mockReturnValue({ socket })
+
+    render(
+      <GameProvider>
+        <TestConsumer />
+      </GameProvider>
+    )
+
+    act(() => {
+      socket.handlers.ROOM_JOINED?.({
+        playerId: 'host',
+        isHost: true,
+        players: [{ id: 'host', nickname: 'Host', isHost: true, isConnected: true }],
+        settings: {
+          ...DEFAULT_MULTIPLAYER_SETTINGS,
+          maxGuessesPerRound: 10
+        },
+        roomCode: 'ABC123'
+      })
+    })
+
+    act(() => {
+      socket.handlers.ROUND_STARTED?.({
+        roundNumber: 1,
+        serverStartTime: 1,
+        clue: { order: 1, text: 'First round clue' },
+        currentScoreboard: [{ playerId: 'host', nickname: 'Host', score: 0 }]
+      })
+    })
+
+    act(() => {
+      socket.handlers.ROUND_ENDED?.({
+        answerRevealed: true,
+        answer: 'Moses',
+        scoreboard: [{ playerId: 'host', nickname: 'Host', totalScore: 10 }]
+      })
+    })
+
+    act(() => {
+      socket.handlers.ROUND_STARTED?.({
+        roundNumber: 2,
+        serverStartTime: 2,
+        clue: { order: 1, text: 'Second round clue' },
+        currentScoreboard: [{ playerId: 'host', nickname: 'Host', score: 10 }]
+      })
+    })
+
+    act(() => {
+      vi.advanceTimersByTime(15_000)
+    })
+
+    expect(screen.getByTestId('clues')).toHaveTextContent('Second round clue')
+    expect(screen.getByTestId('round')).toHaveTextContent('2')
+
+    vi.useRealTimers()
   })
 })

@@ -1,7 +1,11 @@
 import { Server } from 'socket.io'
 import type { RoomState, Player } from '../../rooms/store.js'
 import { startNextRound, activateRound, endRound, revealClue } from '../../game/roundState'
-import { ROUND_START_DELAY_MS } from '../../game/config.js'
+import {
+  ROUND_START_DELAY_MS,
+  INTER_ROUND_DELAY_MS,
+  CLUE_REVEAL_ROUND_TAIL_BUFFER_MS
+} from '../../game/multiplayerDefaults.js'
 import { safeTimer } from '../dispatch.js'
 import { logger } from '../../utils/logger.js'
 
@@ -15,7 +19,7 @@ const MIN_CLUE_INTERVAL_MS = 2000
  * Don't reveal a new clue when fewer than this many ms remain in the round.
  * Players need a moment to read the clue before the round ends.
  */
-const CLUE_TAIL_BUFFER_MS = 1500
+const CLUE_TAIL_BUFFER_MS = CLUE_REVEAL_ROUND_TAIL_BUFFER_MS
 
 /**
  * Schedule the timed reveal of every clue past the first. Intervals are
@@ -115,7 +119,8 @@ export function buildReconnectPayload(room: RoomState, player: Player) {
     playerId: player.id,
     isHost: player.isHost,
     players: Array.from(room.players.values()).map(toPublicPlayer),
-    settings: room.settings
+    settings: room.settings,
+    gameHistory: room.gameHistory
   }
 
   if (room.status === 'in_progress' && room.currentRound) {
@@ -167,7 +172,8 @@ export function broadcastRoundEnd(io: Server, room: RoomState, roundResult: any)
       startNextRound(room).then(() => {
         if (room.status === 'finished') {
           io.to(room.code).emit('GAME_ENDED', {
-            finalScoreboard: room.finalScoreboard
+            finalScoreboard: room.finalScoreboard,
+            gameHistory: room.gameHistory
           })
           return
         }
@@ -218,7 +224,7 @@ export function broadcastRoundEnd(io: Server, room: RoomState, roundResult: any)
         })
       })
     })
-  }, 5000)
+  }, INTER_ROUND_DELAY_MS)
 }
 
 export { GRACE_PERIOD_MS }

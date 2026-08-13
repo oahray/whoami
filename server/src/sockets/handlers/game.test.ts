@@ -140,8 +140,10 @@ describe('game socket handlers', () => {
 
     handleSubmitGuess(io, socket, { guess: 'Moses' })
 
+    const hostAvatarId = room.players.get('host-socket')?.avatarId
     expect(roomEmit).toHaveBeenCalledWith('GUESS_BROADCAST', {
       nickname: 'Host',
+      avatarId: hostAvatarId,
       guess: 'Moses',
       correct: true
     })
