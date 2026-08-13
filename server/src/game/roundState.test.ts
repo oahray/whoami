@@ -29,6 +29,7 @@ import { buildEntityPool } from './entityPool.js'
 import { calculateScore } from './scoring.js'
 import { validateGuess } from './validation.js'
 import { hasExceededMaxGuesses, isRateLimited } from './rateLimit.js'
+import { DEFAULT_MULTIPLAYER_SETTINGS } from './multiplayerDefaults.js'
 import {
   endGame,
   endRound,
@@ -234,6 +235,19 @@ describe('roundState unit', () => {
       { playerId: 'host-1', nickname: 'Host', score: 100 },
       { playerId: 'player-2', nickname: 'Player2', score: 50 }
     ])
+    expect(room.gameHistory).toHaveLength(1)
+    expect(room.gameHistory[0]).toMatchObject({
+      gameNumber: 1,
+      totalRounds: 1,
+      difficultyMode: 'any',
+      roundDurationMs: DEFAULT_MULTIPLAYER_SETTINGS.roundDuration,
+      clueRevealTimeMs: DEFAULT_MULTIPLAYER_SETTINGS.clueRevealTime,
+      scoreboard: [
+        expect.objectContaining({ playerId: 'player-1', nickname: 'Player1', score: 200 }),
+        expect.objectContaining({ playerId: 'host-1', nickname: 'Host', score: 100 }),
+        expect.objectContaining({ playerId: 'player-2', nickname: 'Player2', score: 50 })
+      ]
+    })
   })
 
   it('resetRoomForNewGame clears transient game state but keeps players and settings', () => {
@@ -258,6 +272,16 @@ describe('roundState unit', () => {
     room.usedEntityIds.add(mockEntity.id)
     room.scores.set('player-1', 999)
     room.finalScoreboard = [{ playerId: 'player-1', nickname: 'Player1', score: 999 }]
+    room.gameHistory = [{
+      id: 'prev-1',
+      gameNumber: 1,
+      endedAt: 1,
+      totalRounds: 5,
+      difficultyMode: 'any',
+      roundDurationMs: DEFAULT_MULTIPLAYER_SETTINGS.roundDuration,
+      clueRevealTimeMs: DEFAULT_MULTIPLAYER_SETTINGS.clueRevealTime,
+      scoreboard: [{ playerId: 'player-1', nickname: 'Player1', avatarId: 'avatar-01', score: 999 }]
+    }]
     room.players.get('player-1')!.guessCount = 4
     room.players.get('player-1')!.lastGuessAt = Date.now()
     room.players.get('player-1')!.isLocked = true
@@ -272,6 +296,8 @@ describe('roundState unit', () => {
     expect(room.usedEntityIds.size).toBe(0)
     expect(room.scores.size).toBe(0)
     expect(room.finalScoreboard).toBeUndefined()
+    expect(room.gameHistory).toHaveLength(1)
+    expect(room.gameHistory[0]?.id).toBe('prev-1')
     expect(room.players.get('player-1')?.guessCount).toBe(0)
     expect(room.players.get('player-1')?.lastGuessAt).toBeNull()
     expect(room.players.get('player-1')?.isLocked).toBe(false)

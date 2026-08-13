@@ -7,6 +7,10 @@ import {
   parseDifficultySelection
 } from '../../game/difficultySelection.js'
 import { logger } from '../../utils/logger.js'
+import {
+  maxClueRevealTimeMs,
+  MULTIPLAYER_SETTINGS_LIMITS
+} from '../../game/multiplayerDefaults.js'
 
 export async function handleUpdateSettings(io: Server, socket: Socket, payload: any) {
   try {
@@ -61,7 +65,8 @@ export async function handleUpdateSettings(io: Server, socket: Socket, payload: 
     } = payload
 
     if (roundDuration !== undefined) {
-      if (roundDuration < 10000 || roundDuration > 60000) {
+      const { min, max } = MULTIPLAYER_SETTINGS_LIMITS.roundDuration
+      if (roundDuration < min || roundDuration > max) {
         socket.emit('ROOM_ERROR', {
           code: 'INVALID_SETTINGS',
           message: 'Round duration must be between 10s and 60s'
@@ -72,7 +77,9 @@ export async function handleUpdateSettings(io: Server, socket: Socket, payload: 
     }
 
     if (clueRevealTime !== undefined) {
-      if (clueRevealTime < 2000 || clueRevealTime > room.settings.roundDuration - 1500) {
+      const { min } = MULTIPLAYER_SETTINGS_LIMITS.clueRevealTime
+      const max = maxClueRevealTimeMs(room.settings.roundDuration)
+      if (clueRevealTime < min || clueRevealTime > max) {
         socket.emit('ROOM_ERROR', {
           code: 'INVALID_SETTINGS',
           message: 'Clue reveal time must be at least 2s and at most ~1.5s less than the round duration'
@@ -83,7 +90,8 @@ export async function handleUpdateSettings(io: Server, socket: Socket, payload: 
     }
 
     if (totalRounds !== undefined) {
-      if (totalRounds < 3 || totalRounds > 10) {
+      const { min, max } = MULTIPLAYER_SETTINGS_LIMITS.totalRounds
+      if (totalRounds < min || totalRounds > max) {
         socket.emit('ROOM_ERROR', {
           code: 'INVALID_SETTINGS',
           message: 'Total rounds must be between 3 and 10'
@@ -121,7 +129,8 @@ export async function handleUpdateSettings(io: Server, socket: Socket, payload: 
     }
 
     if (maxGuessesPerRound !== undefined) {
-      if (maxGuessesPerRound < 1 || maxGuessesPerRound > 50) {
+      const { min, max } = MULTIPLAYER_SETTINGS_LIMITS.maxGuessesPerRound
+      if (maxGuessesPerRound < min || maxGuessesPerRound > max) {
         socket.emit('ROOM_ERROR', {
           code: 'INVALID_SETTINGS',
           message: 'Max guesses per round must be between 1 and 50'

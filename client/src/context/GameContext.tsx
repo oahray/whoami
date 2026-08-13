@@ -1,6 +1,6 @@
 import { createContext, useState, useEffect, useRef, ReactNode } from 'react'
 import { useSocket } from '../hooks/useSocket'
-import { INTER_ROUND_DELAY_MS } from '../lib/gameTiming'
+import type { GameHistoryEntry } from '../lib/gameHistory'
 import { playSound } from '../lib/sounds'
 import { getErrorMessage, isFatalError } from '../utils/errorMessages'
 
@@ -45,6 +45,7 @@ interface GameContextType {
   players: Player[]
   settings: RoomSettings | null
   gameState: GameState | null
+  gameHistory: GameHistoryEntry[]
   error: string | null
   isReconnecting: boolean
   setRoomCode: (code: string | null) => void
@@ -70,6 +71,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [players, setPlayers] = useState<Player[]>([])
   const [settings, setSettings] = useState<RoomSettings | null>(null)
   const [gameState, setGameState] = useState<GameState | null>(null)
+  const [gameHistory, setGameHistory] = useState<GameHistoryEntry[]>([])
   const [error, setError] = useState<string | null>(null)
   const [isReconnecting, setIsReconnecting] = useState(false)
 
@@ -80,6 +82,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setPlayers([])
     setSettings(null)
     setGameState(null)
+    setGameHistory([])
     setError(null)
     setIsReconnecting(false)
     localStorage.removeItem('whoami_room')
@@ -152,6 +155,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setIsHost(data.isHost)
       setPlayers(data.players)
       setSettings(data.settings)
+      setGameHistory(Array.isArray(data.gameHistory) ? data.gameHistory : [])
       setIsReconnecting(false)
       if (data.roomCode) {
         setRoomCode(data.roomCode)
@@ -219,6 +223,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setIsHost(data.isHost)
       setPlayers(data.players)
       setSettings(data.settings)
+      if (Array.isArray(data.gameHistory)) {
+        setGameHistory(data.gameHistory)
+      }
       const player = data.players.find((p: Player) => p.id === data.playerId)
       if (player) {
         const stored = localStorage.getItem('whoami_room')
@@ -324,21 +331,16 @@ export function GameProvider({ children }: { children: ReactNode }) {
         }))
       } : null)
 
-      setTimeout(() => {
-        setGameState(prev => prev ? {
-          ...prev,
-          phase: 'starting',
-          isLocked: false,
-          cluesRevealed: []
-        } : null)
-      }, INTER_ROUND_DELAY_MS)
 
       if (!data.answerRevealed) {
         playSound('uh-oh')
       }
     }
 
-    const handleGameEnded = (data: { finalScoreboard: Array<{ playerId: string; nickname: string; score: number }> }) => {
+    const handleGameEnded = (data: {
+      finalScoreboard: Array<{ playerId: string; nickname: string; score: number }>
+      gameHistory?: GameHistoryEntry[]
+    }) => {
       setGameState({
         phase: 'ended',
         roundNumber: 0,
@@ -346,6 +348,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
         isLocked: false,
         currentScoreboard: data.finalScoreboard
       })
+      if (Array.isArray(data.gameHistory)) {
+        setGameHistory(data.gameHistory)
+      }
 
       const topScore = Math.max(0, ...data.finalScoreboard.map((entry) => entry.score))
       if (topScore > 0) {
@@ -370,6 +375,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         setPlayers([])
         setSettings(null)
         setGameState(null)
+        setGameHistory([])
       }
     }
 
@@ -425,6 +431,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     players,
     settings,
     gameState,
+    gameHistory,
     error,
     isReconnecting,
     setRoomCode,

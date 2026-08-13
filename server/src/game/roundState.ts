@@ -6,6 +6,7 @@ import { validateGuess } from './validation.js'
 import { isRateLimited, hasExceededMaxGuesses } from './rateLimit.js'
 import { shuffle } from './shuffle.js'
 import type { RoomState } from '../rooms/store.js'
+import { recordFinishedGame } from '../rooms/store.js'
 
 export class GameStartError extends Error {
   constructor(
@@ -306,6 +307,7 @@ export function endGame(room: RoomState): void {
     .sort((a, b) => b.score - a.score)
 
   room.finalScoreboard = finalScoreboard
+  recordFinishedGame(room)
 }
 
 export function resetRoomForNewGame(room: RoomState): void {
@@ -316,6 +318,7 @@ export function resetRoomForNewGame(room: RoomState): void {
   room.usedEntityIds.clear()
   room.scores.clear()
   room.finalScoreboard = undefined
+  // gameHistory is intentionally kept for the life of the room
 
   for (const player of room.players.values()) {
     player.guessCount = 0

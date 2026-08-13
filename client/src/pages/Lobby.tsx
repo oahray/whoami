@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { DifficultyMultiSelect } from '../components/DifficultyMultiSelect'
+import GameHistoryPanel from '../components/GameHistoryPanel'
 import PlayerAvatar from '../components/PlayerAvatar'
 import PreferencesMenu from '../components/PreferencesMenu'
 import { fadeOutMenuMusic } from '../lib/menuMusic'
@@ -24,6 +25,11 @@ import { useMaintenanceStatus } from '../hooks/useMaintenanceStatus'
 import { useSocket } from '../hooks/useSocket'
 import { isMaintenanceBlockingNewGames } from '../lib/maintenance'
 import type { PublicDataset } from '../types'
+import {
+  maxClueRevealTimeMs,
+  MULTIPLAYER_SETTINGS_LIMITS,
+  multiplayerSettingsResetPayload
+} from '../lib/multiplayerDefaults'
 
 const COPIED_FEEDBACK_MS = 2000
 const API_BASE_URL =
@@ -38,6 +44,8 @@ function Lobby() {
   const maintenanceBlocking = isMaintenanceBlockingNewGames(maintenanceStatus)
   const [copiedCode, setCopiedCode] = useState(false)
   const [shareFeedback, setShareFeedback] = useState<'shared' | 'copied' | null>(null)
+  const [historySheetOpen, setHistorySheetOpen] = useState(false)
+  const historySheetClosedViaPopRef = useRef(false)
   const [datasets, setDatasets] = useState<PublicDataset[]>([])
   const {
     roomCode,
@@ -45,6 +53,7 @@ function Lobby() {
     players,
     settings,
     gameState,
+    gameHistory,
     error,
     setError,
     reset,
@@ -94,6 +103,39 @@ function Lobby() {
       navigate('/game')
     }
   }, [gameState, navigate])
+
+  useEffect(() => {
+    if (!historySheetOpen) return
+    historySheetClosedViaPopRef.current = false
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setHistorySheetOpen(false)
+    }
+    window.addEventListener('keydown', onKeyDown)
+
+    // Android system Back closes the sheet instead of leaving the lobby.
+    window.history.pushState({ whoamiHistorySheet: true }, '')
+    const onPopState = () => {
+      historySheetClosedViaPopRef.current = true
+      setHistorySheetOpen(false)
+    }
+    window.addEventListener('popstate', onPopState)
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('popstate', onPopState)
+      document.body.style.overflow = previousOverflow
+      if (!historySheetClosedViaPopRef.current && window.history.state?.whoamiHistorySheet) {
+        window.history.back()
+      }
+    }
+  }, [historySheetOpen])
+
+  useEffect(() => {
+    if (gameHistory.length === 0) setHistorySheetOpen(false)
+  }, [gameHistory.length])
 
   const handleCopyCode = () => {
     if (!roomCode) return
@@ -147,20 +189,16 @@ function Lobby() {
 
   const handleResetDefaults = () => {
     if (!isHost) return
-    emit('UPDATE_SETTINGS', {
-      roundDuration: 30000,
-      clueRevealTime: 10000,
-      totalRounds: 5,
-      difficultyMode: 'any',
-      entityType: 'character',
-      strictMode: false,
-      transparencyMode: 'full'
-    })
+    emit('UPDATE_SETTINGS', multiplayerSettingsResetPayload())
   }
 
   if (!roomCode) return null
 
   const connectedCount = players.filter(p => p.isConnected).length
+  const roundLimits = MULTIPLAYER_SETTINGS_LIMITS.roundDuration
+  const roundsLimits = MULTIPLAYER_SETTINGS_LIMITS.totalRounds
+  const clueLimits = MULTIPLAYER_SETTINGS_LIMITS.clueRevealTime
+  const clueRevealMax = settings ? maxClueRevealTimeMs(settings.roundDuration) : clueLimits.min
 
   return (
     <div className="min-h-screen flex flex-col bg-app-bg font-display text-foreground antialiased">
@@ -380,15 +418,20 @@ function Lobby() {
                 {isHost ? (
                   <input
                     type="range"
-                    min={3}
-                    max={10}
+                    min={roundsLimits.min}
+                    max={roundsLimits.max}
                     value={settings.totalRounds}
                     onChange={(e) => handleUpdateSetting('totalRounds', parseInt(e.target.value))}
                     className="w-full h-2 bg-surface-elevated rounded-full appearance-none accent-primary cursor-pointer"
                   />
                 ) : (
                   <div className="w-full h-2 bg-surface-elevated rounded-full overflow-hidden">
-                    <div className="h-full bg-primary/40 rounded-full" style={{ width: `${((settings.totalRounds - 3) / 7) * 100}%` }} />
+                    <div
+                      className="h-full bg-primary/40 rounded-full"
+                      style={{
+                        width: `${((settings.totalRounds - roundsLimits.min) / (roundsLimits.max - roundsLimits.min)) * 100}%`
+                      }}
+                    />
                   </div>
                 )}
               </div>
@@ -401,16 +444,21 @@ function Lobby() {
                 {isHost ? (
                   <input
                     type="range"
-                    min={10000}
-                    max={60000}
-                    step={5000}
+                    min={roundLimits.min}
+                    max={roundLimits.max}
+                    step={roundLimits.step}
                     value={settings.roundDuration}
                     onChange={(e) => handleUpdateSetting('roundDuration', parseInt(e.target.value))}
                     className="w-full h-2 bg-surface-elevated rounded-full appearance-none accent-primary cursor-pointer"
                   />
                 ) : (
                   <div className="w-full h-2 bg-surface-elevated rounded-full overflow-hidden">
-                    <div className="h-full bg-primary/40 rounded-full" style={{ width: `${((settings.roundDuration - 10000) / 50000) * 100}%` }} />
+                    <div
+                      className="h-full bg-primary/40 rounded-full"
+                      style={{
+                        width: `${((settings.roundDuration - roundLimits.min) / (roundLimits.max - roundLimits.min)) * 100}%`
+                      }}
+                    />
                   </div>
                 )}
               </div>
@@ -423,9 +471,9 @@ function Lobby() {
                 {isHost ? (
                   <input
                     type="range"
-                    min={2000}
-                    max={Math.max(2000, settings.roundDuration - 2000)}
-                    step={1000}
+                    min={clueLimits.min}
+                    max={clueRevealMax}
+                    step={clueLimits.step}
                     value={settings.clueRevealTime}
                     onChange={(e) => handleUpdateSetting('clueRevealTime', parseInt(e.target.value))}
                     className="w-full h-2 bg-surface-elevated rounded-full appearance-none accent-primary cursor-pointer"
@@ -435,8 +483,8 @@ function Lobby() {
                     <div
                       className="h-full bg-primary/40 rounded-full"
                       style={{
-                        width: settings.roundDuration > 0
-                          ? `${(settings.clueRevealTime / settings.roundDuration) * 100}%`
+                        width: clueRevealMax > clueLimits.min
+                          ? `${((settings.clueRevealTime - clueLimits.min) / (clueRevealMax - clueLimits.min)) * 100}%`
                           : '0%'
                       }}
                     />
@@ -542,25 +590,89 @@ function Lobby() {
 
       </main>
 
-      {isHost && (
-        <div className="sticky bottom-0 p-2 bg-surface/80 backdrop-blur-md border-t border-edge">
-          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row gap-3 sm:justify-end sm:items-center">
-            <button
-              type="button"
-              onClick={handleResetDefaults}
-              className="order-2 sm:order-1 px-5 py-3 rounded-full border-2 border-edge bg-surface-muted text-foreground font-semibold hover:bg-surface-elevated transition-colors hidden md:block"
-            >
-              Reset Defaults
-            </button>
-            <button
-              type="button"
-              onClick={handleStartGame}
-              disabled={connectedCount < 2 || maintenanceBlocking}
-              className="order-1 sm:order-2 w-full md:w-auto md:min-w-[200px] bg-green-600 hover:bg-green-700 text-white font-bold py-4 md:py-3 px-6 rounded-lg shadow-lg shadow-green-500/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
-            >
-              <span className="material-symbols-outlined">play_circle</span>
-              START GAME ({connectedCount} PLAYERS)
-            </button>
+      {(isHost || gameHistory.length > 0) && (
+        <div className="sticky bottom-0 z-10 p-2 bg-surface/80 backdrop-blur-md border-t border-edge pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+          <div className="max-w-7xl mx-auto flex flex-col gap-2 sm:flex-row sm:justify-end sm:items-center sm:gap-3">
+            {isHost && (
+              <button
+                type="button"
+                onClick={handleResetDefaults}
+                className="order-3 sm:order-1 px-5 py-3 rounded-full border-2 border-edge bg-surface-muted text-foreground font-semibold hover:bg-surface-elevated transition-colors hidden md:block"
+              >
+                Reset Defaults
+              </button>
+            )}
+            {gameHistory.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setHistorySheetOpen(true)}
+                className={`order-2 inline-flex items-center justify-center gap-2 rounded-lg border-2 border-edge bg-surface-muted text-foreground font-semibold hover:bg-surface-elevated transition-colors py-3 px-4 ${
+                  isHost ? 'sm:order-2' : 'w-full sm:w-auto'
+                }`}
+              >
+                <span className="material-symbols-outlined text-primary">history</span>
+                History
+                <span className="text-xs font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                  {gameHistory.length}
+                </span>
+              </button>
+            )}
+            {isHost && (
+              <button
+                type="button"
+                onClick={handleStartGame}
+                disabled={connectedCount < 2 || maintenanceBlocking}
+                className="order-1 sm:order-3 w-full md:w-auto md:min-w-[200px] bg-green-600 hover:bg-green-700 text-white font-bold py-4 md:py-3 px-6 rounded-lg shadow-lg shadow-green-500/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+              >
+                <span className="material-symbols-outlined">play_circle</span>
+                START GAME ({connectedCount} PLAYERS)
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {historySheetOpen && roomCode && gameHistory.length > 0 && (
+        <div
+          className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-slate-900/60 backdrop-blur-sm md:p-6"
+          role="presentation"
+          onClick={() => setHistorySheetOpen(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="past-games-sheet-title"
+            className="w-full bg-surface rounded-t-2xl md:rounded-2xl overflow-hidden shadow-2xl max-h-[min(90vh,40rem)] md:max-w-lg flex flex-col pb-[env(safe-area-inset-bottom)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex h-6 w-full items-center justify-center md:hidden shrink-0">
+              <div className="h-1.5 w-12 rounded-full bg-surface-elevated" />
+            </div>
+            <div className="flex items-center justify-between gap-3 px-4 pb-3 border-b border-edge shrink-0">
+              <h2
+                id="past-games-sheet-title"
+                className="text-foreground text-lg font-bold tracking-tight flex items-center gap-2"
+              >
+                <span className="material-symbols-outlined text-primary">history</span>
+                Past Games
+              </h2>
+              <button
+                type="button"
+                onClick={() => setHistorySheetOpen(false)}
+                aria-label="Close"
+                className="flex size-10 items-center justify-center rounded-full text-foreground-muted hover:bg-surface-muted"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <div className="overflow-y-auto px-4 py-4 flex-1 min-h-0">
+              <GameHistoryPanel
+                roomCode={roomCode}
+                history={gameHistory}
+                variant="plain"
+                initialEntryId={gameHistory[gameHistory.length - 1]?.id}
+              />
+            </div>
           </div>
         </div>
       )}

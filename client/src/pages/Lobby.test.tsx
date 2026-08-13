@@ -1,3 +1,4 @@
+import { DEFAULT_MULTIPLAYER_SETTINGS } from '../lib/multiplayerDefaults'
 import { act, fireEvent, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -48,16 +49,11 @@ describe('Lobby', () => {
         { id: 'p2', nickname: 'Paul', isHost: false, isConnected: true }
       ],
       settings: {
-        totalRounds: 5,
-        roundDuration: 30000,
-        clueRevealTime: 10000,
-        difficultyMode: 'any',
-        strictMode: false,
-        transparencyMode: 'full',
-        maxGuessesPerRound: 10,
-        datasetId: null
+        ...DEFAULT_MULTIPLAYER_SETTINGS,
+        maxGuessesPerRound: 10
       },
       gameState: null,
+      gameHistory: [],
       error: null,
       setError: vi.fn(),
       reset: vi.fn(),

@@ -435,11 +435,11 @@ function PlayCards() {
                   <p className="text-foreground text-2xl md:text-3xl font-black uppercase tracking-tight leading-tight">
                     {card.entity.name}
                   </p>
-                  {card.entity.aliases.map((alias) => (
-                    <p key={alias} className="text-foreground-muted text-base md:text-lg font-semibold mt-0.5 md:mt-1">
-                      {alias}
+                  {card.entity.aliases.length > 0 && (
+                    <p className="text-foreground-muted text-sm md:text-base font-semibold mt-0.5 md:mt-1">
+                      {card.entity.aliases.join(', ')}
                     </p>
-                  ))}
+                  )}
                 </>
               ) : (
                 <>
@@ -449,15 +449,14 @@ function PlayCards() {
                   >
                     {IN_PERSON_MASK_PLACEHOLDER}
                   </p>
-                  {card.entity.aliases.map((alias) => (
+                  {card.entity.aliases.length > 0 && (
                     <p
-                      key={alias}
-                      className="text-foreground-muted text-base md:text-lg font-semibold tracking-widest mt-0.5 md:mt-1"
+                      className="text-foreground-muted text-sm md:text-base font-semibold tracking-widest mt-0.5 md:mt-1"
                       aria-hidden
                     >
                       {IN_PERSON_MASK_PLACEHOLDER}
                     </p>
-                  ))}
+                  )}
                 </>
               )}
             </section>
