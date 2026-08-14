@@ -15,6 +15,8 @@ export type GameHistoryEntry = {
   difficultyMode?: string
   roundDurationMs?: number
   clueRevealTimeMs?: number
+  roomCode?: string
+  viewerPlayerId?: string
   scoreboard: GameHistoryScoreEntry[]
 }
 
@@ -69,4 +71,42 @@ export function winnerLabel(scoreboard: GameHistoryScoreEntry[]): string {
   const tied = scoreboard.filter((row) => row.score === top.score)
   if (tied.length > 1) return `Tied: ${tied.map((row) => row.nickname).join(', ')}`
   return top.nickname
+}
+
+function ordinal(n: number): string {
+  const rounded = Math.floor(n)
+  const mod100 = rounded % 100
+  if (mod100 >= 11 && mod100 <= 13) return `${rounded}th`
+  switch (rounded % 10) {
+    case 1:
+      return `${rounded}st`
+    case 2:
+      return `${rounded}nd`
+    case 3:
+      return `${rounded}rd`
+    default:
+      return `${rounded}th`
+  }
+}
+
+/** Place and score for the signed viewer, e.g. `2nd · 180 pts`. */
+export function viewerStandingLabel(
+  scoreboard: GameHistoryScoreEntry[],
+  viewerPlayerId?: string
+): string | null {
+  if (!viewerPlayerId) return null
+  const sorted = [...scoreboard].sort((a, b) => b.score - a.score)
+  let rank = 0
+  let lastScore: number | undefined
+  for (let i = 0; i < sorted.length; i += 1) {
+    const row = sorted[i]!
+    if (row.score !== lastScore) {
+      rank = i + 1
+      lastScore = row.score
+    }
+    if (row.playerId === viewerPlayerId) {
+      return `${ordinal(rank)} · ${row.score} pts`
+    }
+  }
+  return null
 }

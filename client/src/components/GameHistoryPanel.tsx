@@ -5,6 +5,7 @@ import {
   formatGameEndedAt,
   formatGameEndedAtFull,
   formatGameHistorySettings,
+  viewerStandingLabel,
   winnerLabel,
   type GameHistoryEntry
 } from '../lib/gameHistory'
@@ -70,9 +71,11 @@ export default function GameHistoryPanel({
     `clues ${settings.clueInterval}`
   ].join('  ·  ')
 
+  const exportRoomCode = selected.roomCode || roomCode
+
   const handleDownload = () => {
     setExportState('working')
-    void downloadLeaderboardPng({ roomCode, entry: selected })
+    void downloadLeaderboardPng({ roomCode: exportRoomCode, entry: selected })
       .then(() => {
         setExportState('downloaded')
         window.setTimeout(() => setExportState('idle'), 2200)
@@ -86,7 +89,7 @@ export default function GameHistoryPanel({
 
   const handleShare = () => {
     setShareState('working')
-    void shareLeaderboardPng({ roomCode, entry: selected })
+    void shareLeaderboardPng({ roomCode: exportRoomCode, entry: selected })
       .then(() => {
         setShareState('shared')
         window.setTimeout(() => setShareState('idle'), 2200)
@@ -107,6 +110,7 @@ export default function GameHistoryPanel({
       <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
         {newestFirst.map((entry) => {
           const active = entry.id === selected.id
+          const standing = viewerStandingLabel(entry.scoreboard, entry.viewerPlayerId)
           return (
             <button
               key={entry.id}
@@ -119,9 +123,12 @@ export default function GameHistoryPanel({
               }`}
             >
               <div className={`text-sm font-bold ${active ? 'text-primary' : 'text-foreground'}`}>
-                Game {entry.gameNumber}
+                {entry.roomCode ? entry.roomCode : `Game ${entry.gameNumber}`}
               </div>
               <div className="text-[11px] text-foreground-muted">{formatGameEndedAt(entry.endedAt)}</div>
+              {standing ? (
+                <div className="text-[11px] text-foreground-muted">{standing}</div>
+              ) : null}
             </button>
           )
         })}
@@ -130,7 +137,9 @@ export default function GameHistoryPanel({
       <div className="mt-3 rounded-xl border border-edge bg-gradient-to-b from-slate-950 to-slate-900 text-[#f3efe6] p-4 shadow-inner">
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="min-w-0">
-            <p className="text-lg font-black truncate">Game {selected.gameNumber}</p>
+            <p className="text-lg font-black truncate">
+              {selected.roomCode ? `Room ${selected.roomCode}` : `Game ${selected.gameNumber}`}
+            </p>
             <p className="text-xs text-white/55 mt-0.5 truncate">
               {winnerLabel(selected.scoreboard)} · {selected.totalRounds} rounds
             </p>
