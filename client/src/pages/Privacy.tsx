@@ -81,6 +81,10 @@ function Privacy() {
           </p>
           <ul className="list-disc list-inside space-y-2 text-foreground text-sm leading-relaxed">
             <li>Nickname reminder and last online room reconnect details</li>
+            <li>
+              Finished online scoreboards for games you complete on this device (removed if you clear
+              site data)
+            </li>
             <li>Sound effects, music, and appearance preferences</li>
             <li>Solo setup choices, in-progress solo session, and personal bests</li>
             <li>Pass &amp; play setup choices and the current card deck for that session</li>
@@ -117,8 +121,9 @@ function Privacy() {
             <h2 className="text-lg font-bold text-foreground">How long things last</h2>
           </div>
           <p className="text-foreground text-sm leading-relaxed">
-            Online room state is temporary and exists to support the current game session. Device
-            preferences and solo records remain until you clear them or clear site data. If you install
+            Online room state is temporary and exists to support the current game session.
+            Device preferences, solo records, and on-device multiplayer history remain until you clear
+            them or clear site data. If you install
             Who Am I? as an app, your browser may also cache the app shell for faster launch. Gameplay
             still needs an internet connection to load rooms and clues.
           </p>

@@ -4,6 +4,9 @@ export type MultiplayerEntityType = 'character' | 'place' | 'all'
 /** Pause after ROUND_ENDED before the next round starts (must match server). */
 export const INTER_ROUND_DELAY_MS = 10_000
 
+/** Finished games kept in this browser's device archive. */
+export const DEVICE_ARCHIVE_MAX = 50
+
 /** Do not schedule a clue reveal this close to round end (must match server validation). */
 export const CLUE_REVEAL_ROUND_TAIL_BUFFER_MS = 1500
 

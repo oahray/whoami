@@ -6,6 +6,7 @@ import {
   INTER_ROUND_DELAY_MS,
   CLUE_REVEAL_ROUND_TAIL_BUFFER_MS
 } from '../../game/multiplayerDefaults.js'
+import { signHistoryArchive } from '../../game/historyArchive.js'
 import { safeTimer } from '../dispatch.js'
 import { logger } from '../../utils/logger.js'
 
@@ -114,6 +115,24 @@ export function toPublicPlayer(player: Player) {
   }
 }
 
+export function emitGameEnded(io: Server, room: RoomState): void {
+  const latest = room.gameHistory[room.gameHistory.length - 1]
+  const base = {
+    finalScoreboard: room.finalScoreboard,
+    gameHistory: room.gameHistory
+  }
+  for (const player of room.players.values()) {
+    if (!player.isConnected) continue
+    const signedArchive = latest
+      ? signHistoryArchive(latest, room.code, player.id)
+      : undefined
+    io.to(player.id).emit('GAME_ENDED', {
+      ...base,
+      ...(signedArchive ? { signedArchive } : {})
+    })
+  }
+}
+
 export function buildReconnectPayload(room: RoomState, player: Player) {
   const payload: any = {
     playerId: player.id,
@@ -146,6 +165,12 @@ export function buildReconnectPayload(room: RoomState, player: Player) {
     }
   }
 
+  const latest = room.gameHistory[room.gameHistory.length - 1]
+  if (latest && (room.status === 'finished' || room.status === 'waiting')) {
+    const signedArchive = signHistoryArchive(latest, room.code, player.id)
+    if (signedArchive) payload.signedArchive = signedArchive
+  }
+
   return payload
 }
 
@@ -171,10 +196,7 @@ export function broadcastRoundEnd(io: Server, room: RoomState, roundResult: any)
 
       startNextRound(room).then(() => {
         if (room.status === 'finished') {
-          io.to(room.code).emit('GAME_ENDED', {
-            finalScoreboard: room.finalScoreboard,
-            gameHistory: room.gameHistory
-          })
+          emitGameEnded(io, room)
           return
         }
 

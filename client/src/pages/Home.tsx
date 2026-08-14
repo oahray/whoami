@@ -3,6 +3,9 @@ import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useGame } from '../hooks/useGame'
 import { useSocket } from '../hooks/useSocket'
 import { unlockAudio } from '../lib/sounds'
+import { listVerifiedDeviceArchives } from '../lib/deviceArchive'
+import GameHistoryPanel from '../components/GameHistoryPanel'
+import type { GameHistoryEntry } from '../lib/gameHistory'
 import {
   isAvatarId,
   pickRandomAvatarId,
@@ -32,6 +35,8 @@ function Home() {
   const [avatarPickerOpen, setAvatarPickerOpen] = useState(false)
   const [joinCode, setJoinCode] = useState('')
   const [loading, setLoading] = useState(false)
+  const [historySheetOpen, setHistorySheetOpen] = useState(false)
+  const [deviceHistory, setDeviceHistory] = useState<GameHistoryEntry[]>([])
   const lastPrefilledRoomParamRef = useRef<string | null>(null)
   const params = new URLSearchParams(location.search)
   const roomParam = params.get('room')
@@ -58,6 +63,21 @@ function Home() {
   useEffect(() => {
     writeStoredAvatarId(avatarId)
   }, [avatarId])
+
+  useEffect(() => {
+    if (!historySheetOpen) return
+    void listVerifiedDeviceArchives().then(setDeviceHistory)
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setHistorySheetOpen(false)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', onKeyDown)
+      document.body.style.overflow = previousOverflow
+    }
+  }, [historySheetOpen])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -335,6 +355,21 @@ function Home() {
             </span>
             About
           </Link>
+          <button
+            type="button"
+            onClick={() => setHistorySheetOpen(true)}
+            className="inline-flex flex-1 basis-[calc(50%-0.25rem)] min-w-[8rem] items-center justify-center gap-1.5 rounded-lg bg-white/10 px-3 py-2.5 text-white text-sm font-semibold hover:bg-white/15 transition-colors"
+          >
+            <span className="material-symbols-outlined text-base" aria-hidden>
+              history
+            </span>
+            History
+            {deviceHistory.length > 0 ? (
+              <span className="rounded-full bg-white/20 px-1.5 py-0.5 text-[10px] font-bold leading-none">
+                {deviceHistory.length}
+              </span>
+            ) : null}
+          </button>
         </nav>
         <p className="mt-3 text-center text-white/70 text-xs font-medium space-x-3">
           <Link
@@ -348,6 +383,57 @@ function Home() {
           </FeedbackLink>
         </p>
       </div>
+
+      {historySheetOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-slate-900/60 backdrop-blur-sm md:p-6"
+          role="presentation"
+          onClick={() => setHistorySheetOpen(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="device-history-sheet-title"
+            className="w-full bg-surface rounded-t-2xl md:rounded-2xl overflow-hidden shadow-2xl max-h-[min(90vh,40rem)] md:max-w-lg flex flex-col pb-[env(safe-area-inset-bottom)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex h-6 w-full items-center justify-center md:hidden shrink-0">
+              <div className="h-1.5 w-12 rounded-full bg-surface-elevated" />
+            </div>
+            <div className="flex items-center justify-between gap-3 px-4 pb-3 border-b border-edge shrink-0">
+              <h2
+                id="device-history-sheet-title"
+                className="text-foreground text-lg font-bold tracking-tight flex items-center gap-2"
+              >
+                <span className="material-symbols-outlined text-primary">history</span>
+                History
+              </h2>
+              <button
+                type="button"
+                onClick={() => setHistorySheetOpen(false)}
+                aria-label="Close"
+                className="flex size-10 items-center justify-center rounded-full text-foreground-muted hover:bg-surface-muted"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <div className="overflow-y-auto px-4 py-4 flex-1 min-h-0">
+              {deviceHistory.length > 0 ? (
+                <GameHistoryPanel
+                  roomCode={deviceHistory[deviceHistory.length - 1]?.roomCode ?? ''}
+                  history={deviceHistory}
+                  variant="plain"
+                  initialEntryId={deviceHistory[deviceHistory.length - 1]?.id}
+                />
+              ) : (
+                <p className="text-sm text-foreground-muted leading-relaxed">
+                  Multiplayer games you finish on this device show up here. Clearing site data removes them.
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {error && (
         <div className="fixed bottom-4 left-4 right-4 max-w-md mx-auto p-3 bg-red-100 dark:bg-red-950/60 border border-red-400 dark:border-red-800 text-red-700 dark:text-red-200 rounded-lg text-sm z-50 flex items-start gap-2">

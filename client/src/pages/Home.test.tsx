@@ -14,6 +14,10 @@ vi.mock('../hooks/useSocket', () => ({
   useSocket: () => mockUseSocket()
 }))
 
+vi.mock('../lib/deviceArchive', () => ({
+  listVerifiedDeviceArchives: vi.fn().mockResolvedValue([])
+}))
+
 describe('Home', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -256,5 +260,19 @@ describe('Home', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /dismiss/i }))
     expect(setError).toHaveBeenCalledWith(null)
+  })
+
+  it('opens the device history sheet with an empty state', async () => {
+    render(
+      <MemoryRouter>
+        <Home />
+      </MemoryRouter>
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /history/i }))
+    expect(await screen.findByRole('dialog', { name: /history/i })).toBeInTheDocument()
+    expect(
+      screen.getByText(/multiplayer games you finish on this device show up here/i)
+    ).toBeInTheDocument()
   })
 })

@@ -128,5 +128,35 @@ describe('socket handler utils', () => {
         { playerId: 'host-1', nickname: 'Host', score: 50 }
       ])
     })
+
+    it('includes a signed archive for the latest finished game', () => {
+      const room = createRoom('host-1', 'Host')
+      const host = room.players.get('host-1')!
+      room.status = 'finished'
+      room.finalScoreboard = [{ playerId: 'host-1', nickname: 'Host', score: 10 }]
+      room.gameHistory = [{
+        id: 'ABC-1',
+        gameNumber: 1,
+        endedAt: 1,
+        totalRounds: 5,
+        difficultyMode: 'any',
+        roundDurationMs: 30_000,
+        clueRevealTimeMs: 5_000,
+        scoreboard: [{ playerId: 'host-1', nickname: 'Host', avatarId: host.avatarId, score: 10 }]
+      }]
+
+      const payload = buildReconnectPayload(room, host)
+
+      expect(payload.signedArchive).toEqual(
+        expect.objectContaining({
+          signature: expect.any(String),
+          payload: expect.objectContaining({
+            id: 'ABC-1',
+            roomCode: room.code,
+            viewerPlayerId: 'host-1'
+          })
+        })
+      )
+    })
   })
 })

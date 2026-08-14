@@ -80,7 +80,8 @@ function About() {
             time</strong>. The host can also <strong>kick a player</strong> out of the room if needed.
           </p>
           <p className="text-foreground-muted text-xs">
-            You need an internet connection and the game server for online play.
+            You need an internet connection and the game server for online play. Finished games are
+            saved on this device (Home → History) until you clear site data.
           </p>
         </section>
 

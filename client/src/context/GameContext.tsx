@@ -1,5 +1,6 @@
 import { createContext, useState, useEffect, useRef, ReactNode } from 'react'
 import { useSocket } from '../hooks/useSocket'
+import { saveSignedArchiveIfPresent } from '../lib/deviceArchive'
 import type { GameHistoryEntry } from '../lib/gameHistory'
 import { playSound } from '../lib/sounds'
 import { getErrorMessage, isFatalError } from '../utils/errorMessages'
@@ -156,6 +157,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setPlayers(data.players)
       setSettings(data.settings)
       setGameHistory(Array.isArray(data.gameHistory) ? data.gameHistory : [])
+      void saveSignedArchiveIfPresent(data.signedArchive)
       setIsReconnecting(false)
       if (data.roomCode) {
         setRoomCode(data.roomCode)
@@ -226,6 +228,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       if (Array.isArray(data.gameHistory)) {
         setGameHistory(data.gameHistory)
       }
+      void saveSignedArchiveIfPresent(data.signedArchive)
       const player = data.players.find((p: Player) => p.id === data.playerId)
       if (player) {
         const stored = localStorage.getItem('whoami_room')
@@ -340,6 +343,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const handleGameEnded = (data: {
       finalScoreboard: Array<{ playerId: string; nickname: string; score: number }>
       gameHistory?: GameHistoryEntry[]
+      signedArchive?: unknown
     }) => {
       setGameState({
         phase: 'ended',
@@ -351,6 +355,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       if (Array.isArray(data.gameHistory)) {
         setGameHistory(data.gameHistory)
       }
+      void saveSignedArchiveIfPresent(data.signedArchive)
 
       const topScore = Math.max(0, ...data.finalScoreboard.map((entry) => entry.score))
       if (topScore > 0) {
