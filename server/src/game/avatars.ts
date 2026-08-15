@@ -1,30 +1,10 @@
-/** Predefined multiplayer avatar ids matching `client/public/avatars/avatar-XX.svg`. */
-export const AVATAR_IDS = [
-  'avatar-01',
-  'avatar-02',
-  'avatar-03',
-  'avatar-04',
-  'avatar-05',
-  'avatar-06',
-  'avatar-07',
-  'avatar-08',
-  'avatar-09',
-  'avatar-10',
-  'avatar-11',
-  'avatar-12',
-  'avatar-13',
-  'avatar-14',
-  'avatar-15',
-  'avatar-16',
-  'avatar-17',
-  'avatar-18',
-  'avatar-19',
-  'avatar-20',
-  'avatar-21',
-  'avatar-22',
-  'avatar-23',
-  'avatar-24'
-] as const
+/** Seeded DiceBear Adventurer Neutral faces (`avatar-01` … `avatar-48`). */
+export const AVATAR_COUNT = 60
+
+export const AVATAR_IDS = Array.from({ length: AVATAR_COUNT }, (_, index) => {
+  const n = String(index + 1).padStart(2, '0')
+  return `avatar-${n}` as const
+})
 
 export type AvatarId = (typeof AVATAR_IDS)[number]
 
