@@ -16,7 +16,7 @@ export default function AvatarPicker({ value, onChange, disabled = false }: Avat
     <div
       role="radiogroup"
       aria-label="Choose avatar"
-      className="grid grid-cols-6 gap-2 sm:grid-cols-8 rounded-lg border border-edge bg-surface-muted/60 p-3"
+      className="grid grid-cols-6 gap-2 sm:grid-cols-8 max-h-56 overflow-y-auto rounded-lg border border-edge bg-surface-muted/60 p-3"
     >
       {AVATAR_IDS.map((id) => {
         const selected = value === id

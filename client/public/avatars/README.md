@@ -1,6 +1,10 @@
 # Player avatars
 
-These SVGs are used as selectable multiplayer avatars.
+Static SVGs for selectable multiplayer avatars (`avatar-01` … `avatar-60`).
+
+Regenerate with `npm run avatars --workspace=whoami-client` (DiceBear Adventurer Neutral, seed = file id).
+
+Optional flags: `--start N`, `--count N`, `--random [true|false]`. Example: `npm run avatars --workspace=whoami-client -- --start 4 --count 1 --random`.
 
 ## License
 

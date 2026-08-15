@@ -8,7 +8,8 @@
     "preview": "vite preview",
     "test": "vitest",
     "pwa-assets:prep": "node scripts/prepIconSource.mjs",
-    "pwa-assets": "npm run pwa-assets:prep && pwa-assets-generator"
+    "pwa-assets": "npm run pwa-assets:prep && pwa-assets-generator",
+    "avatars": "node scripts/generateAvatars.mjs"
   },
   "dependencies": {
     "react": "^18.2.0",
@@ -17,6 +18,8 @@
     "socket.io-client": "^4.6.1"
   },
   "devDependencies": {
+    "@dicebear/adventurer-neutral": "^9.4.2",
+    "@dicebear/core": "^9.4.2",
     "@testing-library/jest-dom": "^6.4.8",
     "@testing-library/react": "^14.1.2",
     "@types/react": "^18.2.43",

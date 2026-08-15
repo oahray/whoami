@@ -4,8 +4,8 @@ import { AVATAR_IDS, coerceAvatarId, isAvatarId } from './avatars.js'
 describe('avatars', () => {
   it('accepts known avatar ids', () => {
     expect(isAvatarId('avatar-01')).toBe(true)
-    expect(isAvatarId('avatar-24')).toBe(true)
-    expect(isAvatarId('avatar-99')).toBe(false)
+    expect(isAvatarId('avatar-48')).toBe(true)
+    expect(isAvatarId('avatar-61')).toBe(false)
     expect(isAvatarId(null)).toBe(false)
   })
 
