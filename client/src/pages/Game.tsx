@@ -49,6 +49,7 @@ function Game() {
   const [gameEndData, setGameEndData] = useState<any>(null)
   const [autoReturnSeconds, setAutoReturnSeconds] = useState<number | null>(null)
   const [nextRoundSeconds, setNextRoundSeconds] = useState<number | null>(null)
+  const [awaitingNextRound, setAwaitingNextRound] = useState(false)
   const [guessFeed, setGuessFeed] = useState<Array<{ nickname: string; avatarId?: string; guess?: string; correct: boolean }>>([])
   const [currentPhase, setCurrentPhase] = useState<'starting' | 'active' | 'clue_revealed' | 'ended'>('starting')
   const [standingOpen, setStandingOpen] = useState(false)
@@ -125,7 +126,7 @@ function Game() {
   }, [standingOpen, gameState?.currentScoreboard])
 
   useEffect(() => {
-    if (!roundEndData) {
+    if (!roundEndData || !awaitingNextRound) {
       setNextRoundSeconds(null)
       return
     }
@@ -137,7 +138,7 @@ function Game() {
     tick()
     const id = window.setInterval(tick, 200)
     return () => window.clearInterval(id)
-  }, [roundEndData])
+  }, [roundEndData, awaitingNextRound])
 
   useEffect(() => {
     const handleRoundEnded = (data: any) => {
@@ -146,10 +147,12 @@ function Game() {
       const roundNumber = gameStateRef.current?.roundNumber ?? 0
       const totalRounds = settingsRef.current?.totalRounds ?? 0
       const moreRounds = roundNumber > 0 && roundNumber < totalRounds
+      setAwaitingNextRound(moreRounds)
 
       window.setTimeout(() => {
         setRoundEndData(null)
         setNextRoundSeconds(null)
+        setAwaitingNextRound(false)
         // Local countdown end = next-round cue (not waiting on ROUND_STARTED).
         if (moreRounds && !gameEndedRef.current) playSound('card-flip')
       }, INTER_ROUND_DELAY_MS)
@@ -828,6 +831,7 @@ function Game() {
                 <p className="text-foreground-muted text-sm">No one got it this round.</p>
               )}
             </div>
+            {awaitingNextRound && (
             <div className="pb-8 text-center">
               <p className="text-foreground-muted text-xs font-medium italic">
                 {nextRoundSeconds !== null && nextRoundSeconds > 0
@@ -835,6 +839,7 @@ function Game() {
                   : 'Next round starting…'}
               </p>
             </div>
+            )}
           </div>
         </div>
       )}
