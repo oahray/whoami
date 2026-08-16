@@ -33,13 +33,19 @@ import {
   handleCreateRoom,
   handleDisconnect,
   handleJoinRoom,
-  handleLeaveRoom
+  handleLeaveRoom,
+  handleLobbyReaction
 } from './room.js'
+import {
+  LOBBY_REACTION_COOLDOWN_MS,
+  resetLobbyReactionRateLimitsForTests
+} from '../../game/lobbyReactions.js'
 
 describe('room socket handlers', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.useFakeTimers()
+    resetLobbyReactionRateLimitsForTests()
   })
 
   afterEach(() => {
@@ -373,5 +379,76 @@ describe('room socket handlers', () => {
     vi.advanceTimersByTime(GRACE_PERIOD_MS + 1)
 
     expect(deleteRoom).toHaveBeenCalledWith(room.code)
+  })
+
+  describe('LOBBY_REACTION', () => {
+    function setupWaitingRoom() {
+      const room = actualStore.createRoom('host-1', 'Host')
+      room.players.set('player-2', {
+        id: 'player-2',
+        nickname: 'Paul',
+        avatarId: 'avatar-02',
+        isHost: false,
+        isConnected: true,
+        disconnectedAt: null,
+        guessCount: 0,
+        lastGuessAt: null,
+        isLocked: false
+      })
+      vi.mocked(getRoomBySocket).mockReturnValue(room)
+      const roomEmit = vi.fn()
+      const io = {
+        to: vi.fn(() => ({ emit: roomEmit }))
+      } as any
+      const socket = { id: 'player-2' } as any
+      return { room, io, socket, roomEmit }
+    }
+
+    it('broadcasts a known reaction to the room', () => {
+      const { room, io, socket, roomEmit } = setupWaitingRoom()
+
+      handleLobbyReaction(io, socket, { reactionId: 'ready' })
+
+      expect(io.to).toHaveBeenCalledWith(room.code)
+      expect(roomEmit).toHaveBeenCalledWith('LOBBY_REACTION', {
+        playerId: 'player-2',
+        reactionId: 'ready'
+      })
+    })
+
+    it('ignores unknown reaction ids', () => {
+      const { io, socket, roomEmit } = setupWaitingRoom()
+
+      handleLobbyReaction(io, socket, { reactionId: 'custom' })
+
+      expect(roomEmit).not.toHaveBeenCalled()
+    })
+
+    it('ignores reactions while the game is in progress', () => {
+      const { room, io, socket, roomEmit } = setupWaitingRoom()
+      room.status = 'in_progress'
+
+      handleLobbyReaction(io, socket, { reactionId: 'go' })
+
+      expect(roomEmit).not.toHaveBeenCalled()
+    })
+
+    it('rate-limits reactions within the cooldown window', () => {
+      const { io, socket, roomEmit } = setupWaitingRoom()
+
+      handleLobbyReaction(io, socket, { reactionId: 'ready' })
+      handleLobbyReaction(io, socket, { reactionId: 'wait' })
+
+      expect(roomEmit).toHaveBeenCalledTimes(1)
+
+      vi.advanceTimersByTime(LOBBY_REACTION_COOLDOWN_MS)
+      handleLobbyReaction(io, socket, { reactionId: 'wait' })
+
+      expect(roomEmit).toHaveBeenCalledTimes(2)
+      expect(roomEmit).toHaveBeenLastCalledWith('LOBBY_REACTION', {
+        playerId: 'player-2',
+        reactionId: 'wait'
+      })
+    })
   })
 })

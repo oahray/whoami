@@ -2,6 +2,7 @@ import { DEFAULT_MULTIPLAYER_SETTINGS } from '../lib/multiplayerDefaults'
 import { act, fireEvent, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { PreferencesProvider } from '../context/PreferencesContext'
 import { renderWithPreferences } from '../test/renderWithPreferences'
 import Lobby from './Lobby'
 
@@ -220,5 +221,99 @@ describe('Lobby', () => {
     fireEvent.click(screen.getByRole('button', { name: /^hard$/i }))
 
     expect(emit).toHaveBeenCalledWith('UPDATE_SETTINGS', { difficultyMode: 'easy,medium,nightmare' })
+  })
+
+  it('emits LOBBY_REACTION when a reaction button is pressed', () => {
+    const emit = vi.fn()
+    mockUseSocket.mockReturnValue({ emit, on: vi.fn(), off: vi.fn() })
+
+    renderWithPreferences(
+      <MemoryRouter>
+        <Lobby />
+      </MemoryRouter>
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: /^ready$/i }))
+
+    expect(emit).toHaveBeenCalledWith('LOBBY_REACTION', { reactionId: 'ready' })
+  })
+
+  it('shows a reaction chip on the player row and clears it after the TTL', () => {
+    const handlers = new Map<string, (payload: unknown) => void>()
+    mockUseSocket.mockReturnValue({
+      emit: vi.fn(),
+      on: vi.fn((event: string, handler: (payload: unknown) => void) => {
+        handlers.set(event, handler)
+      }),
+      off: vi.fn()
+    })
+
+    renderWithPreferences(
+      <MemoryRouter>
+        <Lobby />
+      </MemoryRouter>
+    )
+
+    act(() => {
+      handlers.get('LOBBY_REACTION')?.({ playerId: 'p2', reactionId: 'nice' })
+    })
+
+    expect(screen.getByTestId('lobby-reaction-chip-p2')).toHaveTextContent('Nice')
+
+    act(() => {
+      vi.advanceTimersByTime(3000)
+    })
+
+    expect(screen.queryByTestId('lobby-reaction-chip-p2')).not.toBeInTheDocument()
+  })
+
+  it('removes a reaction chip when that player disconnects', () => {
+    const handlers = new Map<string, (payload: unknown) => void>()
+    mockUseSocket.mockReturnValue({
+      emit: vi.fn(),
+      on: vi.fn((event: string, handler: (payload: unknown) => void) => {
+        handlers.set(event, handler)
+      }),
+      off: vi.fn()
+    })
+
+    const { rerender } = renderWithPreferences(
+      <MemoryRouter>
+        <Lobby />
+      </MemoryRouter>
+    )
+
+    act(() => {
+      handlers.get('LOBBY_REACTION')?.({ playerId: 'p2', reactionId: 'wait' })
+    })
+    expect(screen.getByTestId('lobby-reaction-chip-p2')).toBeInTheDocument()
+
+    mockUseGame.mockReturnValue({
+      roomCode: 'ABC123',
+      isHost: true,
+      players: [{ id: 'host', nickname: 'Host', isHost: true, isConnected: true }],
+      settings: {
+        ...DEFAULT_MULTIPLAYER_SETTINGS,
+        maxGuessesPerRound: 10
+      },
+      gameState: null,
+      gameHistory: [],
+      error: null,
+      setError: vi.fn(),
+      reset: vi.fn(),
+      playerId: 'host'
+    })
+
+    act(() => {
+      rerender(
+        <PreferencesProvider>
+          <MemoryRouter>
+            <Lobby />
+          </MemoryRouter>
+        </PreferencesProvider>
+      )
+    })
+
+    expect(screen.queryByTestId('lobby-reaction-chip-p2')).not.toBeInTheDocument()
   })
 })

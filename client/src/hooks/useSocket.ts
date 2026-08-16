@@ -83,18 +83,18 @@ export function useSocket() {
     }
   }, [socket])
 
-  const emit = (event: string, payload?: unknown) => {
+  const emit = useCallback((event: string, payload?: unknown) => {
     socket.emit(event, payload)
-  }
+  }, [socket])
 
-  const on = (event: string, callback: (...args: unknown[]) => void) => {
+  const on = useCallback((event: string, callback: (...args: unknown[]) => void) => {
     socket.on(event, callback)
-  }
+  }, [socket])
 
-  const off = (event: string, callback?: (...args: unknown[]) => void) => {
+  const off = useCallback((event: string, callback?: (...args: unknown[]) => void) => {
     if (callback) socket.off(event, callback)
     else socket.off(event)
-  }
+  }, [socket])
 
   return {
     socket,

@@ -1,5 +1,11 @@
 import { Server, Socket } from 'socket.io'
 import { coerceAvatarId } from '../../game/avatars.js'
+import {
+  clearLobbyReactionRateLimit,
+  isLobbyReactionId,
+  isLobbyReactionRateLimited,
+  markLobbyReaction
+} from '../../game/lobbyReactions.js'
 import { nicknameIsBlocked } from '../../game/nicknameFilter.js'
 import { getRoom, getRoomBySocket, createRoom, deleteRoom } from '../../rooms/store.js'
 import {
@@ -328,6 +334,27 @@ export function handleCreateRoom(_io: Server, socket: Socket, payload: any) {
   }
 }
 
+export function handleLobbyReaction(io: Server, socket: Socket, payload: any) {
+  try {
+    const room = getRoomBySocket(socket.id)
+    if (!room || room.status === 'in_progress') return
+    if (!room.players.has(socket.id)) return
+    if (!payload || typeof payload !== 'object') return
+
+    const { reactionId } = payload
+    if (!isLobbyReactionId(reactionId)) return
+    if (isLobbyReactionRateLimited(socket.id)) return
+
+    markLobbyReaction(socket.id)
+    io.to(room.code).emit('LOBBY_REACTION', {
+      playerId: socket.id,
+      reactionId
+    })
+  } catch (error: any) {
+    logger.error('Error in handleLobbyReaction', error, { socketId: socket.id })
+  }
+}
+
 export function handleLeaveRoom(io: Server, socket: Socket) {
   try {
     const room = getRoomBySocket(socket.id)
@@ -340,6 +367,7 @@ export function handleLeaveRoom(io: Server, socket: Socket) {
     const nickname = player.nickname
 
     room.players.delete(socket.id)
+    clearLobbyReactionRateLimit(socket.id)
     socket.leave(room.code)
 
     let newHostId = null
@@ -405,6 +433,7 @@ export function handleKickPlayer(io: Server, socket: Socket, payload: any) {
     room.kickedPlayers.set(key, newCount)
 
     room.players.delete(payload.playerId)
+    clearLobbyReactionRateLimit(payload.playerId)
 
     // Notify the kicked player
     io.to(payload.playerId).emit('KICKED', {
@@ -451,6 +480,7 @@ export function handleDisconnect(io: Server, socket: Socket) {
         const wasHost = playerAfterDelay.isHost
 
         roomAfterDelay.players.delete(socket.id)
+        clearLobbyReactionRateLimit(socket.id)
 
         let newHostId = null
         if (wasHost) {

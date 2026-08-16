@@ -43,6 +43,98 @@ body {
   font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }
 
+@keyframes lobby-reaction-flash {
+  0% {
+    opacity: 0;
+    transform: scale(0.7);
+    background-color: rgb(43 75 238);
+    color: #fff;
+    box-shadow: 0 0 0 0 rgb(43 75 238 / 0.45);
+  }
+  14% {
+    opacity: 1;
+    transform: scale(1.1);
+    background-color: rgb(43 75 238);
+    color: #fff;
+    box-shadow: 0 0 0 10px rgb(43 75 238 / 0);
+  }
+  30% {
+    transform: scale(1);
+    background-color: rgb(43 75 238 / 0.16);
+    color: rgb(43 75 238);
+    box-shadow: none;
+  }
+  78% {
+    opacity: 1;
+    transform: scale(1);
+    background-color: rgb(43 75 238 / 0.16);
+    color: rgb(43 75 238);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.96);
+    background-color: rgb(43 75 238 / 0.16);
+    color: rgb(43 75 238);
+  }
+}
+
+.lobby-reaction-chip {
+  animation: lobby-reaction-flash 3s ease-out forwards;
+}
+
+@keyframes lobby-reaction-flash-dark {
+  0% {
+    opacity: 0;
+    transform: scale(0.7);
+    background-color: rgb(96 122 250);
+    color: #fff;
+    box-shadow: 0 0 0 0 rgb(96 122 250 / 0.5);
+  }
+  14% {
+    opacity: 1;
+    transform: scale(1.1);
+    background-color: rgb(96 122 250);
+    color: #fff;
+    box-shadow: 0 0 0 10px rgb(96 122 250 / 0);
+  }
+  30% {
+    transform: scale(1);
+    background-color: rgb(96 122 250 / 0.28);
+    color: rgb(165 180 252);
+    box-shadow: none;
+  }
+  78% {
+    opacity: 1;
+    transform: scale(1);
+    background-color: rgb(96 122 250 / 0.28);
+    color: rgb(165 180 252);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.96);
+    background-color: rgb(96 122 250 / 0.28);
+    color: rgb(165 180 252);
+  }
+}
+
+.dark .lobby-reaction-chip {
+  animation-name: lobby-reaction-flash-dark;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lobby-reaction-chip {
+    animation: none;
+    opacity: 1;
+    background-color: rgb(43 75 238 / 0.16);
+    color: rgb(43 75 238);
+  }
+
+  .dark .lobby-reaction-chip {
+    background-color: rgb(96 122 250 / 0.28);
+    color: rgb(165 180 252);
+  }
+}
+
 /* Home hero: faded abstract shapes on solid primary (no full-page gradient) */
 .home-hero-pattern {
   background-image:
