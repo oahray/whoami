@@ -1,5 +1,6 @@
 import { Server, Socket } from 'socket.io'
 import { coerceAvatarId } from '../../game/avatars.js'
+import { nicknameIsBlocked } from '../../game/nicknameFilter.js'
 import { getRoom, getRoomBySocket, createRoom, deleteRoom } from '../../rooms/store.js'
 import {
   findReturningPlayer,
@@ -97,6 +98,14 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
       socket.emit('ROOM_ERROR', {
         code: 'INVALID_PAYLOAD',
         message: 'Nickname is too long (maximum 20 characters)'
+      })
+      return
+    }
+
+    if (nicknameIsBlocked(nickname)) {
+      socket.emit('ROOM_ERROR', {
+        code: 'INVALID_NICKNAME',
+        message: 'Choose a different nickname'
       })
       return
     }
@@ -284,6 +293,14 @@ export function handleCreateRoom(_io: Server, socket: Socket, payload: any) {
       socket.emit('ROOM_ERROR', {
         code: 'INVALID_PAYLOAD',
         message: 'Nickname is too long (maximum 20 characters)'
+      })
+      return
+    }
+
+    if (nicknameIsBlocked(nickname)) {
+      socket.emit('ROOM_ERROR', {
+        code: 'INVALID_NICKNAME',
+        message: 'Choose a different nickname'
       })
       return
     }
