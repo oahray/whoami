@@ -21,6 +21,10 @@ vi.mock('./utils.js', async () => {
   }
 })
 
+vi.mock('../../game/nicknameFilter.js', () => ({
+  nicknameIsBlocked: vi.fn((nickname: string) => nickname === '__blocked__')
+}))
+
 const actualStore = await vi.importActual<typeof import('../../rooms/store.js')>('../../rooms/store.js')
 
 import { createRoom as createRoomInStore, deleteRoom, getRoom, getRoomBySocket } from '../../rooms/store.js'
@@ -288,6 +292,36 @@ describe('room socket handlers', () => {
         expect.objectContaining({ id: 'host-1', nickname: 'Host', avatarId: 'avatar-03' })
       ])
     }))
+  })
+
+  it('rejects create and join when the nickname is blocked', () => {
+    const createSocket = { id: 'host-1', join: vi.fn(), emit: vi.fn() } as any
+    handleCreateRoom({} as any, createSocket, { nickname: '__blocked__', avatarId: 'avatar-01' })
+    expect(createRoomInStore).not.toHaveBeenCalled()
+    expect(createSocket.emit).toHaveBeenCalledWith('ROOM_ERROR', {
+      code: 'INVALID_NICKNAME',
+      message: 'Choose a different nickname'
+    })
+
+    const room = actualStore.createRoom('host-1', 'Host')
+    vi.mocked(getRoom).mockReturnValue(room)
+    vi.mocked(findReturningPlayer).mockReturnValue(null)
+    const joinSocket = {
+      id: 'player-2',
+      emit: vi.fn(),
+      join: vi.fn(),
+      to: vi.fn(() => ({ emit: vi.fn() }))
+    } as any
+    handleJoinRoom({} as any, joinSocket, {
+      roomCode: room.code,
+      nickname: '__blocked__',
+      avatarId: 'avatar-02'
+    })
+    expect(joinSocket.emit).toHaveBeenCalledWith('ROOM_ERROR', {
+      code: 'INVALID_NICKNAME',
+      message: 'Choose a different nickname'
+    })
+    expect(room.players.has('player-2')).toBe(false)
   })
 
   it('assigns a join avatar and broadcasts PLAYER_JOINED with avatarId', () => {

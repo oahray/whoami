@@ -16,6 +16,7 @@ export type ErrorCode =
   | 'PLAYER_LOCKED'
   | 'GUESS_RATE_LIMITED'
   | 'NICKNAME_TAKEN'
+  | 'INVALID_NICKNAME'
   | 'ROOM_FULL'
   | 'INVALID_SETTINGS'
   | 'INTERNAL_ERROR'
@@ -38,6 +39,7 @@ const errorMessages: Record<ErrorCode, string> = {
   PLAYER_LOCKED: 'You have already guessed correctly this round. Wait for the next round!',
   GUESS_RATE_LIMITED: 'Please wait a moment before guessing again.',
   NICKNAME_TAKEN: 'This nickname is already taken. Please choose a different one.',
+  INVALID_NICKNAME: 'Choose a different nickname.',
   PLAYER_BANNED: 'You have been removed from this room and cannot rejoin it.',
   ROOM_FULL: 'This room is full. Please join a different room.',
   INVALID_SETTINGS: 'Those game settings are invalid. Please check your values and try again.',

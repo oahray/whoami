@@ -14,6 +14,7 @@ describe('getErrorMessage', () => {
     expect(getErrorMessage('ROOM_NOT_FOUND')).toMatch(/no longer exists/i)
     expect(getErrorMessage('PLAYER_LOCKED')).toMatch(/already guessed correctly/i)
     expect(getErrorMessage('NICKNAME_TAKEN')).toMatch(/already taken/i)
+    expect(getErrorMessage('INVALID_NICKNAME')).toMatch(/choose a different nickname/i)
   })
 
   it('returns mapped messages for the new dataset codes', () => {
