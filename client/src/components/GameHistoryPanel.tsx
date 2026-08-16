@@ -134,16 +134,16 @@ export default function GameHistoryPanel({
         })}
       </div>
 
-      <div className="mt-3 rounded-xl border border-edge bg-gradient-to-b from-slate-950 to-slate-900 text-[#f3efe6] p-4 shadow-inner">
+      <div className="mt-3 rounded-xl border border-edge bg-surface-muted p-4">
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="min-w-0">
-            <p className="text-lg font-black truncate">
+            <p className="text-lg font-black truncate text-foreground">
               {selected.roomCode ? `Room ${selected.roomCode}` : `Game ${selected.gameNumber}`}
             </p>
-            <p className="text-xs text-white/55 mt-0.5 truncate">
+            <p className="text-xs text-foreground-muted mt-0.5 truncate">
               {winnerLabel(selected.scoreboard)} · {selected.totalRounds} rounds
             </p>
-            <p className="text-[11px] text-white/45 mt-1 leading-snug">{metaLine}</p>
+            <p className="text-[11px] text-foreground-muted mt-1 leading-snug">{metaLine}</p>
           </div>
           <div className="flex shrink-0 gap-2">
             <button
@@ -160,7 +160,7 @@ export default function GameHistoryPanel({
                       : 'Download image'
               }
               aria-label="Download leaderboard image"
-              className="flex size-10 items-center justify-center rounded-full bg-[#2b4bee] text-white hover:bg-[#2440d0] disabled:opacity-60 transition-colors md:size-auto md:px-3 md:py-2 md:rounded-lg md:gap-1.5 md:text-xs md:font-bold"
+              className="flex size-10 items-center justify-center rounded-full bg-primary text-white hover:bg-primary/90 disabled:opacity-60 transition-colors md:size-auto md:px-3 md:py-2 md:rounded-lg md:gap-1.5 md:text-xs md:font-bold"
             >
               <span className="material-symbols-outlined text-xl md:text-base">
                 {exportState === 'working'
@@ -196,7 +196,7 @@ export default function GameHistoryPanel({
                         : 'Share image'
                 }
                 aria-label="Share leaderboard image"
-                className="flex size-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/15 disabled:opacity-60 transition-colors md:size-auto md:px-3 md:py-2 md:rounded-lg md:gap-1.5 md:text-xs md:font-bold md:border md:border-white/20"
+                className="flex size-10 items-center justify-center rounded-full border border-edge bg-surface text-foreground hover:bg-surface-elevated disabled:opacity-60 transition-colors md:size-auto md:px-3 md:py-2 md:rounded-lg md:gap-1.5 md:text-xs md:font-bold"
               >
                 <span className="material-symbols-outlined text-xl md:text-base">
                   {shareState === 'working'
@@ -222,31 +222,39 @@ export default function GameHistoryPanel({
         </div>
 
         <div className="space-y-2 max-h-[min(18rem,40vh)] overflow-y-auto pr-1">
-          {ranked.map((player) => (
-            <div
-              key={`${selected.id}-${player.playerId}`}
-              className={`flex items-center gap-3 rounded-lg px-2.5 py-2 ${
-                player.rank === 1 && player.score > 0
-                  ? 'bg-amber-400/15 border border-amber-400/30'
-                  : 'bg-white/5'
-              }`}
-            >
-              <span className="w-7 text-center text-xs font-black text-white/70">#{player.rank}</span>
-              <PlayerAvatar
-                avatarId={player.avatarId}
-                nickname={player.nickname}
-                sizeClassName="size-8"
-                className="border border-white/15"
-              />
-              <span className="min-w-0 flex-1 truncate text-sm font-semibold">
-                {player.nickname}
-                {player.tied && player.score > 0 ? (
-                  <span className="text-white/45 font-medium"> · tied</span>
-                ) : null}
-              </span>
-              <span className="shrink-0 text-sm font-black tabular-nums">{player.score}</span>
-            </div>
-          ))}
+          {ranked.map((player) => {
+            const isYou = Boolean(
+              selected.viewerPlayerId && player.playerId === selected.viewerPlayerId
+            )
+            return (
+              <div
+                key={`${selected.id}-${player.playerId}`}
+                className={`flex items-center gap-3 rounded-lg px-2.5 py-2 ${
+                  player.rank === 1 && player.score > 0
+                    ? 'bg-amber-400/15 border border-amber-400/30'
+                    : 'bg-surface border border-edge'
+                }`}
+              >
+                <span className="w-7 text-center text-xs font-black text-foreground-muted">#{player.rank}</span>
+                <PlayerAvatar
+                  avatarId={player.avatarId}
+                  nickname={player.nickname}
+                  sizeClassName="size-8"
+                  className="border border-edge"
+                />
+                <span className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">
+                  {player.nickname}
+                  {isYou ? (
+                    <span className="text-foreground-muted font-medium"> (You)</span>
+                  ) : null}
+                  {player.tied && player.score > 0 ? (
+                    <span className="text-foreground-muted font-medium"> · tied</span>
+                  ) : null}
+                </span>
+                <span className="shrink-0 text-sm font-black tabular-nums text-foreground">{player.score}</span>
+              </div>
+            )
+          })}
         </div>
       </div>
     </div>
