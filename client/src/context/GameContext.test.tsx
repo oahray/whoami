@@ -35,6 +35,10 @@ function TestConsumer() {
           <div data-testid="room-code">{value?.roomCode ?? ''}</div>
           <div data-testid="error">{value?.error ?? ''}</div>
           <div data-testid="reconnecting">{value?.isReconnecting ? 'yes' : 'no'}</div>
+          <div data-testid="is-host">{value?.isHost ? 'yes' : 'no'}</div>
+          <div data-testid="host-nicknames">
+            {(value?.players ?? []).filter((p) => p.isHost).map((p) => p.nickname).join(',')}
+          </div>
           <div data-testid="scoreboard">{JSON.stringify(value?.gameState?.currentScoreboard ?? [])}</div>
           <div data-testid="round">{value?.gameState?.roundNumber ?? ''}</div>
           <div data-testid="clues">{JSON.stringify(value?.gameState?.cluesRevealed ?? [])}</div>
@@ -232,5 +236,46 @@ describe('GameProvider', () => {
     expect(screen.getByTestId('round')).toHaveTextContent('2')
 
     vi.useRealTimers()
+  })
+
+  it('grants local host rights when host transfer arrives via PLAYER_LEFT', () => {
+    const socket = createMockSocket(true)
+    mockUseSocket.mockReturnValue({ socket })
+
+    render(
+      <GameProvider>
+        <TestConsumer />
+      </GameProvider>
+    )
+
+    act(() => {
+      socket.handlers.ROOM_JOINED?.({
+        playerId: 'p2',
+        isHost: false,
+        players: [
+          { id: 'host', nickname: 'Host', isHost: true, isConnected: true },
+          { id: 'p2', nickname: 'Paul', isHost: false, isConnected: true }
+        ],
+        settings: {
+          ...DEFAULT_MULTIPLAYER_SETTINGS,
+          maxGuessesPerRound: 10
+        },
+        roomCode: 'ABC123'
+      })
+    })
+
+    expect(screen.getByTestId('is-host')).toHaveTextContent('no')
+
+    act(() => {
+      socket.handlers.PLAYER_LEFT?.({
+        id: 'host',
+        nickname: 'Host',
+        newHost: 'Paul',
+        reason: 'left'
+      })
+    })
+
+    expect(screen.getByTestId('is-host')).toHaveTextContent('yes')
+    expect(screen.getByTestId('host-nicknames')).toHaveTextContent('Paul')
   })
 })
