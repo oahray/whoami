@@ -36,14 +36,14 @@ describe('preferences', () => {
     expect(readSfxEnabled()).toBe(false)
   })
 
-  it('defaults music to on', () => {
-    expect(readMusicEnabled()).toBe(true)
+  it('defaults music to off', () => {
+    expect(readMusicEnabled()).toBe(false)
   })
 
   it('persists music preference', () => {
-    writeMusicEnabled(false)
-    expect(localStorage.getItem(STORAGE_KEY_MUSIC_ENABLED)).toBe('false')
-    expect(readMusicEnabled()).toBe(false)
+    writeMusicEnabled(true)
+    expect(localStorage.getItem(STORAGE_KEY_MUSIC_ENABLED)).toBe('true')
+    expect(readMusicEnabled()).toBe(true)
   })
 
   it('blocks playback when reduced motion is preferred', () => {

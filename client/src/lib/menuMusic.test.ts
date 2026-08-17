@@ -46,11 +46,13 @@ describe('menuMusic', () => {
   })
 
   it('does not start before audio unlock', () => {
+    localStorage.setItem('whoami_music_enabled', 'true')
     startMenuMusic()
     expect(playMock).not.toHaveBeenCalled()
   })
 
   it('starts after unlock when music is enabled', () => {
+    localStorage.setItem('whoami_music_enabled', 'true')
     unlockAudio()
     startMenuMusic()
     expect(playMock).toHaveBeenCalled()
@@ -63,7 +65,14 @@ describe('menuMusic', () => {
     expect(playMock).not.toHaveBeenCalled()
   })
 
+  it('does not start when music preference is unset (default off)', () => {
+    unlockAudio()
+    startMenuMusic()
+    expect(playMock).not.toHaveBeenCalled()
+  })
+
   it('stopMenuMusic pauses without resetting position', () => {
+    localStorage.setItem('whoami_music_enabled', 'true')
     unlockAudio()
     startMenuMusic()
     const audio = vi.mocked(Audio).mock.results[0]?.value as {
@@ -80,6 +89,7 @@ describe('menuMusic', () => {
 
   it('fadeOutMenuMusic keeps position for later resume', () => {
     vi.useFakeTimers()
+    localStorage.setItem('whoami_music_enabled', 'true')
     unlockAudio()
     startMenuMusic()
     const audio = vi.mocked(Audio).mock.results[0]?.value as {

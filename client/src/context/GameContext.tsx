@@ -188,9 +188,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
       newHost: string | null
       reason?: 'left' | 'kicked'
     }) => {
-      setPlayers(prev => prev.filter(p => p.id !== data.id))
+      setPlayers((prev) => {
+        const remaining = prev.filter((p) => p.id !== data.id)
+        if (!data.newHost) return remaining
+        return remaining.map((p) => ({ ...p, isHost: p.nickname === data.newHost }))
+      })
       if (data.newHost) {
-        setPlayers(prev => prev.map(p => ({ ...p, isHost: p.nickname === data.newHost })))
+        const myNickname = players.find((p) => p.id === playerId)?.nickname
+        setIsHost(myNickname === data.newHost)
       }
       if (data.reason === 'kicked') {
         playSound('player-kick')
