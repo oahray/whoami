@@ -5,6 +5,14 @@ import GameHistoryPanel from '../components/GameHistoryPanel'
 import PlayerAvatar from '../components/PlayerAvatar'
 import PreferencesMenu from '../components/PreferencesMenu'
 import { fadeOutMenuMusic } from '../lib/menuMusic'
+import {
+  isLobbyReactionId,
+  LOBBY_REACTION_OPTIONS,
+  LOBBY_REACTION_TTL_MS,
+  lobbyReactionIcon,
+  lobbyReactionLabel,
+  type LobbyReactionId
+} from '../lib/lobbyReactions'
 import { playSound, unlockAudio } from '../lib/sounds'
 import { shareOrCopyInvite } from '../lib/roomCode'
 import { useMenuMusic } from '../hooks/useMenuMusic'
@@ -31,6 +39,11 @@ import {
   multiplayerSettingsResetPayload
 } from '../lib/multiplayerDefaults'
 
+type ActiveLobbyReaction = {
+  reactionId: LobbyReactionId
+  until: number
+}
+
 const COPIED_FEEDBACK_MS = 2000
 const API_BASE_URL =
   import.meta.env.VITE_SOCKET_URL?.replace('ws://', 'http://').replace('wss://', 'https://') ||
@@ -45,6 +58,7 @@ function Lobby() {
   const [copiedCode, setCopiedCode] = useState(false)
   const [shareFeedback, setShareFeedback] = useState<'shared' | 'copied' | null>(null)
   const [historySheetOpen, setHistorySheetOpen] = useState(false)
+  const [lobbyReactions, setLobbyReactions] = useState<Record<string, ActiveLobbyReaction>>({})
   const historySheetClosedViaPopRef = useRef(false)
   const [datasets, setDatasets] = useState<PublicDataset[]>([])
   const {
@@ -61,6 +75,61 @@ function Lobby() {
     isReconnecting
   } = useGame()
   const hasStoredRoom = typeof window !== 'undefined' && !!localStorage.getItem('whoami_room')
+
+  useEffect(() => {
+    const handleLobbyReaction = (...args: unknown[]) => {
+      const payload = args[0] as { playerId?: string; reactionId?: string } | undefined
+      if (!payload?.playerId || !isLobbyReactionId(payload.reactionId)) return
+      setLobbyReactions((prev) => ({
+        ...prev,
+        [payload.playerId!]: {
+          reactionId: payload.reactionId as LobbyReactionId,
+          until: Date.now() + LOBBY_REACTION_TTL_MS
+        }
+      }))
+    }
+
+    on('LOBBY_REACTION', handleLobbyReaction)
+    return () => off('LOBBY_REACTION', handleLobbyReaction)
+  }, [on, off])
+
+  useEffect(() => {
+    const expiries = Object.values(lobbyReactions).map((reaction) => reaction.until)
+    if (expiries.length === 0) return
+
+    const delay = Math.max(0, Math.min(...expiries) - Date.now())
+    const timer = setTimeout(() => {
+      const now = Date.now()
+      setLobbyReactions((prev) => {
+        let changed = false
+        const next = { ...prev }
+        for (const [id, reaction] of Object.entries(next)) {
+          if (reaction.until <= now) {
+            delete next[id]
+            changed = true
+          }
+        }
+        return changed ? next : prev
+      })
+    }, delay)
+
+    return () => clearTimeout(timer)
+  }, [lobbyReactions])
+
+  useEffect(() => {
+    const connectedIds = new Set(players.filter((p) => p.isConnected).map((p) => p.id))
+    setLobbyReactions((prev) => {
+      let changed = false
+      const next = { ...prev }
+      for (const id of Object.keys(next)) {
+        if (!connectedIds.has(id)) {
+          delete next[id]
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [players])
 
   useEffect(() => {
     if (!roomCode && !isReconnecting && !hasStoredRoom) {
@@ -173,6 +242,10 @@ function Lobby() {
       // ignore
     }
     emit('START_GAME', {})
+  }
+
+  const handleSendLobbyReaction = (reactionId: LobbyReactionId) => {
+    emit('LOBBY_REACTION', { reactionId })
   }
 
   const handleLeaveRoom = () => {
@@ -299,7 +372,9 @@ function Lobby() {
               <span className="bg-primary/10 text-primary text-xs font-bold px-2.5 py-1 rounded-full">{connectedCount} / 10</span>
             </div>
             <div className="space-y-3">
-              {players.filter(p => p.isConnected).map((player) => (
+              {players.filter(p => p.isConnected).map((player) => {
+                const activeReaction = lobbyReactions[player.id]
+                return (
                 <div
                   key={player.id}
                   className={`flex items-center gap-4 px-4 py-2 rounded-lg border ${
@@ -322,10 +397,22 @@ function Lobby() {
                           Host
                         </span>
                       )}
+                      {activeReaction && (
+                        <span
+                          key={`${player.id}-${activeReaction.until}`}
+                          className="lobby-reaction-chip inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold shrink-0"
+                          data-testid={`lobby-reaction-chip-${player.id}`}
+                        >
+                          <span className="material-symbols-outlined text-sm leading-none" aria-hidden>
+                            {lobbyReactionIcon(activeReaction.reactionId)}
+                          </span>
+                          {lobbyReactionLabel(activeReaction.reactionId)}
+                        </span>
+                      )}
                     </div>
-                    <p className="text-foreground-muted text-xs italic mt-0.5">
-                      {player.id === playerId ? 'You' : 'Ready'}
-                    </p>
+                    {player.id === playerId && (
+                      <p className="text-foreground-muted text-xs italic mt-0.5">You</p>
+                    )}
                   </div>
                   {isHost && !player.isHost && (
                     <button
@@ -337,6 +424,28 @@ function Lobby() {
                     </button>
                   )}
                 </div>
+                )
+              })}
+            </div>
+            <div
+              className="mt-4 grid grid-cols-4 gap-2"
+              role="group"
+              aria-label="Lobby reactions"
+            >
+              {LOBBY_REACTION_OPTIONS.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => handleSendLobbyReaction(option.id)}
+                  className="flex flex-col items-center justify-center gap-1 rounded-lg border border-edge bg-surface-muted/60 px-1 py-2 text-foreground hover:bg-primary/10 hover:border-primary/30 transition-colors"
+                >
+                  <span className="material-symbols-outlined text-xl text-primary leading-none" aria-hidden>
+                    {option.icon}
+                  </span>
+                  <span className="text-[10px] sm:text-xs font-semibold leading-tight text-center">
+                    {option.label}
+                  </span>
+                </button>
               ))}
             </div>
             {!isHost && (

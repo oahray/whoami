@@ -11,7 +11,8 @@ import {
   handleUpdateSettings,
   handleStartGame,
   handleSubmitGuess,
-  handleKickPlayer
+  handleKickPlayer,
+  handleLobbyReaction
 } from './sockets/handlers/index.js'
 import { wrapSync, wrapAsync } from './sockets/dispatch.js'
 import adminRoutes from './admin/routes/index.js'
@@ -162,6 +163,7 @@ io.on('connection', (socket) => {
   const onJoinRoom = wrapSync('JOIN_ROOM', handleJoinRoom)
   const onLeaveRoom = wrapSync('LEAVE_ROOM', handleLeaveRoom, { silent: true })
   const onKickPlayer = wrapSync('KICK_PLAYER', handleKickPlayer)
+  const onLobbyReaction = wrapSync('LOBBY_REACTION', handleLobbyReaction, { silent: true })
   const onSubmitGuess = wrapSync('SUBMIT_GUESS', handleSubmitGuess)
   const onUpdateSettings = wrapAsync('UPDATE_SETTINGS', handleUpdateSettings)
   const onStartGame = wrapAsync('START_GAME', handleStartGame)
@@ -171,6 +173,7 @@ io.on('connection', (socket) => {
   socket.on('JOIN_ROOM', (payload) => onJoinRoom(io, socket, payload))
   socket.on('LEAVE_ROOM', () => onLeaveRoom(io, socket))
   socket.on('KICK_PLAYER', (payload) => onKickPlayer(io, socket, payload))
+  socket.on('LOBBY_REACTION', (payload) => onLobbyReaction(io, socket, payload))
   socket.on('UPDATE_SETTINGS', (payload) => onUpdateSettings(io, socket, payload))
   socket.on('START_GAME', (payload) => onStartGame(io, socket, payload))
   socket.on('SUBMIT_GUESS', (payload) => onSubmitGuess(io, socket, payload))
