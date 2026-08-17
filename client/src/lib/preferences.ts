@@ -3,7 +3,7 @@ export const STORAGE_KEY_MUSIC_ENABLED = 'whoami_music_enabled'
 export const STORAGE_KEY_THEME = 'whoami_theme'
 
 const DEFAULT_SFX_ENABLED = true
-const DEFAULT_MUSIC_ENABLED = true
+const DEFAULT_MUSIC_ENABLED = false
 
 export type ThemeMode = 'system' | 'light' | 'dark'
 export type ResolvedTheme = 'light' | 'dark'
