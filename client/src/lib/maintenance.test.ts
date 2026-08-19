@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   formatMaintenanceCountdown,
-  getMaintenanceCountdownTarget
+  getMaintenanceCountdownTarget,
+  maintenancePollIntervalMs,
+  MAINTENANCE_POLL_ACTIVE_MS,
+  MAINTENANCE_POLL_IDLE_MS
 } from './maintenance'
 
 describe('maintenance countdown', () => {
@@ -31,5 +34,12 @@ describe('maintenance countdown', () => {
     expect(formatMaintenanceCountdown('2026-06-09T14:02:30.000Z', now)).toBe('2m 30s')
     expect(formatMaintenanceCountdown('2026-06-09T14:00:45.000Z', now)).toBe('45s')
     expect(formatMaintenanceCountdown('2026-06-09T14:00:00.000Z', now)).toBe('any moment now')
+  })
+
+  it('polls slowly when idle and every 15s when a window is live', () => {
+    expect(maintenancePollIntervalMs('none')).toBe(MAINTENANCE_POLL_IDLE_MS)
+    expect(maintenancePollIntervalMs('upcoming')).toBe(MAINTENANCE_POLL_ACTIVE_MS)
+    expect(maintenancePollIntervalMs('freeze')).toBe(MAINTENANCE_POLL_ACTIVE_MS)
+    expect(maintenancePollIntervalMs('active')).toBe(MAINTENANCE_POLL_ACTIVE_MS)
   })
 })

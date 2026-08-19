@@ -26,6 +26,7 @@ describe('public maintenance route', () => {
     const response = await request(makeApp()).get('/maintenance/status')
 
     expect(response.status).toBe(200)
+    expect(response.headers['cache-control']).toBe('public, max-age=15')
     expect(response.body).toEqual({
       phase: 'freeze',
       endsAt: '2026-06-09T15:00:00.000Z',
