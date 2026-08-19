@@ -1,12 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import LoadingState from '../components/LoadingState'
+import MaintenanceBanner from '../components/MaintenanceBanner'
 import SoundToggle from '../components/SoundToggle'
-import { API_BASE_URL } from '../lib/apiBase'
+import { useMaintenanceStatus } from '../hooks/useMaintenanceStatus'
 import {
-  coerceDifficultySelection,
-  encodeDifficultySelection
+  coerceDifficultySelection
 } from '../lib/difficultySelection'
+import {
+  getInPersonCard,
+  isLostCardError,
+  prefetchInPersonCard
+} from '../lib/inPersonCardFetch'
 import {
   advanceToNextDeck,
   currentDeckEntityIds,
@@ -20,12 +25,18 @@ import {
   remainingEntityCount,
   saveDeckSession,
   snapshotForIndex,
+  upcomingEntityId,
   updateCardSnapshot,
   type InPersonCardSnapshot,
   type InPersonDeckSession
 } from '../lib/inPersonDeck'
 import { DEFAULT_ENTITY_TYPE_FILTER, type EntityTypeFilter } from '../lib/entityTypeFilter'
 import { IN_PERSON_MASK_PLACEHOLDER } from '../lib/inPersonMask'
+import {
+  isMaintenanceBlockingNewGames,
+  MAINTENANCE_NEW_DECK_COPY,
+  MAINTENANCE_PASS_PLAY_STUCK_COPY
+} from '../lib/maintenance'
 import { playSound, unlockAudio, warmSoundCache } from '../lib/sounds'
 import type { InPersonCard } from '../types'
 
@@ -53,7 +64,16 @@ function PlayCards() {
   const [offline, setOffline] = useState(
     typeof navigator !== 'undefined' ? !navigator.onLine : false
   )
+  const [advanceBlocked, setAdvanceBlocked] = useState(false)
+  const [advanceNotice, setAdvanceNotice] = useState<string | null>(null)
   const cluesScrollRef = useRef<HTMLElement>(null)
+  const { status: maintenanceStatus } = useMaintenanceStatus({ poll: true })
+  const maintenanceBlocking = isMaintenanceBlockingNewGames(maintenanceStatus)
+
+  const cardQuery = useMemo(
+    () => ({ datasetId, difficulty: difficultyParam, entityType }),
+    [datasetId, difficultyParam, entityType]
+  )
 
   const syncDeckSession = useCallback(() => {
     const session = loadDeckSession(datasetId, difficulty, entityType)
@@ -68,6 +88,8 @@ function PlayCards() {
     setDeckComplete(false)
     setSessionComplete(false)
     setError(null)
+    setAdvanceBlocked(false)
+    setAdvanceNotice(null)
   }, [])
 
   const persistSnapshot = useCallback(
@@ -120,21 +142,10 @@ function PlayCards() {
       setRevealedCount(1)
       setDeckComplete(false)
       setSessionComplete(false)
+      setAdvanceBlocked(false)
 
-      const params = new URLSearchParams({ datasetId, difficulty: difficultyParam, entityType })
       try {
-        const res = await fetch(
-          `${API_BASE_URL}/cards/entity/${encodeURIComponent(entityId)}?${params.toString()}`
-        )
-        if (res.status === 404) {
-          const body = await res.json().catch(() => ({}))
-          throw new Error(body.error ?? 'Card not found for this character.')
-        }
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}))
-          throw new Error(body.error ?? `Failed to load card (${res.status})`)
-        }
-        const data = (await res.json()) as InPersonCard
+        const data = await getInPersonCard(entityId, cardQuery)
         setCard(data)
         const updated = updateCardSnapshot(session, {
           card: data,
@@ -143,7 +154,6 @@ function PlayCards() {
         })
         saveDeckSession(updated)
         setDeckSession(updated)
-        // Pass & play: no Go; flip is on next/prev only.
       } catch (err) {
         setCard(null)
         setError(err instanceof Error ? err.message : 'Failed to load card')
@@ -151,7 +161,7 @@ function PlayCards() {
         setLoading(false)
       }
     },
-    [datasetId, difficulty, entityType, applySnapshot]
+    [datasetId, applySnapshot, cardQuery]
   )
 
   const loadCurrentCard = useCallback(async () => {
@@ -193,6 +203,13 @@ function PlayCards() {
     warmSoundCache()
     void loadCurrentCard()
   }, [datasetId, navigate, loadCurrentCard])
+
+  useEffect(() => {
+    if (!deckSession || deckComplete || !card) return
+    const nextId = upcomingEntityId(deckSession)
+    if (!nextId) return
+    prefetchInPersonCard(nextId, cardQuery)
+  }, [deckSession, deckComplete, card, cardQuery])
 
   useEffect(() => {
     const onOnline = () => {
@@ -266,54 +283,101 @@ function PlayCards() {
     if (entityId) void loadCardForEntity(entityId, updated)
   }
 
-  const handleNextCard = () => {
+  const handleNextCard = async () => {
     const session = syncDeckSession()
     if (!session || !card) {
       navigate('/play', { replace: true })
       return
     }
 
-    playSound('card-flip')
     const sessionWithSnapshot = persistSnapshot(session, card, revealedCount, showAnswer)
     const nextIndex = sessionWithSnapshot.index + 1
-    const updated = { ...sessionWithSnapshot, index: nextIndex }
-    saveDeckSession(updated)
-    setDeckSession(updated)
 
-    if (nextIndex >= currentDeckEntityIds(updated).length) {
+    if (nextIndex >= currentDeckEntityIds(sessionWithSnapshot).length) {
+      playSound('card-flip')
+      const updated = { ...sessionWithSnapshot, index: nextIndex }
+      saveDeckSession(updated)
+      setDeckSession(updated)
       setDeckComplete(true)
       setSessionComplete(isSessionComplete(updated))
       return
     }
 
-    const nextEntityId = currentEntityId(updated)
+    const nextEntityId = currentDeckEntityIds(sessionWithSnapshot)[nextIndex]
     if (!nextEntityId) return
 
-    const snapshot = snapshotForIndex(updated, nextIndex)
+    const snapshot = snapshotForIndex(sessionWithSnapshot, nextIndex)
     if (snapshot) {
+      playSound('card-flip')
+      const updated = { ...sessionWithSnapshot, index: nextIndex }
+      saveDeckSession(updated)
+      setDeckSession(updated)
       applySnapshot(snapshot)
+      setAdvanceBlocked(false)
       return
     }
-    void loadCardForEntity(nextEntityId, updated)
+
+    try {
+      const nextCard = await getInPersonCard(nextEntityId, cardQuery)
+      playSound('card-flip')
+      const moved = { ...sessionWithSnapshot, index: nextIndex }
+      const withCard = updateCardSnapshot(moved, {
+        card: nextCard,
+        revealedCount: 1,
+        showAnswer: false
+      })
+      saveDeckSession(withCard)
+      setDeckSession(withCard)
+      setCard(nextCard)
+      setRevealedCount(1)
+      setShowAnswer(false)
+      setDeckComplete(false)
+      setSessionComplete(false)
+      setAdvanceBlocked(false)
+      setAdvanceNotice(null)
+    } catch (err) {
+      if (isLostCardError(err) || maintenanceBlocking) {
+        setAdvanceBlocked(true)
+        setAdvanceNotice(MAINTENANCE_PASS_PLAY_STUCK_COPY)
+      } else {
+        setAdvanceNotice(err instanceof Error ? err.message : 'Failed to load card')
+      }
+    }
   }
 
-  const handleNextDeck = () => {
+  const handleNextDeck = async () => {
     const session = syncDeckSession()
     if (!session || !hasNextDeck(session)) return
 
-    playSound('card-flip')
     const nextSession = advanceToNextDeck(session)
-    saveDeckSession(nextSession)
-    setDeckSession(nextSession)
-    setDeckComplete(false)
-    setSessionComplete(false)
-
     const entityId = currentEntityId(nextSession)
-    if (entityId) void loadCardForEntity(entityId, nextSession)
+    if (!entityId) return
+
+    try {
+      await getInPersonCard(entityId, cardQuery)
+      playSound('card-flip')
+      saveDeckSession(nextSession)
+      setDeckSession(nextSession)
+      setDeckComplete(false)
+      setSessionComplete(false)
+      setAdvanceBlocked(false)
+      setAdvanceNotice(null)
+      await loadCardForEntity(entityId, nextSession)
+    } catch (err) {
+      if (isLostCardError(err) || maintenanceBlocking) {
+        setAdvanceNotice(MAINTENANCE_PASS_PLAY_STUCK_COPY)
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to load card')
+      }
+    }
   }
 
   const handlePlayAgain = async () => {
     if (!datasetId || offline) return
+    if (maintenanceBlocking) {
+      setAdvanceNotice(MAINTENANCE_NEW_DECK_COPY)
+      return
+    }
     setLoadingDeck(true)
     setError(null)
     try {
@@ -374,6 +438,12 @@ function PlayCards() {
       </header>
 
       <main className="flex-1 max-w-lg w-full mx-auto px-3 py-2 md:px-4 md:py-4 flex flex-col gap-2 md:gap-4 min-h-0 overflow-hidden">
+        <MaintenanceBanner status={maintenanceStatus} />
+        {advanceNotice && (
+          <div className="p-3 bg-amber-50 border border-amber-200 text-amber-950 rounded-lg text-sm">
+            {advanceNotice}
+          </div>
+        )}
         {offline && (
           <div className="p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-lg text-sm">
             You are offline. Cards need internet to load.
@@ -519,7 +589,7 @@ function PlayCards() {
                   <button
                     type="button"
                     onClick={() => void handlePlayAgain()}
-                    disabled={loadingDeck || offline}
+                    disabled={loadingDeck || offline || maintenanceBlocking}
                     className="w-full bg-primary text-white font-bold py-2.5 md:py-3 rounded-lg disabled:opacity-50"
                   >
                     {loadingDeck ? 'Loading…' : 'Play again'}
@@ -527,7 +597,7 @@ function PlayCards() {
                 ) : (
                   <button
                     type="button"
-                    onClick={handleNextDeck}
+                    onClick={() => void handleNextDeck()}
                     disabled={loading || offline}
                     className="w-full bg-primary text-white font-bold py-2.5 md:py-3 rounded-lg disabled:opacity-50"
                   >
@@ -563,8 +633,8 @@ function PlayCards() {
                 {canAdvanceDeck && (
                   <button
                     type="button"
-                    onClick={handleNextCard}
-                    disabled={loading || offline}
+                    onClick={() => void handleNextCard()}
+                    disabled={loading || offline || advanceBlocked}
                     className="flex-1 py-2.5 md:py-3 rounded-lg bg-green-600 text-white font-bold hover:bg-green-700 disabled:opacity-50"
                   >
                     Next card

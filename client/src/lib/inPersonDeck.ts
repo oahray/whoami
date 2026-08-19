@@ -88,6 +88,14 @@ export function currentEntityId(session: InPersonDeckSession): string | null {
   return deck[session.index] ?? null
 }
 
+/** Next unseen entity in this session (rest of current deck, then first of the next deck). */
+export function upcomingEntityId(session: InPersonDeckSession): string | null {
+  const deck = currentDeckEntityIds(session)
+  const nextInDeck = deck[session.index + 1]
+  if (nextInDeck) return nextInDeck
+  return session.masterPool[session.deckStartOffset + deck.length] ?? null
+}
+
 export function isDeckExhausted(session: InPersonDeckSession): boolean {
   return session.index >= currentDeckEntityIds(session).length
 }

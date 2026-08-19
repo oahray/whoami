@@ -77,6 +77,20 @@ const PHASE_PRIORITY: Record<MaintenancePhase, number> = {
   active: 3
 }
 
+/** Collapse repeated status/block checks onto one Supabase list. */
+export const MAINTENANCE_WINDOWS_CACHE_MS = 15_000
+
+let windowsCache: { fetchedAt: number; windows: MaintenanceWindow[] } | null = null
+
+export function invalidateMaintenanceWindowsCache(): void {
+  windowsCache = null
+}
+
+/** Test helper. */
+export function resetMaintenanceWindowsCacheForTests(): void {
+  windowsCache = null
+}
+
 function phaseForWindow(window: MaintenanceWindow, now: number): MaintenancePhase {
   const noticeAt = noticeStart(window)
   const freezeAt = freezeStart(window)
@@ -90,6 +104,11 @@ function phaseForWindow(window: MaintenanceWindow, now: number): MaintenancePhas
 }
 
 export async function listMaintenanceWindows(): Promise<MaintenanceWindow[]> {
+  const now = Date.now()
+  if (windowsCache && now - windowsCache.fetchedAt < MAINTENANCE_WINDOWS_CACHE_MS) {
+    return windowsCache.windows
+  }
+
   const { data, error } = await supabase
     .from('maintenance_windows')
     .select('*')
@@ -99,7 +118,9 @@ export async function listMaintenanceWindows(): Promise<MaintenanceWindow[]> {
     throw new Error(`Failed to list maintenance windows: ${error.message}`)
   }
 
-  return (data ?? []) as MaintenanceWindow[]
+  const windows = (data ?? []) as MaintenanceWindow[]
+  windowsCache = { fetchedAt: now, windows }
+  return windows
 }
 
 export async function getMaintenanceStatus(now = Date.now()): Promise<MaintenanceStatus> {
@@ -222,6 +243,7 @@ export async function createMaintenanceWindow(input: CreateMaintenanceInput): Pr
     throw new Error(`Failed to create maintenance window: ${error.message}`)
   }
 
+  invalidateMaintenanceWindowsCache()
   return data as MaintenanceWindow
 }
 
@@ -257,4 +279,6 @@ export async function cancelMaintenanceWindow(id: string, now = Date.now()): Pro
   if (deleteError) {
     throw new Error(`Failed to cancel maintenance window: ${deleteError.message}`)
   }
+
+  invalidateMaintenanceWindowsCache()
 }
