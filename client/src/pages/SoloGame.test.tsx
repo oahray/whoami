@@ -418,4 +418,62 @@ describe('SoloGame', () => {
       false
     )
   })
+
+  it('does not fetch the next endurance card while sitting on a timeout reveal', async () => {
+    saveSoloSession({
+      datasetId: 'ds-1',
+      difficulty: [],
+      entityType: 'character',
+      variation: 'endurance',
+      roundDurationMs: 100,
+      clueRevealIntervalMs: 100,
+      entityIds: ['ent-1', 'ent-2'],
+      index: 0,
+      correctCount: 0,
+      activeElapsedMs: 0
+    })
+    vi.useFakeTimers()
+
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const url = String(input)
+      if (url.includes('/maintenance/status')) {
+        return {
+          ok: true,
+          json: async () => ({ phase: 'none', endsAt: null, startsAt: null })
+        } as Response
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          entity: {
+            id: url.includes('ent-2') ? 'ent-2' : 'ent-1',
+            name: url.includes('ent-2') ? 'Aaron' : 'Moses',
+            type: 'character',
+            aliases: []
+          },
+          clues: [
+            {
+              order: 1,
+              text: url.includes('ent-2') ? 'Next card clue' : 'A clue',
+              citations: url.includes('ent-2') ? null : 'Exodus 2:1'
+            }
+          ]
+        })
+      } as Response
+    })
+
+    renderSoloPlay()
+    await flushCardLoad()
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_000)
+    })
+
+    expect(screen.getByText(/time's up/i)).toBeInTheDocument()
+    expect(screen.queryByText('Next card clue')).not.toBeInTheDocument()
+    expect(vi.mocked(fetch).mock.calls.some(([input]) => String(input).includes('ent-2'))).toBe(false)
+
+    fireEvent.click(screen.getByRole('button', { name: /see results/i }))
+    expect(screen.getByRole('heading', { name: /endurance complete/i })).toBeInTheDocument()
+  })
 })

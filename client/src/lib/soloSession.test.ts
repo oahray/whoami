@@ -3,6 +3,7 @@ import {
   SOLO_CHALLENGE_ROUNDS,
   SOLO_RECORDS_PER_MODE,
   cardForCurrentSoloRound,
+  shouldPrefetchNextSoloCard,
   continueEndurancePool,
   createSoloSession,
   formatSoloRecordAchievedAt,
@@ -74,6 +75,13 @@ describe('soloSession', () => {
       clues: [{ order: 1, text: 'Old card', citations: null }]
     }
     expect(cardForCurrentSoloRound(session)).toBeNull()
+  })
+
+  it('does not prefetch the next endurance card after a timeout', () => {
+    const session = createSoloSession({ ...config, variation: 'endurance' }, ['a', 'b', 'c'])
+    expect(shouldPrefetchNextSoloCard(session, 'timeout')).toBe(false)
+    expect(shouldPrefetchNextSoloCard(session, 'correct')).toBe(true)
+    expect(shouldPrefetchNextSoloCard({ ...session, variation: 'challenge' }, 'timeout')).toBe(true)
   })
 
   it('clears a stored card when endurance reshuffles', () => {

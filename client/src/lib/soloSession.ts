@@ -101,7 +101,11 @@ export function cardForCurrentSoloRound(session: SoloSession): InPersonCard | nu
 }
 
 export function saveSoloSession(session: SoloSession): void {
-  sessionStorage.setItem(SESSION_KEY, JSON.stringify(session))
+  try {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(session))
+  } catch {
+    // quota / private mode — keep playing from memory
+  }
 }
 
 export function loadSoloSession(): SoloSession | null {
@@ -240,6 +244,16 @@ export function continueEndurancePool(session: SoloSession, lastEntityId: string
     ;[entityIds[0], entityIds[swapWith]] = [entityIds[swapWith], entityIds[0]]
   }
   return { ...session, entityIds, index: 0, currentCard: null }
+}
+
+/** Prefetch the next card only when this settle will actually continue the run. */
+export function shouldPrefetchNextSoloCard(
+  session: SoloSession,
+  status: 'active' | 'correct' | 'timeout' | 'finished'
+): boolean {
+  if (status !== 'correct' && status !== 'timeout') return false
+  if (session.variation === 'endurance' && status === 'timeout') return false
+  return Boolean(session.entityIds[session.index + 1])
 }
 
 /**

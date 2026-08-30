@@ -158,4 +158,63 @@ describe('SoloSetup', () => {
     expect(screen.getByRole('button', { name: /^medium$/i })).toHaveAttribute('aria-pressed', 'false')
     expect(screen.getByRole('button', { name: /start endurance/i })).toBeEnabled()
   })
+
+  it('recovers when datasets first return 500', async () => {
+    let datasetCalls = 0
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const url = String(input)
+      if (url.includes('/datasets')) {
+        datasetCalls += 1
+        if (datasetCalls === 1) {
+          return { ok: false, status: 500, json: async () => ({}) } as Response
+        }
+        return {
+          ok: true,
+          json: async () => [{ id: 'ds-1', name: 'Bible', is_default: true, source: null, description: null }]
+        } as Response
+      }
+      if (url.includes('/cards/eligibility')) {
+        return {
+          ok: true,
+          json: async () => ({ modes: { any: 12, easy: 12, medium: 0, hard: 0, nightmare: 0 } })
+        } as Response
+      }
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+
+    renderWithPreferences(
+      <MemoryRouter>
+        <SoloSetup />
+      </MemoryRouter>
+    )
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: /start 10-round challenge/i })).toBeEnabled()
+    )
+    expect(screen.queryByText(/failed to load content/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/\(500\)/)).not.toBeInTheDocument()
+    expect(datasetCalls).toBe(2)
+  })
+
+  it('shows a friendly message when datasets keep failing', async () => {
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const url = String(input)
+      if (url.includes('/datasets')) {
+        return { ok: false, status: 500, json: async () => ({}) } as Response
+      }
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+
+    renderWithPreferences(
+      <MemoryRouter>
+        <SoloSetup />
+      </MemoryRouter>
+    )
+
+    await waitFor(() =>
+      expect(screen.getByText(/couldn't load game content/i)).toBeInTheDocument()
+    )
+    expect(screen.queryByText(/\(500\)/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/failed to load content/i)).not.toBeInTheDocument()
+  })
 })

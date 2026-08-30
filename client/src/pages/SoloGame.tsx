@@ -29,6 +29,7 @@ import {
   saveSoloRecord,
   saveSoloSession,
   saveSoloSetupPreferences,
+  shouldPrefetchNextSoloCard,
   type SoloRecord,
   type SoloSession
 } from '../lib/soloSession'
@@ -60,6 +61,7 @@ function SoloGame() {
   const activeSession = useRef<SoloSession | null>(null)
   const guessInputRef = useRef<HTMLInputElement | null>(null)
   const lastClueCountRef = useRef(0)
+  const settledOnceRef = useRef(false)
   const viewportStyle = useVisualViewportLock()
   const viewportLocked = Object.keys(viewportStyle).length > 0
 
@@ -106,10 +108,13 @@ function SoloGame() {
 
       const restoredStatus = nextSession.roundStatus
       if (!freshRound && (restoredStatus === 'correct' || restoredStatus === 'timeout')) {
+        settledOnceRef.current = true
         setStatus(restoredStatus)
       } else if (!freshRound && remaining === 0) {
+        settledOnceRef.current = true
         setStatus('timeout')
       } else {
+        settledOnceRef.current = false
         setStatus('active')
       }
 
@@ -222,32 +227,39 @@ function SoloGame() {
     }
   }, [finishRun, loadCard, status])
 
+  const nextPrefetchId =
+    session && shouldPrefetchNextSoloCard(session, status)
+      ? session.entityIds[session.index + 1] ?? null
+      : null
+
   useEffect(() => {
-    if (!session || (status !== 'correct' && status !== 'timeout')) return
-    const nextId = session.entityIds[session.index + 1]
-    if (!nextId) return
-    prefetchInPersonCard(nextId, cardQuery(session))
-  }, [session, status, cardQuery])
+    if (!nextPrefetchId || !session) return
+    prefetchInPersonCard(nextPrefetchId, cardQuery(session))
+  }, [nextPrefetchId, session, cardQuery])
 
   useEffect(() => {
     if (!session || !card || status !== 'active' || loading) return
-    const tick = () => {
+    let interval = 0
+    const tick = (): boolean => {
       const next = Math.max(0, session.roundDurationMs - (Date.now() - roundStartedAt.current))
       setRemainingMs(next)
-      if (next === 0) {
-        setStatus('timeout')
-        playSound('uh-oh')
-        const current = activeSession.current
-        if (current) {
-          const settled = { ...current, roundStatus: 'timeout' as const }
-          activeSession.current = settled
-          setSession(settled)
-          saveSoloSession(settled)
-        }
+      if (next > 0) return false
+      window.clearInterval(interval)
+      if (settledOnceRef.current) return true
+      settledOnceRef.current = true
+      setStatus('timeout')
+      playSound('uh-oh')
+      const current = activeSession.current
+      if (current) {
+        const settled = { ...current, roundStatus: 'timeout' as const }
+        activeSession.current = settled
+        setSession(settled)
+        saveSoloSession(settled)
       }
+      return true
     }
-    tick()
-    const interval = window.setInterval(tick, 100)
+    if (tick()) return
+    interval = window.setInterval(tick, 100)
     return () => window.clearInterval(interval)
   }, [session, card, status, loading])
 
@@ -328,6 +340,7 @@ function SoloGame() {
       return
     }
     setStatus('correct')
+    settledOnceRef.current = true
     setFeedback('Correct!')
     playSound('correct')
     const current = activeSession.current
