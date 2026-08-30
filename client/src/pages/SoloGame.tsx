@@ -11,13 +11,15 @@ import { validateGuess } from '../lib/guessValidation'
 import {
   getInPersonCard,
   isLostCardError,
-  prefetchInPersonCard
+  prefetchInPersonCard,
+  rememberCard
 } from '../lib/inPersonCardFetch'
 import {
   isMaintenanceBlockingNewGames,
   MAINTENANCE_SOLO_ENDED_COPY
 } from '../lib/maintenance'
 import {
+  cardForCurrentSoloRound,
   clearSoloSession,
   continueEndurancePool,
   createSoloSession,
@@ -92,7 +94,9 @@ function SoloGame() {
     setFeedback(null)
     lastClueCountRef.current = 0
     try {
-      const loadedCard = await getInPersonCard(entityId, cardQuery(nextSession))
+      const storedCard = cardForCurrentSoloRound(nextSession)
+      const loadedCard = storedCard ?? await getInPersonCard(entityId, cardQuery(nextSession))
+      rememberCard(nextSession.datasetId, entityId, loadedCard)
       setCard(loadedCard)
 
       const startedAt = freshRound ? Date.now() : (nextSession.roundStartedAt as number)
@@ -119,6 +123,7 @@ function SoloGame() {
 
       const withRound: SoloSession = {
         ...nextSession,
+        currentCard: loadedCard,
         roundStartedAt: startedAt,
         roundStatus:
           !freshRound && (restoredStatus === 'correct' || restoredStatus === 'timeout')
@@ -152,7 +157,14 @@ function SoloGame() {
 
   const finishRun = useCallback((completed: SoloSession, opts?: { endedByMaintenance?: boolean }) => {
     const record: SoloRecord = {
-      ...completed,
+      datasetId: completed.datasetId,
+      difficulty: completed.difficulty,
+      entityType: completed.entityType,
+      variation: completed.variation,
+      roundDurationMs: completed.roundDurationMs,
+      clueRevealIntervalMs: completed.clueRevealIntervalMs,
+      correctCount: completed.correctCount,
+      activeElapsedMs: completed.activeElapsedMs,
       achievedAt: new Date().toISOString()
     }
     const saved = saveSoloRecord(record)
@@ -199,9 +211,12 @@ function SoloGame() {
 
     activeSession.current = updated
     setSession(updated)
-    saveSoloSession({ ...updated, roundStartedAt: null, roundStatus: null })
+    saveSoloSession({ ...updated, currentCard: null, roundStartedAt: null, roundStatus: null })
     playSound('card-flip')
-    const loadError = await loadCard({ ...updated, roundStartedAt: null, roundStatus: null }, { freshRound: true })
+    const loadError = await loadCard(
+      { ...updated, currentCard: null, roundStartedAt: null, roundStatus: null },
+      { freshRound: true }
+    )
     if (loadError && isLostCardError(loadError)) {
       finishRun(updated, { endedByMaintenance: true })
     }

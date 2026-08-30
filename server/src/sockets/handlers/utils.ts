@@ -148,6 +148,7 @@ export function buildReconnectPayload(room: RoomState, player: Player) {
     payload.gameState = {
       phase: room.currentRound.phase,
       roundNumber: room.currentRound.roundNumber,
+      // Same shuffled array as live players — never reshuffle on reconnect.
       cluesRevealed: room.currentRound.clues.slice(0, revealedClueCount).map(c => ({
         order: c.order,
         text: c.text

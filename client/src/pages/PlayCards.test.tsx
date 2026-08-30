@@ -239,6 +239,45 @@ describe('PlayCards', () => {
     expect(fetch).toHaveBeenCalledTimes(3)
   })
 
+  it('keeps snapshot clue order on remount instead of a reshuffled fetch', async () => {
+    saveTestSession(['ent-1'], {
+      history: [
+        {
+          card: {
+            entity: { id: 'ent-1', name: 'Moses', type: 'character', aliases: [] },
+            clues: [
+              { order: 1, text: 'Frozen first clue', citations: null },
+              { order: 2, text: 'Frozen second clue', citations: null }
+            ]
+          },
+          revealedCount: 2,
+          showAnswer: false
+        }
+      ]
+    })
+
+    stubEntityCards({
+      'ent-1': {
+        name: 'Moses',
+        clues: [
+          { order: 1, text: 'Reshuffled first clue', citations: null },
+          { order: 2, text: 'Reshuffled second clue', citations: null }
+        ]
+      }
+    })
+
+    renderPlayCards('/play/cards?datasetId=ds-1&difficulty=any')
+
+    await waitFor(() => {
+      expect(screen.getByText('Frozen first clue')).toBeInTheDocument()
+    })
+    expect(screen.getByText('Frozen second clue')).toBeInTheDocument()
+    expect(screen.queryByText('Reshuffled first clue')).not.toBeInTheDocument()
+    expect(vi.mocked(fetch).mock.calls.some(([input]) => String(input).includes('/cards/entity/'))).toBe(
+      false
+    )
+  })
+
   it('redirects to setup without a deck session', async () => {
     sessionStorage.clear()
 

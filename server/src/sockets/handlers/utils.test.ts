@@ -129,6 +129,52 @@ describe('socket handler utils', () => {
       ])
     })
 
+    it('reconnects with the same shuffled clue order already shown to the room', () => {
+      const room = createRoom('host-1', 'Host')
+      const host = room.players.get('host-1')!
+
+      room.status = 'in_progress'
+      room.currentRound = {
+        roundNumber: 3,
+        entity: {
+          id: 'entity-3',
+          name: 'David',
+          type: 'character',
+          is_published: true
+        },
+        clues: [
+          { id: 'written-3', order: 1, text: 'Shepherd who became king', citations: null },
+          { id: 'written-1', order: 2, text: 'Fought Goliath', citations: null },
+          { id: 'written-2', order: 3, text: 'From Bethlehem', citations: null },
+          { id: 'written-4', order: 4, text: 'Played the harp', citations: null }
+        ],
+        phase: 'clue_revealed',
+        serverStartTime: 555,
+        activeStartTime: 555 + 3000,
+        revealedClueCount: 4,
+        correctGuesses: [],
+        timers: {
+          clueReveal: null,
+          roundEnd: null
+        }
+      }
+
+      const first = buildReconnectPayload(room, host)
+      const second = buildReconnectPayload(room, host)
+      const expected = [
+        { order: 1, text: 'Shepherd who became king' },
+        { order: 2, text: 'Fought Goliath' },
+        { order: 3, text: 'From Bethlehem' },
+        { order: 4, text: 'Played the harp' }
+      ]
+
+      expect(first.gameState.cluesRevealed).toEqual(expected)
+      expect(second.gameState.cluesRevealed).toEqual(expected)
+      expect(first.gameState.cluesRevealed).toEqual(
+        room.currentRound.clues.slice(0, 4).map((c) => ({ order: c.order, text: c.text }))
+      )
+    })
+
     it('includes a signed archive for the latest finished game', () => {
       const room = createRoom('host-1', 'Host')
       const host = room.players.get('host-1')!

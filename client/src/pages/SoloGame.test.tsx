@@ -364,4 +364,58 @@ describe('SoloGame', () => {
     expect(screen.getByRole('heading', { name: /challenge complete/i })).toBeInTheDocument()
     expect(screen.getByText(/score so far is saved/i)).toBeInTheDocument()
   })
+
+  it('keeps the stored clue order on refresh instead of a reshuffled fetch', async () => {
+    saveSoloSession({
+      datasetId: 'ds-1',
+      difficulty: [],
+      entityType: 'character',
+      variation: 'challenge',
+      roundDurationMs: 30_000,
+      clueRevealIntervalMs: 10_000,
+      entityIds: ['ent-1'],
+      index: 0,
+      correctCount: 0,
+      activeElapsedMs: 0,
+      roundStartedAt: Date.now() - 15_000,
+      roundStatus: 'active',
+      currentCard: {
+        entity: { id: 'ent-1', name: 'Moses', type: 'character', aliases: [] },
+        clues: [
+          { order: 1, text: 'Frozen first clue', citations: null },
+          { order: 2, text: 'Frozen second clue', citations: null }
+        ]
+      }
+    })
+
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const url = String(input)
+      if (url.includes('/maintenance/status')) {
+        return {
+          ok: true,
+          json: async () => ({ phase: 'none', endsAt: null, startsAt: null })
+        } as Response
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          entity: { id: 'ent-1', name: 'Moses', type: 'character', aliases: [] },
+          clues: [
+            { order: 1, text: 'Reshuffled first clue', citations: null },
+            { order: 2, text: 'Reshuffled second clue', citations: null }
+          ]
+        })
+      } as Response
+    })
+
+    renderSoloPlay()
+    await flushCardLoad()
+
+    expect(screen.getByText('Frozen first clue')).toBeInTheDocument()
+    expect(screen.getByText('Frozen second clue')).toBeInTheDocument()
+    expect(screen.queryByText('Reshuffled first clue')).not.toBeInTheDocument()
+    expect(vi.mocked(fetch).mock.calls.some(([input]) => String(input).includes('/cards/entity/'))).toBe(
+      false
+    )
+  })
 })
