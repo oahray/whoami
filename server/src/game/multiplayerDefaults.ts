@@ -27,7 +27,7 @@ export const DEFAULT_MULTIPLAYER_SETTINGS = {
   difficultyMode: 'any',
   strictMode: false,
   transparencyMode: 'full' as MultiplayerTransparencyMode,
-  maxGuessesPerRound: 10,
+  maxGuessesPerRound: 30,
   datasetId: null as string | null,
   entityType: 'character' as MultiplayerEntityType
 } as const

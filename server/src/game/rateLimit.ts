@@ -1,3 +1,5 @@
+import { DEFAULT_MULTIPLAYER_SETTINGS } from './multiplayerDefaults.js'
+
 interface Player {
   lastGuessAt: number | null
   guessCount: number
@@ -16,6 +18,7 @@ export function isRateLimited(player: Player): boolean {
 }
 
 export function hasExceededMaxGuesses(player: Player, room: Room): boolean {
-  const maxGuesses = room.settings?.maxGuessesPerRound || 10
+  const maxGuesses =
+    room.settings?.maxGuessesPerRound ?? DEFAULT_MULTIPLAYER_SETTINGS.maxGuessesPerRound
   return player.guessCount >= maxGuesses
 }
