@@ -3,6 +3,7 @@ import {
   advanceToNextDeck,
   currentDeckEntityIds,
   currentEntityId,
+  upcomingEntityId,
   deckProgressLabel,
   fetchInPersonDeck,
   hasNextDeck,
@@ -46,6 +47,8 @@ describe('inPersonDeck', () => {
     const session = makeSession()
     expect(currentDeckEntityIds(session)).toEqual(POOL.slice(0, 10))
     expect(currentEntityId(session)).toBe('ent-1')
+    expect(upcomingEntityId(session)).toBe('ent-2')
+    expect(upcomingEntityId(makeSession({ index: 9 }))).toBe('ent-11')
   })
 
   it('reports deck and session completion', () => {

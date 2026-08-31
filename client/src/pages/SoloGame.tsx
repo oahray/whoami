@@ -1,13 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import LoadingState from '../components/LoadingState'
+import MaintenanceBanner from '../components/MaintenanceBanner'
 import SoundToggle from '../components/SoundToggle'
+import { useMaintenanceStatus } from '../hooks/useMaintenanceStatus'
 import { useStickToBottom } from '../hooks/useStickToBottom'
 import { useVisualViewportLock } from '../hooks/useVisualViewportLock'
-import { API_BASE_URL } from '../lib/apiBase'
 import { encodeDifficultySelection } from '../lib/difficultySelection'
 import { validateGuess } from '../lib/guessValidation'
 import {
+  getInPersonCard,
+  isLostCardError,
+  prefetchInPersonCard,
+  rememberCard
+} from '../lib/inPersonCardFetch'
+import {
+  isMaintenanceBlockingNewGames,
+  MAINTENANCE_SOLO_ENDED_COPY
+} from '../lib/maintenance'
+import {
+  cardForCurrentSoloRound,
   clearSoloSession,
   continueEndurancePool,
   createSoloSession,
@@ -17,10 +29,12 @@ import {
   saveSoloRecord,
   saveSoloSession,
   saveSoloSetupPreferences,
+  shouldPrefetchNextSoloCard,
   type SoloRecord,
   type SoloSession
 } from '../lib/soloSession'
 import { playSound } from '../lib/sounds'
+import { API_BASE_URL } from '../lib/apiBase'
 import type { InPersonCard } from '../types'
 
 type RoundStatus = 'active' | 'correct' | 'timeout' | 'finished'
@@ -35,12 +49,19 @@ function SoloGame() {
   const [feedback, setFeedback] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [result, setResult] = useState<{ record: SoloRecord; isPersonalBest: boolean } | null>(null)
+  const [result, setResult] = useState<{
+    record: SoloRecord
+    isPersonalBest: boolean
+    endedByMaintenance?: boolean
+  } | null>(null)
   const [restarting, setRestarting] = useState(false)
+  const { status: maintenanceStatus } = useMaintenanceStatus({ poll: true })
+  const maintenanceBlocking = isMaintenanceBlockingNewGames(maintenanceStatus)
   const roundStartedAt = useRef(0)
   const activeSession = useRef<SoloSession | null>(null)
   const guessInputRef = useRef<HTMLInputElement | null>(null)
   const lastClueCountRef = useRef(0)
+  const settledOnceRef = useRef(false)
   const viewportStyle = useVisualViewportLock()
   const viewportLocked = Object.keys(viewportStyle).length > 0
 
@@ -58,9 +79,15 @@ function SoloGame() {
     loading
   ])
 
+  const cardQuery = useCallback((nextSession: SoloSession) => ({
+    datasetId: nextSession.datasetId,
+    difficulty: encodeDifficultySelection(nextSession.difficulty),
+    entityType: nextSession.entityType
+  }), [])
+
   const loadCard = useCallback(async (nextSession: SoloSession, opts?: { freshRound?: boolean }) => {
     const entityId = nextSession.entityIds[nextSession.index]
-    if (!entityId) return
+    if (!entityId) return null
     const freshRound = opts?.freshRound ?? !nextSession.roundStartedAt
     setLoading(true)
     setError(null)
@@ -69,17 +96,9 @@ function SoloGame() {
     setFeedback(null)
     lastClueCountRef.current = 0
     try {
-      const query = new URLSearchParams({
-        datasetId: nextSession.datasetId,
-        difficulty: encodeDifficultySelection(nextSession.difficulty),
-        entityType: nextSession.entityType
-      })
-      const response = await fetch(`${API_BASE_URL}/cards/entity/${encodeURIComponent(entityId)}?${query}`)
-      if (!response.ok) {
-        const body = await response.json().catch(() => ({}))
-        throw new Error(body.error ?? `Failed to load card (${response.status})`)
-      }
-      const loadedCard = (await response.json()) as InPersonCard
+      const storedCard = cardForCurrentSoloRound(nextSession)
+      const loadedCard = storedCard ?? await getInPersonCard(entityId, cardQuery(nextSession))
+      rememberCard(nextSession.datasetId, entityId, loadedCard)
       setCard(loadedCard)
 
       const startedAt = freshRound ? Date.now() : (nextSession.roundStartedAt as number)
@@ -89,10 +108,13 @@ function SoloGame() {
 
       const restoredStatus = nextSession.roundStatus
       if (!freshRound && (restoredStatus === 'correct' || restoredStatus === 'timeout')) {
+        settledOnceRef.current = true
         setStatus(restoredStatus)
       } else if (!freshRound && remaining === 0) {
+        settledOnceRef.current = true
         setStatus('timeout')
       } else {
+        settledOnceRef.current = false
         setStatus('active')
       }
 
@@ -106,6 +128,7 @@ function SoloGame() {
 
       const withRound: SoloSession = {
         ...nextSession,
+        currentCard: loadedCard,
         roundStartedAt: startedAt,
         roundStatus:
           !freshRound && (restoredStatus === 'correct' || restoredStatus === 'timeout')
@@ -117,12 +140,14 @@ function SoloGame() {
       activeSession.current = withRound
       setSession(withRound)
       saveSoloSession(withRound)
+      return null
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load card')
+      return err
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [cardQuery])
 
   useEffect(() => {
     const stored = loadSoloSession()
@@ -135,20 +160,31 @@ function SoloGame() {
     void loadCard(stored)
   }, [navigate, loadCard])
 
-  const finishRun = useCallback((completed: SoloSession) => {
+  const finishRun = useCallback((completed: SoloSession, opts?: { endedByMaintenance?: boolean }) => {
     const record: SoloRecord = {
-      ...completed,
+      datasetId: completed.datasetId,
+      difficulty: completed.difficulty,
+      entityType: completed.entityType,
+      variation: completed.variation,
+      roundDurationMs: completed.roundDurationMs,
+      clueRevealIntervalMs: completed.clueRevealIntervalMs,
+      correctCount: completed.correctCount,
+      activeElapsedMs: completed.activeElapsedMs,
       achievedAt: new Date().toISOString()
     }
     const saved = saveSoloRecord(record)
     clearSoloSession()
+    setError(null)
     setStatus('finished')
-    // Use this run's stats even when it did not beat the personal best.
-    setResult({ record, isPersonalBest: saved.isPersonalBest })
+    setResult({
+      record,
+      isPersonalBest: saved.isPersonalBest,
+      endedByMaintenance: opts?.endedByMaintenance
+    })
     if (record.correctCount > 0) playSound('yay')
   }, [])
 
-  const advance = useCallback((correct: boolean) => {
+  const advance = useCallback(async (correct: boolean) => {
     const current = activeSession.current
     if (!current || status === 'finished') return
     const elapsed = Math.min(current.roundDurationMs, Math.max(0, Date.now() - roundStartedAt.current))
@@ -180,30 +216,50 @@ function SoloGame() {
 
     activeSession.current = updated
     setSession(updated)
-    saveSoloSession({ ...updated, roundStartedAt: null, roundStatus: null })
+    saveSoloSession({ ...updated, currentCard: null, roundStartedAt: null, roundStatus: null })
     playSound('card-flip')
-    void loadCard({ ...updated, roundStartedAt: null, roundStatus: null }, { freshRound: true })
+    const loadError = await loadCard(
+      { ...updated, currentCard: null, roundStartedAt: null, roundStatus: null },
+      { freshRound: true }
+    )
+    if (loadError && isLostCardError(loadError)) {
+      finishRun(updated, { endedByMaintenance: true })
+    }
   }, [finishRun, loadCard, status])
+
+  const nextPrefetchId =
+    session && shouldPrefetchNextSoloCard(session, status)
+      ? session.entityIds[session.index + 1] ?? null
+      : null
+
+  useEffect(() => {
+    if (!nextPrefetchId || !session) return
+    prefetchInPersonCard(nextPrefetchId, cardQuery(session))
+  }, [nextPrefetchId, session, cardQuery])
 
   useEffect(() => {
     if (!session || !card || status !== 'active' || loading) return
-    const tick = () => {
+    let interval = 0
+    const tick = (): boolean => {
       const next = Math.max(0, session.roundDurationMs - (Date.now() - roundStartedAt.current))
       setRemainingMs(next)
-      if (next === 0) {
-        setStatus('timeout')
-        playSound('uh-oh')
-        const current = activeSession.current
-        if (current) {
-          const settled = { ...current, roundStatus: 'timeout' as const }
-          activeSession.current = settled
-          setSession(settled)
-          saveSoloSession(settled)
-        }
+      if (next > 0) return false
+      window.clearInterval(interval)
+      if (settledOnceRef.current) return true
+      settledOnceRef.current = true
+      setStatus('timeout')
+      playSound('uh-oh')
+      const current = activeSession.current
+      if (current) {
+        const settled = { ...current, roundStatus: 'timeout' as const }
+        activeSession.current = settled
+        setSession(settled)
+        saveSoloSession(settled)
       }
+      return true
     }
-    tick()
-    const interval = window.setInterval(tick, 100)
+    if (tick()) return
+    interval = window.setInterval(tick, 100)
     return () => window.clearInterval(interval)
   }, [session, card, status, loading])
 
@@ -229,7 +285,7 @@ function SoloGame() {
   }, [card?.entity.id, resetStick])
 
   const tryAgain = async () => {
-    if (!session || restarting) return
+    if (!session || restarting || maintenanceBlocking) return
     setRestarting(true)
     setError(null)
     playSound('go')
@@ -284,6 +340,7 @@ function SoloGame() {
       return
     }
     setStatus('correct')
+    settledOnceRef.current = true
     setFeedback('Correct!')
     playSound('correct')
     const current = activeSession.current
@@ -300,6 +357,7 @@ function SoloGame() {
     return (
       <div className="min-h-screen bg-app-bg font-display text-foreground flex items-center justify-center p-4">
         <main className="w-full max-w-lg rounded-xl border border-edge bg-surface p-6 text-center shadow-sm space-y-5">
+          <MaintenanceBanner status={maintenanceStatus} />
           <span className="material-symbols-outlined text-5xl text-primary">emoji_events</span>
           <div>
             <h1 className="text-2xl font-black">{heading}</h1>
@@ -315,6 +373,11 @@ function SoloGame() {
               Personal best: {listSoloRecords(session.variation, session.datasetId)[0]?.correctCount ?? 0} correct.
             </p>
           )}
+          {result.endedByMaintenance && (
+            <p className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+              {MAINTENANCE_SOLO_ENDED_COPY}
+            </p>
+          )}
           {error && (
             <p className="rounded-lg border border-red-400 bg-red-100 p-3 text-sm text-red-700">{error}</p>
           )}
@@ -325,7 +388,7 @@ function SoloGame() {
             <button
               type="button"
               onClick={() => void tryAgain()}
-              disabled={restarting}
+              disabled={restarting || maintenanceBlocking}
               className="rounded-lg bg-primary py-3 font-bold text-white disabled:opacity-50"
             >
               {restarting ? 'Starting…' : 'Try again'}
@@ -367,6 +430,7 @@ function SoloGame() {
         onScroll={onCluesScroll}
         className="flex-1 min-h-0 max-w-lg w-full mx-auto overflow-y-auto px-3 py-4 space-y-3"
       >
+        <MaintenanceBanner status={maintenanceStatus} />
         {loading && <LoadingState label="Loading card" layout="page" />}
         {error && <div className="space-y-3"><p className="rounded-lg border border-red-400 bg-red-100 p-3 text-sm text-red-700">{error}</p><button type="button" onClick={() => void loadCard(session)} className="w-full rounded-lg border-2 border-edge py-3 font-semibold">Try again</button></div>}
         {card && !loading && (
@@ -392,7 +456,7 @@ function SoloGame() {
                 )}
                 <button
                   type="button"
-                  onClick={() => advance(true)}
+                  onClick={() => void advance(true)}
                   className="mt-4 w-full rounded-lg bg-primary py-3 font-bold text-white"
                 >
                   {settleAdvanceLabel}
@@ -410,7 +474,7 @@ function SoloGame() {
                 )}
                 <button
                   type="button"
-                  onClick={() => advance(false)}
+                  onClick={() => void advance(false)}
                   className="mt-4 w-full rounded-lg bg-primary py-3 font-bold text-white"
                 >
                   {settleAdvanceLabel}

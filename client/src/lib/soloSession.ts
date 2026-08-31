@@ -1,3 +1,4 @@
+import type { InPersonCard } from '../types'
 import type { EntityTypeFilter } from './entityTypeFilter'
 import {
   coerceDifficultySelection,
@@ -33,6 +34,8 @@ export type SoloSession = SoloConfig & {
   roundStartedAt?: number | null
   /** In-round UI status; restored after refresh so settle screens survive. */
   roundStatus?: 'active' | 'correct' | 'timeout' | null
+  /** Frozen card for `entityIds[index]`; survives refresh without reshuffling clues. */
+  currentCard?: InPersonCard | null
 }
 
 export type SoloRecord = SoloConfig & {
@@ -62,12 +65,47 @@ export function createSoloSession(config: SoloConfig, entityIds: string[]): Solo
     correctCount: 0,
     activeElapsedMs: 0,
     roundStartedAt: null,
-    roundStatus: null
+    roundStatus: null,
+    currentCard: null
   }
 }
 
+function isInPersonCard(value: unknown): value is InPersonCard {
+  if (!value || typeof value !== 'object') return false
+  const card = value as Partial<InPersonCard>
+  const entity = card.entity
+  return (
+    !!entity &&
+    typeof entity.id === 'string' &&
+    typeof entity.name === 'string' &&
+    (entity.type === 'character' || entity.type === 'place') &&
+    Array.isArray(entity.aliases) &&
+    Array.isArray(card.clues) &&
+    card.clues.every(
+      (clue) =>
+        clue &&
+        typeof clue.order === 'number' &&
+        typeof clue.text === 'string' &&
+        (clue.citations === null || typeof clue.citations === 'string')
+    )
+  )
+}
+
+/** Stored card only counts when it belongs to the current round's entity. */
+export function cardForCurrentSoloRound(session: SoloSession): InPersonCard | null {
+  const entityId = session.entityIds[session.index]
+  const card = session.currentCard
+  if (!entityId || !isInPersonCard(card) || card.entity.id !== entityId) return null
+  if (card.clues.length === 0) return null
+  return card
+}
+
 export function saveSoloSession(session: SoloSession): void {
-  sessionStorage.setItem(SESSION_KEY, JSON.stringify(session))
+  try {
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify(session))
+  } catch {
+    // quota / private mode — keep playing from memory
+  }
 }
 
 export function loadSoloSession(): SoloSession | null {
@@ -76,6 +114,9 @@ export function loadSoloSession(): SoloSession | null {
     if (!raw) return null
     const session = normalizeConfigDifficulty(JSON.parse(raw) as SoloSession)
     if (!Array.isArray(session.entityIds) || !session.datasetId || !session.variation) return null
+    if (session.currentCard != null && !isInPersonCard(session.currentCard)) {
+      session.currentCard = null
+    }
     return session
   } catch {
     return null
@@ -202,7 +243,17 @@ export function continueEndurancePool(session: SoloSession, lastEntityId: string
     const swapWith = 1 + Math.floor(Math.random() * (entityIds.length - 1))
     ;[entityIds[0], entityIds[swapWith]] = [entityIds[swapWith], entityIds[0]]
   }
-  return { ...session, entityIds, index: 0 }
+  return { ...session, entityIds, index: 0, currentCard: null }
+}
+
+/** Prefetch the next card only when this settle will actually continue the run. */
+export function shouldPrefetchNextSoloCard(
+  session: SoloSession,
+  status: 'active' | 'correct' | 'timeout' | 'finished'
+): boolean {
+  if (status !== 'correct' && status !== 'timeout') return false
+  if (session.variation === 'endurance' && status === 'timeout') return false
+  return Boolean(session.entityIds[session.index + 1])
 }
 
 /**

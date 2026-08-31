@@ -16,6 +16,23 @@ export const MAINTENANCE_COPY: Record<Exclude<MaintenancePhase, 'none'>, string>
   active: "We're updating content. New games will be back soon."
 }
 
+export const MAINTENANCE_SOLO_ENDED_COPY =
+  'This run ended because content is updating. Your score so far is saved.'
+
+export const MAINTENANCE_PASS_PLAY_STUCK_COPY =
+  "Can't load the next card while content is updating. You can keep this card or go back to setup."
+
+export const MAINTENANCE_NEW_DECK_COPY = 'New decks are paused until maintenance ends.'
+
+/** While a window is upcoming/freeze/active (live game screens). */
+export const MAINTENANCE_POLL_ACTIVE_MS = 15_000
+/** When nothing is scheduled. */
+export const MAINTENANCE_POLL_IDLE_MS = 3 * 60 * 1000
+
+export function maintenancePollIntervalMs(phase: MaintenancePhase): number {
+  return phase === 'none' ? MAINTENANCE_POLL_IDLE_MS : MAINTENANCE_POLL_ACTIVE_MS
+}
+
 export function isMaintenanceBlockingNewGames(status: MaintenanceStatus | null | undefined): boolean {
   return status?.phase === 'freeze' || status?.phase === 'active'
 }

@@ -13,6 +13,7 @@ import Game from './pages/Game'
 import AdminLegacyRedirect from './components/AdminLegacyRedirect'
 import ReconnectingIndicator from './components/ReconnectingIndicator'
 import UpdatePrompt from './pwa/UpdatePrompt'
+import NotFound from './pages/NotFound'
 
 function App() {
   return (
@@ -34,6 +35,7 @@ function App() {
                 <Route path="/lobby" element={<Lobby />} />
                 <Route path="/game" element={<Game />} />
                 <Route path="/admin/*" element={<AdminLegacyRedirect />} />
+                <Route path="*" element={<NotFound />} />
               </Routes>
             </div>
           </div>

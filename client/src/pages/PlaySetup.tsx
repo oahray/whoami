@@ -7,6 +7,13 @@ import PreferencesMenu from '../components/PreferencesMenu'
 import { useMaintenanceStatus } from '../hooks/useMaintenanceStatus'
 import { isMaintenanceBlockingNewGames } from '../lib/maintenance'
 import { API_BASE_URL } from '../lib/apiBase'
+import { fetchOkJson } from '../lib/fetchOkJson'
+import {
+  logSetupLoadError,
+  SETUP_CONTENT_LOAD_ERROR,
+  SETUP_ELIGIBILITY_LOAD_ERROR,
+  SETUP_START_ERROR
+} from '../lib/setupLoadErrors'
 import {
   coerceDifficultySelection,
   encodeDifficultySelection,
@@ -109,11 +116,10 @@ function PlaySetup() {
     let cancelled = false
     setLoading(true)
     setError(null)
-    fetch(`${API_BASE_URL}/datasets`)
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`Failed to load content (${res.status})`)
-        return (await res.json()) as PublicDataset[]
-      })
+    fetchOkJson<PublicDataset[]>(
+      `${API_BASE_URL}/datasets`,
+      (status) => `datasets ${status}`
+    )
       .then((rows) => {
         if (cancelled) return
         setDatasets(rows)
@@ -126,7 +132,8 @@ function PlaySetup() {
       })
       .catch((err) => {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to load content')
+          logSetupLoadError('Pass & play setup: datasets', err)
+          setError(SETUP_CONTENT_LOAD_ERROR)
         }
       })
       .finally(() => {
@@ -158,8 +165,9 @@ function PlaySetup() {
       })
       .catch((err) => {
         if (!cancelled) {
+          logSetupLoadError('Pass & play setup: eligibility', err)
           setEligibility(null)
-          setError(err instanceof Error ? err.message : 'Failed to load eligibility')
+          setError(SETUP_ELIGIBILITY_LOAD_ERROR)
         }
       })
       .finally(() => {
@@ -196,7 +204,13 @@ function PlaySetup() {
       })
       navigate(`/play/cards?${params.toString()}`)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start cards')
+      logSetupLoadError('Pass & play setup: start', err)
+      const message = err instanceof Error ? err.message : ''
+      const looksTechnical =
+        !message ||
+        /\(\d{3}\)$/.test(message) ||
+        /^Failed to (load|fetch)/i.test(message)
+      setError(looksTechnical ? SETUP_START_ERROR : message)
     } finally {
       setStarting(false)
     }

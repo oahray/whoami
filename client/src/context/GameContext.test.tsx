@@ -130,6 +130,52 @@ describe('GameProvider', () => {
     expect(localStorage.getItem('whoami_room')).toBeNull()
   })
 
+  it('applies the server clue list on mid-round reconnect without replacing it', () => {
+    const socket = createMockSocket(true)
+    mockUseSocket.mockReturnValue({ socket })
+
+    render(
+      <GameProvider>
+        <TestConsumer />
+      </GameProvider>
+    )
+
+    act(() => {
+      socket.handlers.RECONNECT_SUCCESS?.({
+        playerId: 'host',
+        isHost: true,
+        players: [{ id: 'host', nickname: 'Host', isHost: true, isConnected: true }],
+        settings: {
+          ...DEFAULT_MULTIPLAYER_SETTINGS,
+          maxGuessesPerRound: 10
+        },
+        gameState: {
+          phase: 'clue_revealed',
+          roundNumber: 1,
+          serverStartTime: 12345,
+          isLocked: false,
+          cluesRevealed: [
+            { order: 1, text: 'Shepherd who became king' },
+            { order: 2, text: 'Fought Goliath' },
+            { order: 3, text: 'From Bethlehem' },
+            { order: 4, text: 'Played the harp' }
+          ],
+          currentScoreboard: [{ playerId: 'host', nickname: 'Host', score: 0 }]
+        }
+      })
+    })
+
+    expect(screen.getByTestId('clues')).toHaveTextContent(
+      JSON.stringify([
+        { order: 1, text: 'Shepherd who became king' },
+        { order: 2, text: 'Fought Goliath' },
+        { order: 3, text: 'From Bethlehem' },
+        { order: 4, text: 'Played the harp' }
+      ])
+    )
+    expect(screen.getByTestId('round')).toHaveTextContent('1')
+  })
+
   it('uses the server-provided scoreboard on ROUND_STARTED', () => {
     const socket = createMockSocket(true)
     mockUseSocket.mockReturnValue({ socket })

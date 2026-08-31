@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   SOLO_CHALLENGE_ROUNDS,
   SOLO_RECORDS_PER_MODE,
+  cardForCurrentSoloRound,
+  shouldPrefetchNextSoloCard,
   continueEndurancePool,
   createSoloSession,
   formatSoloRecordAchievedAt,
@@ -48,6 +50,60 @@ describe('soloSession', () => {
     const session = createSoloSession(config, ['a'])
     saveSoloSession(session)
     expect(loadSoloSession()).toEqual(session)
+  })
+
+  it('persists the current card so a reload keeps clue order', () => {
+    const currentCard = {
+      entity: { id: 'a', name: 'Moses', type: 'character' as const, aliases: [] },
+      clues: [
+        { order: 1, text: 'Shown first', citations: null },
+        { order: 2, text: 'Shown second', citations: null }
+      ]
+    }
+    const session = createSoloSession(config, ['a'])
+    saveSoloSession({ ...session, currentCard })
+    const loaded = loadSoloSession()
+    expect(loaded?.currentCard).toEqual(currentCard)
+    expect(cardForCurrentSoloRound(loaded!)).toEqual(currentCard)
+  })
+
+  it('ignores a stored card for a different entity', () => {
+    const session = createSoloSession(config, ['a', 'b'])
+    session.index = 1
+    session.currentCard = {
+      entity: { id: 'a', name: 'Moses', type: 'character', aliases: [] },
+      clues: [{ order: 1, text: 'Old card', citations: null }]
+    }
+    expect(cardForCurrentSoloRound(session)).toBeNull()
+  })
+
+  it('does not prefetch the next endurance card after a timeout', () => {
+    const session = createSoloSession({ ...config, variation: 'endurance' }, ['a', 'b', 'c'])
+    expect(shouldPrefetchNextSoloCard(session, 'timeout')).toBe(false)
+    expect(shouldPrefetchNextSoloCard(session, 'correct')).toBe(true)
+    expect(shouldPrefetchNextSoloCard({ ...session, variation: 'challenge' }, 'timeout')).toBe(true)
+  })
+
+  it('clears a stored card when endurance reshuffles', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    const continued = continueEndurancePool(
+      {
+        ...config,
+        variation: 'endurance',
+        entityIds: ['a', 'b', 'c'],
+        index: 3,
+        correctCount: 3,
+        activeElapsedMs: 1000,
+        currentCard: {
+          entity: { id: 'c', name: 'Caleb', type: 'character', aliases: [] },
+          clues: [{ order: 1, text: 'Old order', citations: null }]
+        }
+      },
+      'a'
+    )
+    expect(continued.currentCard).toBeNull()
+    expect(continued.entityIds[0]).not.toBe('a')
+    vi.restoreAllMocks()
   })
 
   it('persists setup preferences for the next visit', () => {

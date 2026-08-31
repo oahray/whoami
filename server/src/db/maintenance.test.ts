@@ -12,7 +12,8 @@ import {
   cancelMaintenanceWindow,
   getMaintenanceStatus,
   MaintenanceScheduleError,
-  MAINTENANCE_FREEZE_LEAD_MS
+  MAINTENANCE_FREEZE_LEAD_MS,
+  resetMaintenanceWindowsCacheForTests
 } from './maintenance.js'
 import { createQueryBuilder, hasEq, hasOp } from '../test-utils/supabaseQueryBuilder.js'
 
@@ -32,6 +33,7 @@ function mockWindows(rows: Array<Record<string, unknown>>) {
 describe('maintenance', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    resetMaintenanceWindowsCacheForTests()
   })
 
   it('returns none when no windows are active', async () => {
@@ -174,5 +176,12 @@ describe('maintenance', () => {
     await expect(cancelMaintenanceWindow('mw-1', NOW)).rejects.toMatchObject({
       code: 'ALREADY_ENDED'
     } satisfies Partial<MaintenanceScheduleError>)
+  })
+
+  it('reuses listed windows within the cache window', async () => {
+    mockWindows([])
+    await getMaintenanceStatus(NOW)
+    await getMaintenanceStatus(NOW)
+    expect(supabase.from).toHaveBeenCalledTimes(1)
   })
 })

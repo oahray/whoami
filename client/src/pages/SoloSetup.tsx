@@ -6,6 +6,13 @@ import MaintenanceBanner from '../components/MaintenanceBanner'
 import PreferencesMenu from '../components/PreferencesMenu'
 import { useMaintenanceStatus } from '../hooks/useMaintenanceStatus'
 import { API_BASE_URL } from '../lib/apiBase'
+import { fetchOkJson } from '../lib/fetchOkJson'
+import {
+  logSetupLoadError,
+  SETUP_CONTENT_LOAD_ERROR,
+  SETUP_ELIGIBILITY_LOAD_ERROR,
+  SETUP_START_ERROR
+} from '../lib/setupLoadErrors'
 import {
   coerceDifficultySelection,
   encodeDifficultySelection,
@@ -180,11 +187,10 @@ function SoloSetup() {
 
   useEffect(() => {
     let cancelled = false
-    fetch(`${API_BASE_URL}/datasets`)
-      .then(async (response) => {
-        if (!response.ok) throw new Error(`Failed to load content (${response.status})`)
-        return (await response.json()) as PublicDataset[]
-      })
+    fetchOkJson<PublicDataset[]>(
+      `${API_BASE_URL}/datasets`,
+      (status) => `datasets ${status}`
+    )
       .then((rows) => {
         if (cancelled) return
         setDatasets(rows)
@@ -196,7 +202,11 @@ function SoloSetup() {
           ''
         setDatasetId(preferred)
       })
-      .catch((err) => !cancelled && setError(err instanceof Error ? err.message : 'Failed to load content'))
+      .catch((err) => {
+        if (cancelled) return
+        logSetupLoadError('Solo setup: datasets', err)
+        setError(SETUP_CONTENT_LOAD_ERROR)
+      })
       .finally(() => !cancelled && setLoading(false))
     return () => {
       cancelled = true
@@ -218,7 +228,11 @@ function SoloSetup() {
           setDifficulty([])
         }
       })
-      .catch((err) => !cancelled && setError(err instanceof Error ? err.message : 'Failed to load eligibility'))
+      .catch((err) => {
+        if (cancelled) return
+        logSetupLoadError('Solo setup: eligibility', err)
+        setError(SETUP_ELIGIBILITY_LOAD_ERROR)
+      })
       .finally(() => {
         if (!cancelled) setEligibilityLoading(false)
       })
@@ -260,8 +274,11 @@ function SoloSetup() {
       })
       const response = await fetch(`${API_BASE_URL}/cards/deck?${query}`)
       if (!response.ok) {
-        const body = await response.json().catch(() => ({}))
-        throw new Error(body.error ?? `Failed to load cards (${response.status})`)
+        const body = (await response.json().catch(() => ({}))) as { error?: string }
+        if (response.status === 503 && typeof body.error === 'string' && body.error.trim()) {
+          throw new Error(body.error)
+        }
+        throw new Error(SETUP_START_ERROR)
       }
       const { entityIds } = (await response.json()) as { entityIds: string[] }
       const config = {
@@ -277,7 +294,8 @@ function SoloSetup() {
       saveSoloSession(session)
       navigate('/solo/play')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start solo mode')
+      logSetupLoadError('Solo setup: start', err)
+      setError(err instanceof Error ? err.message : SETUP_START_ERROR)
     } finally {
       setStarting(false)
     }
