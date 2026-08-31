@@ -68,6 +68,8 @@ whoami/
    PORT=3001
    CLIENT_ORIGIN=http://localhost:5173
    CLIENT_ORIGINS=http://localhost:5173,http://localhost:5174
+   # Production (Railway): reference Redis private URL as REDIS_URL on the Node service.
+   # Not needed locally.
    ```
 
 5. Seed dev data (optional):

@@ -7,6 +7,7 @@ import { isRateLimited, hasExceededMaxGuesses } from './rateLimit.js'
 import { shuffle } from './shuffle.js'
 import type { RoomState } from '../rooms/store.js'
 import { recordFinishedGame } from '../rooms/store.js'
+import { persistRoom } from '../rooms/persist.js'
 
 export class GameStartError extends Error {
   constructor(
@@ -70,6 +71,7 @@ export async function startGame(room: RoomState): Promise<void> {
   }
 
   await startNextRound(room)
+  persistRoom(room)
 }
 
 export async function startNextRound(room: RoomState): Promise<void> {
@@ -118,6 +120,7 @@ export async function startNextRound(room: RoomState): Promise<void> {
       roundEnd: null
     }
   }
+  persistRoom(room)
 }
 
 export function activateRound(room: RoomState): void {
@@ -127,6 +130,7 @@ export function activateRound(room: RoomState): void {
 
   room.currentRound.phase = 'active'
   room.currentRound.activeStartTime = Date.now()
+  persistRoom(room)
 }
 
 /**
@@ -325,4 +329,5 @@ export function resetRoomForNewGame(room: RoomState): void {
     player.lastGuessAt = null
     player.isLocked = false
   }
+  persistRoom(room)
 }
