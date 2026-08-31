@@ -1,5 +1,6 @@
 import { Server, Socket } from 'socket.io'
 import { getRoomBySocket } from '../../rooms/store.js'
+import { persistRoom } from '../../rooms/persist.js'
 import { resetRoomForNewGame } from '../../game/roundState.js'
 import { getDataset } from '../../db/entities.js'
 import {
@@ -183,6 +184,7 @@ export async function handleUpdateSettings(io: Server, socket: Socket, payload: 
     }
 
     io.to(room.code).emit('SETTINGS_UPDATED', room.settings)
+    persistRoom(room)
   } catch (error: any) {
     const room = getRoomBySocket(socket.id)
     logger.error('Error in handleUpdateSettings', error, {

@@ -8,6 +8,7 @@ import {
 } from '../../game/lobbyReactions.js'
 import { nicknameIsBlocked } from '../../game/nicknameFilter.js'
 import { getRoom, getRoomBySocket, createRoom, deleteRoom } from '../../rooms/store.js'
+import { persistRoom } from '../../rooms/persist.js'
 import {
   findReturningPlayer,
   transferHost,
@@ -173,6 +174,7 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
           nickname,
           players: Array.from(room.players.values()).map(toPublicPlayer)
         })
+        persistRoom(room)
         return
       }
     }
@@ -224,6 +226,7 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
         nickname,
         players: Array.from(room.players.values()).map(toPublicPlayer)
       })
+      persistRoom(room)
       return
     }
 
@@ -263,6 +266,7 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
       nickname,
       avatarId
     })
+    persistRoom(room)
   } catch (error: any) {
     logger.error('Error in handleJoinRoom', error, {
       socketId: socket.id,
@@ -386,6 +390,7 @@ export function handleLeaveRoom(io: Server, socket: Socket) {
       newHost: newHostId ? room.players.get(newHostId)?.nickname : null,
       reason: 'left'
     })
+    persistRoom(room)
   } catch (error: any) {
     logger.error('Error in handleLeaveRoom', error, { socketId: socket.id })
   }
@@ -448,6 +453,7 @@ export function handleKickPlayer(io: Server, socket: Socket, payload: any) {
       newHost: null,
       reason: 'kicked'
     })
+    persistRoom(room)
   } catch (error: any) {
     logger.error('Error in handleKickPlayer', error, { socketId: socket.id })
     socket.emit('ROOM_ERROR', {
@@ -467,6 +473,7 @@ export function handleDisconnect(io: Server, socket: Socket) {
 
     player.isConnected = false
     player.disconnectedAt = Date.now()
+    persistRoom(room)
 
     setTimeout(() => {
       safeTimer('handleDisconnect:gracePeriod', () => {
@@ -498,6 +505,7 @@ export function handleDisconnect(io: Server, socket: Socket) {
           newHost: newHostId ? roomAfterDelay.players.get(newHostId)?.nickname : null,
           reason: 'left'
         })
+        persistRoom(roomAfterDelay)
       })
     }, GRACE_PERIOD_MS)
 

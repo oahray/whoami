@@ -27,6 +27,9 @@ import {
   BULK_IMPORT_JSON_BODY_LIMIT,
   DEFAULT_JSON_BODY_LIMIT
 } from './config/bodyLimits.js'
+import { isRedisConfigured } from './redis/client.js'
+import { fetchRoomsFromRedis } from './rooms/persist.js'
+import { loadHydratedRooms } from './rooms/store.js'
 
 dotenv.config()
 
@@ -193,9 +196,28 @@ process.on('uncaughtException', (err) => {
   setTimeout(() => process.exit(1), 100)
 })
 
-server.listen(PORT, () => {
-  logger.info('Server started', {
-    port: PORT,
-    allowedOrigins
+async function boot() {
+  try {
+    const { rooms, restored, demoted } = await fetchRoomsFromRedis()
+    loadHydratedRooms(rooms)
+    if (restored > 0) {
+      logger.info('Room persistence ready', { restored, demoted })
+    }
+  } catch (err) {
+    logger.error('Failed to connect to Redis for room persistence', err)
+    if (isRedisConfigured()) {
+      // REDIS_URL was set — fail closed so we do not accept joins against an empty Map.
+      process.exit(1)
+    }
+  }
+
+  server.listen(PORT, () => {
+    logger.info('Server started', {
+      port: PORT,
+      allowedOrigins,
+      redis: isRedisConfigured()
+    })
   })
-})
+}
+
+boot()

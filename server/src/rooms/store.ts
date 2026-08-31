@@ -1,6 +1,7 @@
 import type { Entity } from '../db/entities.js'
 import { coerceAvatarId, type AvatarId } from '../game/avatars.js'
 import { createDefaultMultiplayerRoomSettings, GAME_HISTORY_MAX } from '../game/multiplayerDefaults.js'
+import { persistRoom, removePersistedRoom } from './persist.js'
 
 type Difficulty = 'easy' | 'medium' | 'hard' | 'nightmare'
 /** Encoded selection: `any` or comma-separated tiers (`hard,nightmare`). */
@@ -160,6 +161,7 @@ export function createRoom(hostId: string, hostNickname: string, avatarId?: unkn
   })
 
   rooms.set(code, room)
+  persistRoom(room)
   return room
 }
 
@@ -178,10 +180,18 @@ export function getRoomBySocket(socketId: string): RoomState | null {
 
 export function deleteRoom(code: string): void {
   rooms.delete(code)
+  removePersistedRoom(code)
 }
 
 export function getAllRooms(): Map<string, RoomState> {
   return rooms
+}
+
+/** Replace/insert rooms restored from Redis before accepting connections. */
+export function loadHydratedRooms(next: RoomState[]): void {
+  for (const room of next) {
+    rooms.set(room.code, room)
+  }
 }
 
 /** Append a finished-game snapshot; keeps at most GAME_HISTORY_MAX entries. */
@@ -207,6 +217,7 @@ export function recordFinishedGame(room: RoomState): GameHistoryEntry {
     })
   }
   room.gameHistory = [...room.gameHistory, entry].slice(-GAME_HISTORY_MAX)
+  persistRoom(room)
   return entry
 }
 
