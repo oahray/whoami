@@ -32,6 +32,8 @@ export type SoloSession = SoloConfig & {
   activeElapsedMs: number
   /** Wall-clock ms when the current round timer started; kept across refresh. */
   roundStartedAt?: number | null
+  /** Remaining ms when the round settled; frozen so refresh does not reveal extra clues. */
+  roundRemainingMs?: number | null
   /** In-round UI status; restored after refresh so settle screens survive. */
   roundStatus?: 'active' | 'correct' | 'timeout' | null
   /** Frozen card for `entityIds[index]`; survives refresh without reshuffling clues. */
@@ -65,6 +67,7 @@ export function createSoloSession(config: SoloConfig, entityIds: string[]): Solo
     correctCount: 0,
     activeElapsedMs: 0,
     roundStartedAt: null,
+    roundRemainingMs: null,
     roundStatus: null,
     currentCard: null
   }
