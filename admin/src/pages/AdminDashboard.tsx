@@ -6,6 +6,7 @@ import { useAdminDataset } from '../context/AdminDatasetContext'
 import { AdminLayout } from '../components/AdminLayout'
 import DatasetDangerZone from '../components/DatasetDangerZone'
 import MaintenancePanel from '../components/MaintenancePanel'
+import StatCard from '../components/StatCard'
 import type { LiveMultiplayerStats, Stats } from '../types'
 
 const API_BASE_URL = import.meta.env.VITE_SOCKET_URL?.replace('ws://', 'http://').replace('wss://', 'https://') || 'http://localhost:3001'
@@ -135,43 +136,20 @@ function AdminDashboard() {
         {liveError && (
           <p className="mb-3 text-sm text-red-700">{liveError}</p>
         )}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-admin-panel rounded-md border border-admin-border shadow-sm p-4 min-w-0 flex items-center gap-4">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-700">
-              <span className="material-symbols-outlined text-xl">group</span>
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-admin-fg text-sm font-medium leading-tight">Players connected</p>
-            </div>
-            <p className="text-admin-fg text-2xl font-bold shrink-0">{live?.connectedPlayers ?? '—'}</p>
-          </div>
-          <div className="bg-admin-panel rounded-md border border-admin-border shadow-sm p-4 min-w-0 flex items-center gap-4">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <span className="material-symbols-outlined text-xl">sports_esports</span>
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-admin-fg text-sm font-medium leading-tight">Games in progress</p>
-            </div>
-            <p className="text-admin-fg text-2xl font-bold shrink-0">{live?.roomsInProgress ?? '—'}</p>
-          </div>
-          <div className="bg-admin-panel rounded-md border border-admin-border shadow-sm p-4 min-w-0 flex items-center gap-4">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <span className="material-symbols-outlined text-xl">hourglass_top</span>
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-admin-fg text-sm font-medium leading-tight">Lobbies waiting</p>
-            </div>
-            <p className="text-admin-fg text-2xl font-bold shrink-0">{live?.roomsWaiting ?? '—'}</p>
-          </div>
-          <div className="bg-admin-panel rounded-md border border-admin-border shadow-sm p-4 min-w-0 flex items-center gap-4">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <span className="material-symbols-outlined text-xl">meeting_room</span>
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-admin-fg text-sm font-medium leading-tight">Open rooms</p>
-            </div>
-            <p className="text-admin-fg text-2xl font-bold shrink-0">{live?.totalRooms ?? '—'}</p>
-          </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <StatCard
+            icon="group"
+            label="Players connected"
+            value={live?.connectedPlayers ?? '—'}
+            iconTone="success"
+          />
+          <StatCard
+            icon="sports_esports"
+            label="Games in progress"
+            value={live?.roomsInProgress ?? '—'}
+          />
+          <StatCard icon="hourglass_top" label="Lobbies waiting" value={live?.roomsWaiting ?? '—'} />
+          <StatCard icon="meeting_room" label="Open rooms" value={live?.totalRooms ?? '—'} />
         </div>
       </section>
 
@@ -181,85 +159,44 @@ function AdminDashboard() {
           Overview of entities, clues, and content readiness. Game difficulty uses clue-level tags when the lobby mode is not “any”.
         </p>
 
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
-          <div className="bg-admin-panel rounded-md border border-admin-border shadow-sm p-4 min-w-0 flex items-center gap-4">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <span className="material-symbols-outlined text-xl">track_changes</span>
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-admin-fg text-sm font-medium leading-tight">Total entities</p>
-            </div>
-            <p className="text-admin-fg text-2xl font-bold shrink-0">{stats?.totalEntities ?? 0}</p>
-          </div>
-          <div className="bg-admin-panel rounded-md border border-admin-border shadow-sm p-4 min-w-0 flex items-center gap-4">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <span className="material-symbols-outlined text-xl">menu_book</span>
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-admin-fg text-sm font-medium leading-tight">Total clues</p>
-            </div>
-            <p className="text-admin-fg text-2xl font-bold shrink-0">{stats?.totalClues ?? 0}</p>
-          </div>
-          <div className="bg-admin-panel rounded-md border border-admin-border shadow-sm p-4 min-w-0 flex items-center gap-4">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <span className="material-symbols-outlined text-xl">analytics</span>
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-admin-fg text-sm font-medium leading-tight">Avg clues / entity</p>
-            </div>
-            <p className="text-admin-fg text-2xl font-bold shrink-0">{stats?.avgCluesPerEntity ?? 0}</p>
-          </div>
-          <div className="bg-admin-panel rounded-md border border-admin-border shadow-sm p-4 min-w-0 flex items-center gap-4">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <span className="material-symbols-outlined text-xl">draft</span>
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-admin-fg text-sm font-medium leading-tight">Unpublished</p>
-            </div>
-            <p className="text-admin-fg text-2xl font-bold shrink-0">{stats?.unpublishedCount ?? 0}</p>
-          </div>
-          <div className="bg-admin-panel rounded-md border border-admin-border shadow-sm p-4 min-w-0 flex items-center gap-4">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-700">
-              <span className="material-symbols-outlined text-xl">check_circle</span>
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-admin-fg text-sm font-medium leading-tight">Published</p>
-            </div>
-            <p className="text-admin-fg text-2xl font-bold shrink-0">{stats?.publishedCount ?? 0}</p>
-          </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
+          <StatCard icon="track_changes" label="Total entities" value={stats?.totalEntities ?? 0} />
+          <StatCard icon="menu_book" label="Total clues" value={stats?.totalClues ?? 0} />
+          <StatCard icon="analytics" label="Avg clues / entity" value={stats?.avgCluesPerEntity ?? 0} />
+          <StatCard icon="draft" label="Unpublished" value={stats?.unpublishedCount ?? 0} />
+          <StatCard
+            icon="check_circle"
+            label="Published"
+            value={stats?.publishedCount ?? 0}
+            iconTone="success"
+          />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-          <div className="bg-admin-panel rounded-md border border-admin-border shadow-sm p-4 min-w-0 flex items-center gap-4">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <span className="material-symbols-outlined text-xl">category</span>
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-admin-fg text-sm font-medium leading-tight">Entities by type</p>
-              <p className="text-admin-fg text-lg font-bold mt-1">
-                {stats?.entityCountByType.character ?? 0} {(stats?.entityCountByType.character ?? 0) === 1 ? 'character' : 'characters'}, {stats?.entityCountByType.place ?? 0} {(stats?.entityCountByType.place ?? 0) === 1 ? 'place' : 'places'}
-              </p>
-            </div>
-          </div>
-          <div className="bg-admin-panel rounded-md border border-admin-border shadow-sm p-4 min-w-0 flex items-center gap-4">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <span className="material-symbols-outlined text-xl">label_off</span>
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-admin-fg text-sm font-medium leading-tight">Clues needing difficulty</p>
-            </div>
-            <p className="text-admin-fg text-2xl font-bold shrink-0">{stats?.cluesWithoutDifficulty ?? 0}</p>
-          </div>
-          <div className="bg-admin-panel rounded-md border border-admin-border shadow-sm p-4 min-w-0 flex items-center gap-4">
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <span className="material-symbols-outlined text-xl">publish</span>
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-admin-fg text-sm font-medium leading-tight">Ready to publish</p>
-              <p className="text-admin-muted text-xs mt-0.5">Drafts with 3+ clues</p>
-            </div>
-            <p className="text-admin-fg text-2xl font-bold shrink-0">{stats?.readyToPublishCount ?? 0}</p>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+          <StatCard
+            icon="category"
+            label="Entities by type"
+            layout="row"
+            value={`${stats?.entityCountByType.character ?? 0} ${
+              (stats?.entityCountByType.character ?? 0) === 1 ? 'character' : 'characters'
+            }, ${stats?.entityCountByType.place ?? 0} ${
+              (stats?.entityCountByType.place ?? 0) === 1 ? 'place' : 'places'
+            }`}
+            valueClassName="text-sm font-semibold leading-snug"
+          />
+          <StatCard
+            icon="label_off"
+            label="Clues needing difficulty"
+            layout="row"
+            value={stats?.cluesWithoutDifficulty ?? 0}
+          />
+          <StatCard
+            icon="publish"
+            label="Ready to publish"
+            layout="row"
+            hint="Drafts with 3+ clues"
+            value={stats?.readyToPublishCount ?? 0}
+          />
         </div>
 
         <div className="bg-admin-panel rounded-md border border-admin-border shadow-sm p-4">
