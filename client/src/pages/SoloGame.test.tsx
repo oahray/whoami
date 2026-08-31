@@ -419,6 +419,62 @@ describe('SoloGame', () => {
     )
   })
 
+  it('keeps frozen timer and clue count on refresh after an early correct guess', async () => {
+    saveSoloSession({
+      datasetId: 'ds-1',
+      difficulty: [],
+      entityType: 'character',
+      variation: 'endurance',
+      roundDurationMs: 30_000,
+      clueRevealIntervalMs: 5_000,
+      entityIds: ['ent-1'],
+      index: 0,
+      correctCount: 1,
+      activeElapsedMs: 5_000,
+      roundStartedAt: Date.now() - 20_000,
+      roundRemainingMs: 25_000,
+      roundStatus: 'correct',
+      currentCard: {
+        entity: { id: 'ent-1', name: 'Moses', type: 'character', aliases: [] },
+        clues: [
+          { order: 1, text: 'First clue', citations: null },
+          { order: 2, text: 'Second clue', citations: null },
+          { order: 3, text: 'Third clue', citations: null },
+          { order: 4, text: 'Fourth clue', citations: null }
+        ]
+      }
+    })
+
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const url = String(input)
+      if (url.includes('/maintenance/status')) {
+        return {
+          ok: true,
+          json: async () => ({ phase: 'none', endsAt: null, startsAt: null })
+        } as Response
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          entity: { id: 'ent-1', name: 'Moses', type: 'character', aliases: [] },
+          clues: [
+            { order: 1, text: 'Should not load', citations: null },
+            { order: 2, text: 'Should not load either', citations: null }
+          ]
+        })
+      } as Response
+    })
+
+    renderSoloPlay()
+    await flushCardLoad()
+
+    expect(screen.getByText('First clue')).toBeInTheDocument()
+    expect(screen.getByText('Second clue')).toBeInTheDocument()
+    expect(screen.queryByText('Third clue')).not.toBeInTheDocument()
+    expect(screen.getByText(/correct!/i)).toBeInTheDocument()
+    expect(screen.getByText('25s')).toBeInTheDocument()
+  })
+
   it('does not fetch the next endurance card while sitting on a timeout reveal', async () => {
     saveSoloSession({
       datasetId: 'ds-1',

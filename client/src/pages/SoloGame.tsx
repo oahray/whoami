@@ -103,11 +103,15 @@ function SoloGame() {
 
       const startedAt = freshRound ? Date.now() : (nextSession.roundStartedAt as number)
       roundStartedAt.current = startedAt
-      const remaining = Math.max(0, nextSession.roundDurationMs - (Date.now() - startedAt))
+      const restoredStatus = nextSession.roundStatus
+      const settledRound =
+        !freshRound && (restoredStatus === 'correct' || restoredStatus === 'timeout')
+      const remaining = settledRound && nextSession.roundRemainingMs != null
+        ? nextSession.roundRemainingMs
+        : Math.max(0, nextSession.roundDurationMs - (Date.now() - startedAt))
       setRemainingMs(remaining)
 
-      const restoredStatus = nextSession.roundStatus
-      if (!freshRound && (restoredStatus === 'correct' || restoredStatus === 'timeout')) {
+      if (settledRound) {
         settledOnceRef.current = true
         setStatus(restoredStatus)
       } else if (!freshRound && remaining === 0) {
@@ -130,8 +134,9 @@ function SoloGame() {
         ...nextSession,
         currentCard: loadedCard,
         roundStartedAt: startedAt,
+        roundRemainingMs: settledRound ? remaining : null,
         roundStatus:
-          !freshRound && (restoredStatus === 'correct' || restoredStatus === 'timeout')
+          settledRound
             ? restoredStatus
             : remaining === 0 && !freshRound
               ? 'timeout'
@@ -216,10 +221,22 @@ function SoloGame() {
 
     activeSession.current = updated
     setSession(updated)
-    saveSoloSession({ ...updated, currentCard: null, roundStartedAt: null, roundStatus: null })
+    saveSoloSession({
+      ...updated,
+      currentCard: null,
+      roundStartedAt: null,
+      roundRemainingMs: null,
+      roundStatus: null
+    })
     playSound('card-flip')
     const loadError = await loadCard(
-      { ...updated, currentCard: null, roundStartedAt: null, roundStatus: null },
+      {
+        ...updated,
+        currentCard: null,
+        roundStartedAt: null,
+        roundRemainingMs: null,
+        roundStatus: null
+      },
       { freshRound: true }
     )
     if (loadError && isLostCardError(loadError)) {
@@ -251,7 +268,7 @@ function SoloGame() {
       playSound('uh-oh')
       const current = activeSession.current
       if (current) {
-        const settled = { ...current, roundStatus: 'timeout' as const }
+        const settled = { ...current, roundStatus: 'timeout' as const, roundRemainingMs: 0 }
         activeSession.current = settled
         setSession(settled)
         saveSoloSession(settled)
@@ -324,7 +341,10 @@ function SoloGame() {
         roundDurationMs: nextSession.roundDurationMs,
         clueRevealIntervalMs: nextSession.clueRevealIntervalMs
       })
-      await loadCard({ ...nextSession, roundStartedAt: null, roundStatus: null }, { freshRound: true })
+      await loadCard(
+        { ...nextSession, roundStartedAt: null, roundRemainingMs: null, roundStatus: null },
+        { freshRound: true }
+      )
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to restart')
     } finally {
@@ -345,7 +365,16 @@ function SoloGame() {
     playSound('correct')
     const current = activeSession.current
     if (current) {
-      const settled = { ...current, roundStatus: 'correct' as const }
+      const frozenRemainingMs = Math.max(
+        0,
+        current.roundDurationMs - (Date.now() - roundStartedAt.current)
+      )
+      setRemainingMs(frozenRemainingMs)
+      const settled = {
+        ...current,
+        roundStatus: 'correct' as const,
+        roundRemainingMs: frozenRemainingMs
+      }
       activeSession.current = settled
       setSession(settled)
       saveSoloSession(settled)
