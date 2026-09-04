@@ -1,6 +1,8 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PreferencesProvider } from '../context/PreferencesContext'
+import { resetMenuMusicStateForTests } from '../lib/menuMusic'
+import { resetSoundStateForTests } from '../lib/sounds'
 import { stubMatchMedia } from '../test/matchMedia'
 import SoundToggle from './SoundToggle'
 
@@ -13,13 +15,31 @@ function renderToggle() {
 }
 
 describe('SoundToggle', () => {
+  const playMock = vi.fn().mockResolvedValue(undefined)
+
   beforeEach(() => {
     localStorage.clear()
+    resetSoundStateForTests()
+    resetMenuMusicStateForTests()
     stubMatchMedia()
+    vi.stubGlobal(
+      'Audio',
+      vi.fn().mockImplementation(() => ({
+        preload: '',
+        loop: false,
+        volume: 1,
+        paused: true,
+        currentTime: 0,
+        play: playMock,
+        pause: vi.fn(),
+        addEventListener: vi.fn()
+      }))
+    )
   })
 
   afterEach(() => {
     vi.unstubAllGlobals()
+    playMock.mockClear()
   })
 
   it('shows volume on when sounds are enabled', () => {
@@ -51,6 +71,19 @@ describe('SoundToggle', () => {
       'aria-pressed',
       'true'
     )
+  })
+
+  it('restores music volume on unmute without starting theme playback mid-game', () => {
+    localStorage.setItem('whoami_sfx_volume', '0.7')
+    localStorage.setItem('whoami_music_volume', '0.1')
+    renderToggle()
+
+    fireEvent.click(screen.getByRole('button', { name: /mute sounds/i }))
+    playMock.mockClear()
+    fireEvent.click(screen.getByRole('button', { name: /unmute sounds/i }))
+
+    expect(localStorage.getItem('whoami_music_volume')).toBe('0.1')
+    expect(playMock).not.toHaveBeenCalled()
   })
 
   it('keeps music muted on unmute if it was already off when muted', () => {
