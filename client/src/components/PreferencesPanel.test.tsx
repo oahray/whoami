@@ -1,7 +1,13 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PreferencesProvider } from '../context/PreferencesContext'
-import { DEFAULT_MUSIC_VOLUME, DEFAULT_SFX_VOLUME } from '../lib/preferences'
+import {
+  DEFAULT_MUSIC_VOLUME,
+  DEFAULT_SFX_VOLUME,
+  musicPercentToVolume,
+  musicVolumeToPercent,
+  sfxVolumeToPercent
+} from '../lib/preferences'
 import { stubMatchMedia } from '../test/matchMedia'
 import PreferencesPanel from './PreferencesPanel'
 
@@ -27,13 +33,13 @@ describe('PreferencesPanel', () => {
   it('renders sound effects slider at the soft default', () => {
     renderPanel()
     const slider = screen.getByRole('slider', { name: /sound effects/i })
-    expect(slider).toHaveValue(String(Math.round(DEFAULT_SFX_VOLUME * 100)))
+    expect(slider).toHaveValue(String(sfxVolumeToPercent(DEFAULT_SFX_VOLUME)))
   })
 
   it('renders music slider at the soft default', () => {
     renderPanel()
     const slider = screen.getByRole('slider', { name: /^music$/i })
-    expect(slider).toHaveValue(String(Math.round(DEFAULT_MUSIC_VOLUME * 100)))
+    expect(slider).toHaveValue(String(musicVolumeToPercent(DEFAULT_MUSIC_VOLUME)))
   })
 
   it('persists when sound effects are muted', () => {
@@ -45,13 +51,13 @@ describe('PreferencesPanel', () => {
     expect(screen.getByRole('slider', { name: /sound effects/i })).toHaveValue('0')
   })
 
-  it('persists music volume changes', () => {
+  it('persists music volume changes using the soft absolute range', () => {
     renderPanel()
     fireEvent.change(screen.getByRole('slider', { name: /^music$/i }), {
-      target: { value: '35' }
+      target: { value: '100' }
     })
-    expect(localStorage.getItem('whoami_music_volume')).toBe('0.35')
-    expect(screen.getByRole('slider', { name: /^music$/i })).toHaveValue('35')
+    expect(localStorage.getItem('whoami_music_volume')).toBe(String(musicPercentToVolume(100)))
+    expect(screen.getByRole('slider', { name: /^music$/i })).toHaveValue('100')
   })
 
   it('shows reduced motion notice when applicable', () => {
