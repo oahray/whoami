@@ -1,9 +1,17 @@
 export const STORAGE_KEY_SFX_ENABLED = 'whoami_sfx_enabled'
 export const STORAGE_KEY_MUSIC_ENABLED = 'whoami_music_enabled'
+export const STORAGE_KEY_SFX_VOLUME = 'whoami_sfx_volume'
+export const STORAGE_KEY_MUSIC_VOLUME = 'whoami_music_volume'
+export const STORAGE_KEY_SFX_VOLUME_LAST = 'whoami_sfx_volume_last'
+export const STORAGE_KEY_MUSIC_VOLUME_LAST = 'whoami_music_volume_last'
 export const STORAGE_KEY_THEME = 'whoami_theme'
 
-const DEFAULT_SFX_ENABLED = true
-const DEFAULT_MUSIC_ENABLED = false
+/** Soft default — audible without jump-scare. */
+export const DEFAULT_SFX_VOLUME = 0.45
+/** Soft loop default; music is on for new visitors at this level. */
+export const DEFAULT_MUSIC_VOLUME = 0.15
+/** Used when migrating legacy `music_enabled=true`. */
+export const LEGACY_MUSIC_ON_VOLUME = 0.2
 
 export type ThemeMode = 'system' | 'light' | 'dark'
 export type ResolvedTheme = 'light' | 'dark'
@@ -11,42 +19,99 @@ export type ResolvedTheme = 'light' | 'dark'
 const DEFAULT_THEME: ThemeMode = 'system'
 const THEME_MODES: ThemeMode[] = ['system', 'light', 'dark']
 
-export function readSfxEnabled(): boolean {
-  if (typeof window === 'undefined') return DEFAULT_SFX_ENABLED
+export function clampVolume(value: number): number {
+  if (!Number.isFinite(value)) return 0
+  return Math.min(1, Math.max(0, value))
+}
+
+function parseStoredVolume(raw: string | null): number | null {
+  if (raw === null) return null
+  const parsed = Number(raw)
+  if (!Number.isFinite(parsed)) return null
+  return clampVolume(parsed)
+}
+
+function readLegacyEnabled(key: string): boolean | null {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY_SFX_ENABLED)
-    if (raw === null) return DEFAULT_SFX_ENABLED
+    const raw = localStorage.getItem(key)
+    if (raw === null) return null
     return raw === 'true'
   } catch {
-    return DEFAULT_SFX_ENABLED
+    return null
   }
 }
 
-export function writeSfxEnabled(enabled: boolean): void {
+export function readSfxVolume(): number {
+  if (typeof window === 'undefined') return DEFAULT_SFX_VOLUME
   try {
-    localStorage.setItem(STORAGE_KEY_SFX_ENABLED, String(enabled))
+    const stored = parseStoredVolume(localStorage.getItem(STORAGE_KEY_SFX_VOLUME))
+    if (stored !== null) return stored
+    const legacy = readLegacyEnabled(STORAGE_KEY_SFX_ENABLED)
+    if (legacy === false) return 0
+    return DEFAULT_SFX_VOLUME
+  } catch {
+    return DEFAULT_SFX_VOLUME
+  }
+}
+
+export function writeSfxVolume(volume: number): void {
+  try {
+    const next = clampVolume(volume)
+    localStorage.setItem(STORAGE_KEY_SFX_VOLUME, String(next))
+    if (next > 0) {
+      localStorage.setItem(STORAGE_KEY_SFX_VOLUME_LAST, String(next))
+    }
   } catch {
     // private mode / quota
   }
 }
 
-export function readMusicEnabled(): boolean {
-  if (typeof window === 'undefined') return DEFAULT_MUSIC_ENABLED
+export function readSfxVolumeLast(): number {
+  if (typeof window === 'undefined') return DEFAULT_SFX_VOLUME
   try {
-    const raw = localStorage.getItem(STORAGE_KEY_MUSIC_ENABLED)
-    if (raw === null) return DEFAULT_MUSIC_ENABLED
-    return raw === 'true'
+    const stored = parseStoredVolume(localStorage.getItem(STORAGE_KEY_SFX_VOLUME_LAST))
+    if (stored !== null && stored > 0) return stored
   } catch {
-    return DEFAULT_MUSIC_ENABLED
+    // ignore
+  }
+  return DEFAULT_SFX_VOLUME
+}
+
+export function readMusicVolume(): number {
+  if (typeof window === 'undefined') return DEFAULT_MUSIC_VOLUME
+  try {
+    const stored = parseStoredVolume(localStorage.getItem(STORAGE_KEY_MUSIC_VOLUME))
+    if (stored !== null) return stored
+    const legacy = readLegacyEnabled(STORAGE_KEY_MUSIC_ENABLED)
+    if (legacy === false) return 0
+    if (legacy === true) return LEGACY_MUSIC_ON_VOLUME
+    return DEFAULT_MUSIC_VOLUME
+  } catch {
+    return DEFAULT_MUSIC_VOLUME
   }
 }
 
-export function writeMusicEnabled(enabled: boolean): void {
+export function writeMusicVolume(volume: number): void {
   try {
-    localStorage.setItem(STORAGE_KEY_MUSIC_ENABLED, String(enabled))
+    const next = clampVolume(volume)
+    localStorage.setItem(STORAGE_KEY_MUSIC_VOLUME, String(next))
+    if (next > 0) {
+      localStorage.setItem(STORAGE_KEY_MUSIC_VOLUME_LAST, String(next))
+    }
   } catch {
     // private mode / quota
   }
+}
+
+export function readMusicVolumeLast(): number {
+  if (typeof window === 'undefined') return DEFAULT_MUSIC_VOLUME
+  try {
+    const stored = parseStoredVolume(localStorage.getItem(STORAGE_KEY_MUSIC_VOLUME_LAST))
+    if (stored !== null && stored > 0) return stored
+  } catch {
+    // ignore
+  }
+  return DEFAULT_MUSIC_VOLUME
 }
 
 export function readTheme(): ThemeMode {
@@ -86,12 +151,16 @@ export function prefersReducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
-/** Whether sound effects may play (user pref + system reduced motion). */
-export function isSfxPlaybackAllowed(sfxEnabled: boolean): boolean {
-  return sfxEnabled && !prefersReducedMotion()
+/** Whether sound effects may play (volume > 0 + system reduced motion). */
+export function isSfxPlaybackAllowed(sfxVolumeOrEnabled: number | boolean): boolean {
+  const on =
+    typeof sfxVolumeOrEnabled === 'boolean' ? sfxVolumeOrEnabled : sfxVolumeOrEnabled > 0
+  return on && !prefersReducedMotion()
 }
 
-/** Whether menu theme music may play (user pref + system reduced motion). */
-export function isMusicPlaybackAllowed(musicEnabled: boolean): boolean {
-  return musicEnabled && !prefersReducedMotion()
+/** Whether menu theme music may play (volume > 0 + system reduced motion). */
+export function isMusicPlaybackAllowed(musicVolumeOrEnabled: number | boolean): boolean {
+  const on =
+    typeof musicVolumeOrEnabled === 'boolean' ? musicVolumeOrEnabled : musicVolumeOrEnabled > 0
+  return on && !prefersReducedMotion()
 }

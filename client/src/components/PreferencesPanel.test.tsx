@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PreferencesProvider } from '../context/PreferencesContext'
+import { DEFAULT_MUSIC_VOLUME, DEFAULT_SFX_VOLUME } from '../lib/preferences'
 import { stubMatchMedia } from '../test/matchMedia'
 import PreferencesPanel from './PreferencesPanel'
 
@@ -23,30 +24,34 @@ describe('PreferencesPanel', () => {
     vi.unstubAllGlobals()
   })
 
-  it('renders sound effects toggle defaulting to on', () => {
+  it('renders sound effects slider at the soft default', () => {
     renderPanel()
-    const checkbox = screen.getByRole('checkbox', { name: /sound effects/i })
-    expect(checkbox).toBeChecked()
+    const slider = screen.getByRole('slider', { name: /sound effects/i })
+    expect(slider).toHaveValue(String(Math.round(DEFAULT_SFX_VOLUME * 100)))
   })
 
-  it('renders music toggle defaulting to off', () => {
+  it('renders music slider at the soft default', () => {
     renderPanel()
-    const checkbox = screen.getByRole('checkbox', { name: /^music$/i })
-    expect(checkbox).not.toBeChecked()
+    const slider = screen.getByRole('slider', { name: /^music$/i })
+    expect(slider).toHaveValue(String(Math.round(DEFAULT_MUSIC_VOLUME * 100)))
   })
 
-  it('persists when toggled off', () => {
+  it('persists when sound effects are muted', () => {
     renderPanel()
-    fireEvent.click(screen.getByRole('checkbox', { name: /sound effects/i }))
-    expect(screen.getByRole('checkbox', { name: /sound effects/i })).not.toBeChecked()
-    expect(localStorage.getItem('whoami_sfx_enabled')).toBe('false')
+    fireEvent.change(screen.getByRole('slider', { name: /sound effects/i }), {
+      target: { value: '0' }
+    })
+    expect(localStorage.getItem('whoami_sfx_volume')).toBe('0')
+    expect(screen.getByRole('slider', { name: /sound effects/i })).toHaveValue('0')
   })
 
-  it('persists music when toggled on', () => {
+  it('persists music volume changes', () => {
     renderPanel()
-    fireEvent.click(screen.getByRole('checkbox', { name: /^music$/i }))
-    expect(screen.getByRole('checkbox', { name: /^music$/i })).toBeChecked()
-    expect(localStorage.getItem('whoami_music_enabled')).toBe('true')
+    fireEvent.change(screen.getByRole('slider', { name: /^music$/i }), {
+      target: { value: '35' }
+    })
+    expect(localStorage.getItem('whoami_music_volume')).toBe('0.35')
+    expect(screen.getByRole('slider', { name: /^music$/i })).toHaveValue('35')
   })
 
   it('shows reduced motion notice when applicable', () => {

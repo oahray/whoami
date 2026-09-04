@@ -8,6 +8,7 @@ import {
 
 describe('sounds', () => {
   const playMock = vi.fn().mockResolvedValue(undefined)
+  let lastAudio: { volume: number; play: typeof playMock }
 
   beforeEach(() => {
     resetSoundStateForTests()
@@ -22,12 +23,24 @@ describe('sounds', () => {
     )
     vi.stubGlobal(
       'Audio',
-      vi.fn().mockImplementation(() => ({
-        preload: '',
-        currentTime: 0,
-        play: playMock,
-        addEventListener: vi.fn()
-      }))
+      vi.fn().mockImplementation(() => {
+        lastAudio = {
+          volume: 1,
+          play: playMock
+        }
+        return {
+          preload: '',
+          currentTime: 0,
+          get volume() {
+            return lastAudio.volume
+          },
+          set volume(value: number) {
+            lastAudio.volume = value
+          },
+          play: playMock,
+          addEventListener: vi.fn()
+        }
+      })
     )
   })
 
@@ -41,17 +54,19 @@ describe('sounds', () => {
     expect(playMock).not.toHaveBeenCalled()
   })
 
-  it('does not play when sound effects are disabled', () => {
-    localStorage.setItem('whoami_sfx_enabled', 'false')
+  it('does not play when sound effects volume is zero', () => {
+    localStorage.setItem('whoami_sfx_volume', '0')
     unlockAudio()
     playSound('correct')
     expect(playMock).not.toHaveBeenCalled()
   })
 
-  it('plays after unlock when enabled', () => {
+  it('plays after unlock when enabled and applies volume', () => {
+    localStorage.setItem('whoami_sfx_volume', '0.4')
     unlockAudio()
     playSound('correct')
     expect(playMock).toHaveBeenCalled()
+    expect(lastAudio.volume).toBe(0.4)
     expect(isAudioUnlocked()).toBe(true)
   })
 
@@ -61,6 +76,7 @@ describe('sounds', () => {
     vi.mocked(Audio).mockImplementation(() => ({
       preload: '',
       currentTime: 0,
+      volume: 1,
       play: playMock,
       addEventListener: (event: string, handler: () => void) => {
         if (event === 'error') errorHandler = handler

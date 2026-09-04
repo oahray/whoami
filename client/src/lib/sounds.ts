@@ -1,4 +1,4 @@
-import { isSfxPlaybackAllowed, readSfxEnabled } from './preferences'
+import { isSfxPlaybackAllowed, readSfxVolume } from './preferences'
 
 /** Matches filenames in `public/sounds/` (without extension). */
 export type SoundId =
@@ -89,7 +89,7 @@ export function preloadSound(id: SoundId): void {
 function shouldPlay(id: SoundId): boolean {
   if (typeof window === 'undefined') return false
   if (!audioUnlocked) return false
-  if (!isSfxPlaybackAllowed(readSfxEnabled())) return false
+  if (!isSfxPlaybackAllowed(readSfxVolume())) return false
   if (unavailable.has(id)) return false
 
   const throttle = THROTTLE_MS[id]
@@ -132,6 +132,7 @@ export function playSound(id: SoundId): void {
   if (!audio) return
 
   try {
+    audio.volume = readSfxVolume()
     audio.currentTime = 0
     const playPromise = audio.play()
     if (playPromise !== undefined) {
