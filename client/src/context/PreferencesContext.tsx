@@ -8,30 +8,45 @@ import {
   type ReactNode
 } from 'react'
 import { applyThemeMode } from '../lib/applyTheme'
-import { enableAndStartMenuMusic, stopMenuMusic } from '../lib/menuMusic'
 import {
+  applyMenuMusicVolume,
+  enableAndStartMenuMusic,
+  stopMenuMusic
+} from '../lib/menuMusic'
+import {
+  clampVolume,
   isMusicPlaybackAllowed,
   isSfxPlaybackAllowed,
   prefersReducedMotion,
-  readMusicEnabled,
-  readSfxEnabled,
+  readMusicVolume,
+  readMusicVolumeLast,
+  readSfxVolume,
+  readSfxVolumeLast,
   readTheme,
   resolveTheme,
-  writeMusicEnabled,
-  writeSfxEnabled,
+  writeMusicVolume,
+  writeSfxVolume,
   writeTheme,
   type ResolvedTheme,
   type ThemeMode
 } from '../lib/preferences'
 
 type PreferencesContextValue = {
-  /** User wants sound effects when the system allows them. */
+  /** Sound effects volume 0–1 (0 = muted). */
+  sfxVolume: number
+  setSfxVolume: (volume: number) => void
+  /** Menu theme music volume 0–1 (0 = muted). */
+  musicVolume: number
+  setMusicVolume: (volume: number) => void
+  /** Convenience: sfxVolume > 0. */
   sfxEnabled: boolean
+  /** Mute / restore last non-zero SFX volume. */
   setSfxEnabled: (enabled: boolean) => void
-  /** User wants menu theme music when the system allows it. */
+  /** Convenience: musicVolume > 0. */
   musicEnabled: boolean
+  /** Mute / restore last non-zero music volume. */
   setMusicEnabled: (enabled: boolean) => void
-  /** System prefers reduced motion; SFX and music stay off even if enabled. */
+  /** System prefers reduced motion; SFX and music stay off even if volume > 0. */
   reducedMotion: boolean
   /** Effective gate for SFX playback. */
   sfxAllowed: boolean
@@ -45,8 +60,8 @@ type PreferencesContextValue = {
 const PreferencesContext = createContext<PreferencesContextValue | null>(null)
 
 export function PreferencesProvider({ children }: { children: ReactNode }) {
-  const [sfxEnabled, setSfxEnabledState] = useState(readSfxEnabled)
-  const [musicEnabled, setMusicEnabledState] = useState(readMusicEnabled)
+  const [sfxVolume, setSfxVolumeState] = useState(readSfxVolume)
+  const [musicVolume, setMusicVolumeState] = useState(readMusicVolume)
   const [reducedMotion, setReducedMotion] = useState(prefersReducedMotion)
   const [theme, setThemeState] = useState<ThemeMode>(readTheme)
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() => resolveTheme(readTheme()))
@@ -74,20 +89,38 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     return () => mqColor.removeEventListener('change', onColorChange)
   }, [theme])
 
-  const setSfxEnabled = useCallback((enabled: boolean) => {
-    setSfxEnabledState(enabled)
-    writeSfxEnabled(enabled)
+  const setSfxVolume = useCallback((volume: number) => {
+    const next = clampVolume(volume)
+    setSfxVolumeState(next)
+    writeSfxVolume(next)
   }, [])
 
-  const setMusicEnabled = useCallback((enabled: boolean) => {
-    setMusicEnabledState(enabled)
-    writeMusicEnabled(enabled)
-    if (enabled) {
-      enableAndStartMenuMusic()
+  const setMusicVolume = useCallback((volume: number) => {
+    const previous = readMusicVolume()
+    const next = clampVolume(volume)
+    setMusicVolumeState(next)
+    writeMusicVolume(next)
+    if (next > 0) {
+      if (previous <= 0) {
+        enableAndStartMenuMusic()
+      } else {
+        applyMenuMusicVolume()
+      }
     } else {
       stopMenuMusic()
     }
   }, [])
+
+  const setSfxEnabled = useCallback((enabled: boolean) => {
+    setSfxVolume(enabled ? readSfxVolumeLast() : 0)
+  }, [setSfxVolume])
+
+  const setMusicEnabled = useCallback(
+    (enabled: boolean) => {
+      setMusicVolume(enabled ? readMusicVolumeLast() : 0)
+    },
+    [setMusicVolume]
+  )
 
   const setTheme = useCallback((mode: ThemeMode) => {
     setThemeState(mode)
@@ -98,21 +131,27 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(
     () => ({
-      sfxEnabled,
+      sfxVolume,
+      setSfxVolume,
+      musicVolume,
+      setMusicVolume,
+      sfxEnabled: sfxVolume > 0,
       setSfxEnabled,
-      musicEnabled,
+      musicEnabled: musicVolume > 0,
       setMusicEnabled,
       reducedMotion,
-      sfxAllowed: isSfxPlaybackAllowed(sfxEnabled),
-      musicAllowed: isMusicPlaybackAllowed(musicEnabled),
+      sfxAllowed: isSfxPlaybackAllowed(sfxVolume),
+      musicAllowed: isMusicPlaybackAllowed(musicVolume),
       theme,
       setTheme,
       resolvedTheme
     }),
     [
-      sfxEnabled,
+      sfxVolume,
+      setSfxVolume,
+      musicVolume,
+      setMusicVolume,
       setSfxEnabled,
-      musicEnabled,
       setMusicEnabled,
       reducedMotion,
       theme,

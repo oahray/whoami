@@ -1,11 +1,9 @@
-import { isMusicPlaybackAllowed, readMusicEnabled } from './preferences'
+import { clampVolume, isMusicPlaybackAllowed, readMusicVolume } from './preferences'
 import { isAudioUnlocked, unlockAudio } from './sounds'
 
 /** Soft menu theme loop. Drop the file at `public/sounds/theme.mp3`. */
 export const THEME_MUSIC_PATH = '/sounds/theme.mp3'
 
-/** Keep theme quieter than SFX so voice lines stay clear. */
-const THEME_VOLUME = 0.22
 const FADE_MS = 700
 
 let themeAudio: HTMLAudioElement | null = null
@@ -19,6 +17,10 @@ function clearFade(): void {
   }
 }
 
+function themeTargetVolume(): number {
+  return clampVolume(readMusicVolume())
+}
+
 function getThemeAudio(): HTMLAudioElement | null {
   if (typeof window === 'undefined' || themeUnavailable) return null
 
@@ -26,7 +28,7 @@ function getThemeAudio(): HTMLAudioElement | null {
     themeAudio = new Audio(THEME_MUSIC_PATH)
     themeAudio.loop = true
     themeAudio.preload = 'auto'
-    themeAudio.volume = THEME_VOLUME
+    themeAudio.volume = themeTargetVolume()
     themeAudio.addEventListener(
       'error',
       () => {
@@ -42,7 +44,7 @@ function getThemeAudio(): HTMLAudioElement | null {
 function canPlayTheme(): boolean {
   if (typeof window === 'undefined') return false
   if (!isAudioUnlocked()) return false
-  if (!isMusicPlaybackAllowed(readMusicEnabled())) return false
+  if (!isMusicPlaybackAllowed(readMusicVolume())) return false
   if (themeUnavailable) return false
   return true
 }
@@ -55,7 +57,7 @@ export function startMenuMusic(): void {
   if (!audio) return
 
   clearFade()
-  audio.volume = THEME_VOLUME
+  audio.volume = themeTargetVolume()
 
   try {
     if (audio.paused) {
@@ -71,12 +73,23 @@ export function startMenuMusic(): void {
   }
 }
 
+/** Apply the current music preference volume to a playing (or paused) theme track. */
+export function applyMenuMusicVolume(): void {
+  if (!themeAudio) return
+  if (fadeTimer) return
+  try {
+    themeAudio.volume = themeTargetVolume()
+  } catch {
+    // ignore
+  }
+}
+
 /** Pause without resetting position so re-enable / return can resume. */
 export function stopMenuMusic(): void {
   pauseMenuMusic()
   if (!themeAudio) return
   try {
-    themeAudio.volume = THEME_VOLUME
+    themeAudio.volume = themeTargetVolume()
   } catch {
     // ignore
   }
@@ -113,7 +126,7 @@ export function fadeOutMenuMusic(durationMs = FADE_MS): void {
       clearFade()
       try {
         audio.pause()
-        audio.volume = THEME_VOLUME
+        audio.volume = themeTargetVolume()
       } catch {
         // ignore
       }

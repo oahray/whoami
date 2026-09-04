@@ -15,12 +15,12 @@ function SoundToggle({ className = '' }: SoundToggleProps) {
 
   const icon = sfxAllowed ? 'volume_up' : 'volume_off'
   const label = sfxAllowed
-    ? 'Turn sound effects off'
+    ? 'Mute sound effects'
     : reducedMotion
-      ? 'Sound effects off (Reduce motion is on)'
+      ? 'Sound effects muted (Reduce motion is on)'
       : sfxEnabled
-        ? 'Turn sound effects off'
-        : 'Turn sound effects on'
+        ? 'Mute sound effects'
+        : 'Unmute sound effects'
 
   const isOn = sfxAllowed
 

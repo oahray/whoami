@@ -26,7 +26,7 @@ describe('PreferencesMenu', () => {
   it('opens a dropdown with sound effects setting', () => {
     renderMenu()
     fireEvent.click(screen.getByRole('button', { name: /your preferences/i }))
-    expect(screen.getByRole('checkbox', { name: /sound effects/i })).toBeInTheDocument()
+    expect(screen.getByRole('slider', { name: /sound effects/i })).toBeInTheDocument()
     expect(screen.getByRole('radio', { name: /^system$/i })).toBeInTheDocument()
   })
 

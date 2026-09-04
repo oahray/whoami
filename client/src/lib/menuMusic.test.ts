@@ -5,6 +5,7 @@ import {
   startMenuMusic,
   stopMenuMusic
 } from './menuMusic'
+import { DEFAULT_MUSIC_VOLUME } from './preferences'
 import { unlockAudio, resetSoundStateForTests } from './sounds'
 
 describe('menuMusic', () => {
@@ -46,33 +47,37 @@ describe('menuMusic', () => {
   })
 
   it('does not start before audio unlock', () => {
-    localStorage.setItem('whoami_music_enabled', 'true')
+    localStorage.setItem('whoami_music_volume', String(DEFAULT_MUSIC_VOLUME))
     startMenuMusic()
     expect(playMock).not.toHaveBeenCalled()
   })
 
-  it('starts after unlock when music is enabled', () => {
-    localStorage.setItem('whoami_music_enabled', 'true')
+  it('starts after unlock when music volume is positive', () => {
+    localStorage.setItem('whoami_music_volume', String(DEFAULT_MUSIC_VOLUME))
     unlockAudio()
     startMenuMusic()
     expect(playMock).toHaveBeenCalled()
+    const audio = vi.mocked(Audio).mock.results[0]?.value as { volume: number }
+    expect(audio.volume).toBe(DEFAULT_MUSIC_VOLUME)
   })
 
-  it('does not start when music preference is off', () => {
-    localStorage.setItem('whoami_music_enabled', 'false')
+  it('does not start when music volume is zero', () => {
+    localStorage.setItem('whoami_music_volume', '0')
     unlockAudio()
     startMenuMusic()
     expect(playMock).not.toHaveBeenCalled()
   })
 
-  it('does not start when music preference is unset (default off)', () => {
+  it('starts with the soft default when music preference is unset', () => {
     unlockAudio()
     startMenuMusic()
-    expect(playMock).not.toHaveBeenCalled()
+    expect(playMock).toHaveBeenCalled()
+    const audio = vi.mocked(Audio).mock.results[0]?.value as { volume: number }
+    expect(audio.volume).toBe(DEFAULT_MUSIC_VOLUME)
   })
 
   it('stopMenuMusic pauses without resetting position', () => {
-    localStorage.setItem('whoami_music_enabled', 'true')
+    localStorage.setItem('whoami_music_volume', String(DEFAULT_MUSIC_VOLUME))
     unlockAudio()
     startMenuMusic()
     const audio = vi.mocked(Audio).mock.results[0]?.value as {
@@ -89,7 +94,7 @@ describe('menuMusic', () => {
 
   it('fadeOutMenuMusic keeps position for later resume', () => {
     vi.useFakeTimers()
-    localStorage.setItem('whoami_music_enabled', 'true')
+    localStorage.setItem('whoami_music_volume', String(DEFAULT_MUSIC_VOLUME))
     unlockAudio()
     startMenuMusic()
     const audio = vi.mocked(Audio).mock.results[0]?.value as {
