@@ -1,6 +1,12 @@
 import { usePreferences } from '../context/PreferencesContext'
 import { playSound, unlockAudio } from '../lib/sounds'
-import type { ThemeMode } from '../lib/preferences'
+import {
+  musicPercentToVolume,
+  musicVolumeToPercent,
+  sfxPercentToVolume,
+  sfxVolumeToPercent,
+  type ThemeMode
+} from '../lib/preferences'
 
 type PreferencesFormProps = {
   idPrefix?: string
@@ -11,10 +17,6 @@ const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
   { value: 'light', label: 'Light' },
   { value: 'dark', label: 'Dark' },
 ]
-
-function volumePercent(volume: number): number {
-  return Math.round(volume * 100)
-}
 
 function PreferencesForm({ idPrefix = 'pref' }: PreferencesFormProps) {
   const {
@@ -31,6 +33,8 @@ function PreferencesForm({ idPrefix = 'pref' }: PreferencesFormProps) {
   const sfxId = `${idPrefix}-sfx-volume`
   const musicId = `${idPrefix}-music-volume`
   const themeGroupId = `${idPrefix}-theme`
+  const sfxPercent = sfxVolumeToPercent(sfxVolume)
+  const musicPercent = musicVolumeToPercent(musicVolume)
 
   return (
     <div className="space-y-4">
@@ -78,7 +82,7 @@ function PreferencesForm({ idPrefix = 'pref' }: PreferencesFormProps) {
             Sound effects
           </label>
           <span className="text-xs font-semibold tabular-nums text-foreground-muted">
-            {volumePercent(sfxVolume)}%
+            {sfxPercent}%
           </span>
         </div>
         <input
@@ -87,15 +91,15 @@ function PreferencesForm({ idPrefix = 'pref' }: PreferencesFormProps) {
           min={0}
           max={100}
           step={5}
-          value={volumePercent(sfxVolume)}
+          value={sfxPercent}
           onChange={(event) => {
             unlockAudio()
-            const next = Number(event.target.value) / 100
+            const next = sfxPercentToVolume(Number(event.target.value))
             setSfxVolume(next)
             if (next > 0) playSound('clue-pop')
           }}
           className="w-full accent-primary"
-          aria-valuetext={`${volumePercent(sfxVolume)} percent`}
+          aria-valuetext={`${sfxPercent} percent`}
         />
         <p className="text-xs text-foreground-muted">
           Game cues and reactions on this device only. 0% is mute.
@@ -108,7 +112,7 @@ function PreferencesForm({ idPrefix = 'pref' }: PreferencesFormProps) {
             Music
           </label>
           <span className="text-xs font-semibold tabular-nums text-foreground-muted">
-            {volumePercent(musicVolume)}%
+            {musicPercent}%
           </span>
         </div>
         <input
@@ -117,13 +121,13 @@ function PreferencesForm({ idPrefix = 'pref' }: PreferencesFormProps) {
           min={0}
           max={100}
           step={5}
-          value={volumePercent(musicVolume)}
+          value={musicPercent}
           onChange={(event) => {
             unlockAudio()
-            setMusicVolume(Number(event.target.value) / 100)
+            setMusicVolume(musicPercentToVolume(Number(event.target.value)))
           }}
           className="w-full accent-primary"
-          aria-valuetext={`${volumePercent(musicVolume)} percent`}
+          aria-valuetext={`${musicPercent} percent`}
         />
         <p className="text-xs text-foreground-muted">
           Soft theme on lobby and setup screens. Separate from sound effects.

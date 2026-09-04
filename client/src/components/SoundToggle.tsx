@@ -6,35 +6,43 @@ type SoundToggleProps = {
 }
 
 function SoundToggle({ className = '' }: SoundToggleProps) {
-  const { sfxEnabled, setSfxEnabled, sfxAllowed, reducedMotion } = usePreferences()
+  const {
+    sfxVolume,
+    musicVolume,
+    sfxAllowed,
+    musicAllowed,
+    setSoundsEnabled,
+    reducedMotion
+  } = usePreferences()
+
+  const soundsEnabled = sfxVolume > 0 || musicVolume > 0
+  const soundsAllowed = sfxAllowed || musicAllowed
 
   const handleClick = () => {
-    if (!sfxEnabled) unlockAudio()
-    setSfxEnabled(!sfxEnabled)
+    if (!soundsEnabled) unlockAudio()
+    setSoundsEnabled(!soundsEnabled)
   }
 
-  const icon = sfxAllowed ? 'volume_up' : 'volume_off'
-  const label = sfxAllowed
-    ? 'Mute sound effects'
+  const icon = soundsAllowed ? 'volume_up' : 'volume_off'
+  const label = soundsAllowed
+    ? 'Mute sounds'
     : reducedMotion
-      ? 'Sound effects muted (Reduce motion is on)'
-      : sfxEnabled
-        ? 'Mute sound effects'
-        : 'Unmute sound effects'
-
-  const isOn = sfxAllowed
+      ? 'Sounds muted (Reduce motion is on)'
+      : soundsEnabled
+        ? 'Mute sounds'
+        : 'Unmute sounds'
 
   return (
     <button
       type="button"
       onClick={handleClick}
       className={`flex size-9 md:size-10 items-center justify-center rounded-full border transition-colors ${
-        isOn
+        soundsAllowed
           ? 'border-primary/30 bg-primary/10 text-primary hover:bg-primary/15'
           : 'border-edge bg-surface-elevated text-foreground-muted hover:bg-surface-muted'
       } ${className}`.trim()}
       aria-label={label}
-      aria-pressed={isOn}
+      aria-pressed={soundsAllowed}
     >
       <span className="material-symbols-outlined">{icon}</span>
     </button>

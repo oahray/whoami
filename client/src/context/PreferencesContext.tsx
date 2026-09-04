@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode
 } from 'react'
@@ -14,6 +15,7 @@ import {
   stopMenuMusic
 } from '../lib/menuMusic'
 import {
+  clampMusicVolume,
   clampVolume,
   isMusicPlaybackAllowed,
   isSfxPlaybackAllowed,
@@ -31,11 +33,16 @@ import {
   type ThemeMode
 } from '../lib/preferences'
 
+type MuteSnapshot = {
+  sfx: number
+  music: number
+}
+
 type PreferencesContextValue = {
   /** Sound effects volume 0–1 (0 = muted). */
   sfxVolume: number
   setSfxVolume: (volume: number) => void
-  /** Menu theme music volume 0–1 (0 = muted). */
+  /** Menu theme music volume 0–MUSIC_VOLUME_MAX (0 = muted). */
   musicVolume: number
   setMusicVolume: (volume: number) => void
   /** Convenience: sfxVolume > 0. */
@@ -46,6 +53,11 @@ type PreferencesContextValue = {
   musicEnabled: boolean
   /** Mute / restore last non-zero music volume. */
   setMusicEnabled: (enabled: boolean) => void
+  /**
+   * Mute or unmute SFX + music together (in-game mute button).
+   * Mute snapshots current levels; unmute restores that snapshot.
+   */
+  setSoundsEnabled: (enabled: boolean) => void
   /** System prefers reduced motion; SFX and music stay off even if volume > 0. */
   reducedMotion: boolean
   /** Effective gate for SFX playback. */
@@ -65,6 +77,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   const [reducedMotion, setReducedMotion] = useState(prefersReducedMotion)
   const [theme, setThemeState] = useState<ThemeMode>(readTheme)
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() => resolveTheme(readTheme()))
+  const muteSnapshotRef = useRef<MuteSnapshot | null>(null)
 
   useEffect(() => {
     const mqMotion = window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -97,7 +110,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
 
   const setMusicVolume = useCallback((volume: number) => {
     const previous = readMusicVolume()
-    const next = clampVolume(volume)
+    const next = clampMusicVolume(volume)
     setMusicVolumeState(next)
     writeMusicVolume(next)
     if (next > 0) {
@@ -122,6 +135,32 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     [setMusicVolume]
   )
 
+  const setSoundsEnabled = useCallback(
+    (enabled: boolean) => {
+      if (!enabled) {
+        muteSnapshotRef.current = {
+          sfx: readSfxVolume(),
+          music: readMusicVolume()
+        }
+        setSfxVolume(0)
+        setMusicVolume(0)
+        return
+      }
+
+      const snapshot = muteSnapshotRef.current
+      muteSnapshotRef.current = null
+      if (snapshot) {
+        setSfxVolume(snapshot.sfx)
+        setMusicVolume(snapshot.music)
+        return
+      }
+
+      setSfxVolume(readSfxVolumeLast())
+      setMusicVolume(readMusicVolumeLast())
+    },
+    [setSfxVolume, setMusicVolume]
+  )
+
   const setTheme = useCallback((mode: ThemeMode) => {
     setThemeState(mode)
     writeTheme(mode)
@@ -139,6 +178,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       setSfxEnabled,
       musicEnabled: musicVolume > 0,
       setMusicEnabled,
+      setSoundsEnabled,
       reducedMotion,
       sfxAllowed: isSfxPlaybackAllowed(sfxVolume),
       musicAllowed: isMusicPlaybackAllowed(musicVolume),
@@ -153,6 +193,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       setMusicVolume,
       setSfxEnabled,
       setMusicEnabled,
+      setSoundsEnabled,
       reducedMotion,
       theme,
       setTheme,

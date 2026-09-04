@@ -7,11 +7,14 @@ export const STORAGE_KEY_MUSIC_VOLUME_LAST = 'whoami_music_volume_last'
 export const STORAGE_KEY_THEME = 'whoami_theme'
 
 /** Soft default — audible without jump-scare. */
-export const DEFAULT_SFX_VOLUME = 0.45
-/** Soft loop default; music is on for new visitors at this level. */
-export const DEFAULT_MUSIC_VOLUME = 0.15
-/** Used when migrating legacy `music_enabled=true`. */
-export const LEGACY_MUSIC_ON_VOLUME = 0.2
+export const DEFAULT_SFX_VOLUME = 0.7
+/**
+ * Soft loop default (absolute HTMLAudioElement volume).
+ * The UI slider still shows 0–100%, mapped onto {@link MUSIC_VOLUME_MAX}.
+ */
+export const DEFAULT_MUSIC_VOLUME = 0.1
+/** Max absolute music volume; slider 100% maps here. */
+export const MUSIC_VOLUME_MAX = 0.25
 
 export type ThemeMode = 'system' | 'light' | 'dark'
 export type ResolvedTheme = 'light' | 'dark'
@@ -24,11 +27,46 @@ export function clampVolume(value: number): number {
   return Math.min(1, Math.max(0, value))
 }
 
+/** Clamp music to the soft absolute range (0–{@link MUSIC_VOLUME_MAX}). */
+export function clampMusicVolume(value: number): number {
+  if (!Number.isFinite(value)) return 0
+  return Math.min(MUSIC_VOLUME_MAX, Math.max(0, value))
+}
+
+/** UI percent (0–100) for an absolute SFX volume (0–1). */
+export function sfxVolumeToPercent(volume: number): number {
+  return Math.round(clampVolume(volume) * 100)
+}
+
+/** Absolute SFX volume (0–1) from a UI percent (0–100). */
+export function sfxPercentToVolume(percent: number): number {
+  if (!Number.isFinite(percent)) return 0
+  return clampVolume(percent / 100)
+}
+
+/** UI percent (0–100) for an absolute music volume (0–{@link MUSIC_VOLUME_MAX}). */
+export function musicVolumeToPercent(volume: number): number {
+  return Math.round((clampMusicVolume(volume) / MUSIC_VOLUME_MAX) * 100)
+}
+
+/** Absolute music volume (0–{@link MUSIC_VOLUME_MAX}) from a UI percent (0–100). */
+export function musicPercentToVolume(percent: number): number {
+  if (!Number.isFinite(percent)) return 0
+  return clampMusicVolume((percent / 100) * MUSIC_VOLUME_MAX)
+}
+
 function parseStoredVolume(raw: string | null): number | null {
   if (raw === null) return null
   const parsed = Number(raw)
   if (!Number.isFinite(parsed)) return null
   return clampVolume(parsed)
+}
+
+function parseStoredMusicVolume(raw: string | null): number | null {
+  if (raw === null) return null
+  const parsed = Number(raw)
+  if (!Number.isFinite(parsed)) return null
+  return clampMusicVolume(parsed)
 }
 
 function readLegacyEnabled(key: string): boolean | null {
@@ -80,11 +118,10 @@ export function readSfxVolumeLast(): number {
 export function readMusicVolume(): number {
   if (typeof window === 'undefined') return DEFAULT_MUSIC_VOLUME
   try {
-    const stored = parseStoredVolume(localStorage.getItem(STORAGE_KEY_MUSIC_VOLUME))
+    const stored = parseStoredMusicVolume(localStorage.getItem(STORAGE_KEY_MUSIC_VOLUME))
     if (stored !== null) return stored
     const legacy = readLegacyEnabled(STORAGE_KEY_MUSIC_ENABLED)
     if (legacy === false) return 0
-    if (legacy === true) return LEGACY_MUSIC_ON_VOLUME
     return DEFAULT_MUSIC_VOLUME
   } catch {
     return DEFAULT_MUSIC_VOLUME
@@ -93,7 +130,7 @@ export function readMusicVolume(): number {
 
 export function writeMusicVolume(volume: number): void {
   try {
-    const next = clampVolume(volume)
+    const next = clampMusicVolume(volume)
     localStorage.setItem(STORAGE_KEY_MUSIC_VOLUME, String(next))
     if (next > 0) {
       localStorage.setItem(STORAGE_KEY_MUSIC_VOLUME_LAST, String(next))
@@ -106,7 +143,7 @@ export function writeMusicVolume(volume: number): void {
 export function readMusicVolumeLast(): number {
   if (typeof window === 'undefined') return DEFAULT_MUSIC_VOLUME
   try {
-    const stored = parseStoredVolume(localStorage.getItem(STORAGE_KEY_MUSIC_VOLUME_LAST))
+    const stored = parseStoredMusicVolume(localStorage.getItem(STORAGE_KEY_MUSIC_VOLUME_LAST))
     if (stored !== null && stored > 0) return stored
   } catch {
     // ignore
