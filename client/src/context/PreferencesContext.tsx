@@ -11,7 +11,6 @@ import {
 import { applyThemeMode } from '../lib/applyTheme'
 import {
   applyMenuMusicVolume,
-  enableAndStartMenuMusic,
   stopMenuMusic
 } from '../lib/menuMusic'
 import {
@@ -109,16 +108,13 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const setMusicVolume = useCallback((volume: number) => {
-    const previous = readMusicVolume()
     const next = clampMusicVolume(volume)
     setMusicVolumeState(next)
     writeMusicVolume(next)
+    // Only update/stop the theme track here. Starting playback is owned by
+    // `useMenuMusic` on lobby/setup screens — never force-start mid-game.
     if (next > 0) {
-      if (previous <= 0) {
-        enableAndStartMenuMusic()
-      } else {
-        applyMenuMusicVolume()
-      }
+      applyMenuMusicVolume()
     } else {
       stopMenuMusic()
     }
