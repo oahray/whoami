@@ -98,6 +98,67 @@ describe('PlaySetup', () => {
     expect(deck).toContain('ent-1')
   })
 
+  it('does not refetch eligibility when only difficulty changes', async () => {
+    let eligibilityCalls = 0
+
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const url = String(input)
+      if (url.includes('/datasets')) {
+        return {
+          ok: true,
+          json: async () => [
+            {
+              id: 'ds-1',
+              name: 'Bible',
+              source: null,
+              description: null,
+              is_default: true
+            }
+          ]
+        } as Response
+      }
+      if (url.includes('/cards/eligibility')) {
+        eligibilityCalls += 1
+        return {
+          ok: true,
+          json: async () => ({
+            modes: {
+              any: 5,
+              easy: 5,
+              medium: 5,
+              hard: 5,
+              nightmare: 5
+            }
+          })
+        } as Response
+      }
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+
+    renderWithPreferences(
+      <MemoryRouter>
+        <PlaySetup />
+      </MemoryRouter>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /start cards/i })).not.toBeDisabled()
+    })
+    expect(eligibilityCalls).toBe(1)
+
+    fireEvent.click(screen.getByRole('button', { name: /^easy$/i }))
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^easy$/i })).toHaveAttribute('aria-pressed', 'false')
+    })
+    expect(eligibilityCalls).toBe(1)
+
+    fireEvent.click(screen.getByRole('button', { name: /^medium$/i }))
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /^medium$/i })).toHaveAttribute('aria-pressed', 'false')
+    })
+    expect(eligibilityCalls).toBe(1)
+  })
+
   it('keeps card type selectable when the current type has no playable content', async () => {
     let eligibilityCalls = 0
 
