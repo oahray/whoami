@@ -52,6 +52,7 @@ describe('socket handler utils', () => {
         serverStartTime: 123456789,
         activeStartTime: 123456789 + 3000,
         revealedClueCount: 1,
+        roundEndedAt: null,
         correctGuesses: [],
         timers: {
           clueReveal: null,
@@ -110,6 +111,7 @@ describe('socket handler utils', () => {
         serverStartTime: 987654321,
         activeStartTime: 987654321 + 3000,
         revealedClueCount: 2,
+        roundEndedAt: null,
         correctGuesses: [],
         timers: {
           clueReveal: null,
@@ -152,6 +154,7 @@ describe('socket handler utils', () => {
         serverStartTime: 555,
         activeStartTime: 555 + 3000,
         revealedClueCount: 4,
+        roundEndedAt: null,
         correctGuesses: [],
         timers: {
           clueReveal: null,

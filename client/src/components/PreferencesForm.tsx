@@ -102,7 +102,7 @@ function PreferencesForm({ idPrefix = 'pref' }: PreferencesFormProps) {
           aria-valuetext={`${sfxPercent} percent`}
         />
         <p className="text-xs text-foreground-muted">
-          Game cues and reactions on this device only. 0% is mute.
+          Game cues and reactions on this device only. Slide to 0 to mute.
         </p>
       </div>
 

@@ -220,13 +220,16 @@ function SoloSetup() {
     }
     let cancelled = false
     setEligibilityLoading(true)
-    fetchInPersonEligibility(datasetId, entityType, { difficulty })
+    fetchInPersonEligibility(datasetId, entityType)
       .then((data) => {
         if (cancelled) return
         setEligibility(data)
-        if (!isDifficultySelectionPlayable(data, difficulty) && (data.modes.any ?? 0) > 0) {
-          setDifficulty([])
-        }
+        setDifficulty((current) => {
+          if (!isDifficultySelectionPlayable(data, current) && (data.modes.any ?? 0) > 0) {
+            return []
+          }
+          return current
+        })
       })
       .catch((err) => {
         if (cancelled) return
@@ -239,7 +242,7 @@ function SoloSetup() {
     return () => {
       cancelled = true
     }
-  }, [datasetId, entityType, difficulty, offline])
+  }, [datasetId, entityType, offline])
 
   const persistSetup = (
     overrides: Partial<Pick<SoloConfig, 'datasetId' | 'difficulty' | 'entityType' | 'variation'>> & {

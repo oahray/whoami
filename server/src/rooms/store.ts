@@ -63,6 +63,11 @@ export interface RoundState {
    * `revealClue` each time a CLUE_REVEALED event is scheduled to be emitted.
    */
   revealedClueCount: number
+  /**
+   * Wall-clock ms when the round entered `ended` (inter-round pause start).
+   * Null until `endRound`. Used to re-arm the next-round delay after hydrate.
+   */
+  roundEndedAt: number | null
   correctGuesses: Array<{
     playerId: string
     nickname: string

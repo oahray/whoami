@@ -22,6 +22,39 @@ const MIN_CLUE_INTERVAL_MS = 2000
  */
 const CLUE_TAIL_BUFFER_MS = CLUE_REVEAL_ROUND_TAIL_BUFFER_MS
 
+function remainingMs(deadline: number, now = Date.now()): number {
+  return Math.max(0, deadline - now)
+}
+
+function buildCurrentScoreboard(room: RoomState) {
+  return Array.from(room.scores.entries())
+    .map(([playerId, score]) => {
+      const player = room.players.get(playerId)
+      return {
+        playerId,
+        nickname: player?.nickname || 'Unknown',
+        score
+      }
+    })
+    .sort((a, b) => b.score - a.score)
+}
+
+export function emitRoundStarted(io: Server, room: RoomState): void {
+  if (!room.currentRound) return
+  const firstClue = room.currentRound.clues[0]
+  io.to(room.code).emit('ROUND_STARTED', {
+    roundNumber: room.currentRound.roundNumber,
+    totalRounds: room.settings.totalRounds,
+    serverStartTime: room.currentRound.serverStartTime,
+    roundDuration: room.settings.roundDuration,
+    currentScoreboard: buildCurrentScoreboard(room),
+    clue: {
+      order: firstClue.order,
+      text: firstClue.text
+    }
+  })
+}
+
 /**
  * Schedule the timed reveal of every clue past the first. Intervals are
  * measured from the moment the round became `active` (after the pre-round
@@ -73,6 +106,123 @@ export function scheduleClueReveals(io: Server, room: RoomState): void {
   }
 
   scheduleNext()
+}
+
+/** End the round when wall-clock time from `activeStartTime` is exhausted. */
+export function scheduleRoundEnd(io: Server, room: RoomState, now = Date.now()): void {
+  const round = room.currentRound
+  if (!round || round.phase === 'ended' || round.phase === 'starting') return
+  if (round.activeStartTime == null) return
+
+  if (round.timers.roundEnd) {
+    clearTimeout(round.timers.roundEnd)
+    round.timers.roundEnd = null
+  }
+
+  const delay = remainingMs(round.activeStartTime + room.settings.roundDuration, now)
+  round.timers.roundEnd = setTimeout(() => {
+    safeTimer('scheduleRoundEnd:fire', () => {
+      if (!room.currentRound || room.currentRound.phase === 'ended') return
+      endRound(room)
+      const roundResult = room.roundHistory[room.roundHistory.length - 1]
+      broadcastRoundEnd(io, room, roundResult)
+    })
+  }, delay)
+}
+
+/** Activate guessing + arm active-round timers (clues + round end). */
+export function armActiveRound(io: Server, room: RoomState, now = Date.now()): void {
+  if (!room.currentRound) return
+  if (room.currentRound.phase === 'starting') {
+    activateRound(room)
+  }
+  if (!room.currentRound || room.currentRound.phase === 'ended') return
+  scheduleRoundEnd(io, room, now)
+  scheduleClueReveals(io, room)
+}
+
+/**
+ * Schedule (or immediately run) the pre-round countdown → active transition
+ * from `serverStartTime + ROUND_START_DELAY_MS`.
+ */
+export function scheduleRoundActivation(io: Server, room: RoomState, now = Date.now()): void {
+  const round = room.currentRound
+  if (!round || round.phase !== 'starting') return
+
+  const delay = remainingMs(round.serverStartTime + ROUND_START_DELAY_MS, now)
+  setTimeout(() => {
+    safeTimer('scheduleRoundActivation:fire', () => {
+      armActiveRound(io, room)
+    })
+  }, delay)
+}
+
+/**
+ * After ROUND_ENDED, wait for the inter-round pause then start the next round
+ * (or end the game). Uses `roundEndedAt` when present so hydrate can resume
+ * the remaining delay; otherwise waits a full INTER_ROUND_DELAY_MS from now.
+ */
+export function scheduleInterRoundAdvance(io: Server, room: RoomState, now = Date.now()): void {
+  const endedAt = room.currentRound?.roundEndedAt
+  const delay =
+    endedAt != null ? remainingMs(endedAt + INTER_ROUND_DELAY_MS, now) : INTER_ROUND_DELAY_MS
+
+  setTimeout(() => {
+    safeTimer('scheduleInterRoundAdvance:nextRound', () => {
+      if (room.status !== 'in_progress') return
+
+      startNextRound(room)
+        .then(() => {
+          if (room.status === 'finished') {
+            emitGameEnded(io, room)
+            return
+          }
+
+          emitRoundStarted(io, room)
+          scheduleRoundActivation(io, room)
+        })
+        .catch((error) => {
+          logger.error('Error starting next round', error, { roomCode: room.code })
+          io.to(room.code).emit('ROOM_ERROR', {
+            code: 'INTERNAL_ERROR',
+            message: 'Failed to start next round'
+          })
+        })
+    })
+  }, delay)
+}
+
+/**
+ * Re-arm in-process timers for a hydrated room. Timers run even with no
+ * connected sockets; rejoining clients pick up state via reconnect payload.
+ */
+export function rearmRoomTimers(io: Server, room: RoomState, now = Date.now()): void {
+  if (room.status !== 'in_progress' || !room.currentRound) return
+
+  const phase = room.currentRound.phase
+  if (phase === 'starting') {
+    scheduleRoundActivation(io, room, now)
+    return
+  }
+  if (phase === 'ended') {
+    scheduleInterRoundAdvance(io, room, now)
+    return
+  }
+  // active | clue_revealed
+  armActiveRound(io, room, now)
+}
+
+export function rearmAllHydratedRoomTimers(io: Server, rooms: RoomState[], now = Date.now()): number {
+  let rearmed = 0
+  for (const room of rooms) {
+    if (room.status !== 'in_progress' || !room.currentRound) continue
+    rearmRoomTimers(io, room, now)
+    rearmed += 1
+  }
+  if (rearmed > 0) {
+    logger.info('Re-armed room timers after hydrate', { rearmed })
+  }
+  return rearmed
 }
 
 const GRACE_PERIOD_MS = 5 * 60 * 1000
@@ -155,14 +305,8 @@ export function buildReconnectPayload(room: RoomState, player: Player) {
       })),
       isLocked: player.isLocked,
       serverStartTime: room.currentRound.serverStartTime,
-      currentScoreboard: Array.from(room.scores.entries()).map(([id, score]) => {
-        const p = room.players.get(id)
-        return {
-          playerId: id,
-          nickname: p?.nickname || 'Unknown',
-          score
-        }
-      }).sort((a, b) => b.score - a.score)
+      activeStartTime: room.currentRound.activeStartTime,
+      currentScoreboard: buildCurrentScoreboard(room)
     }
   }
 
@@ -190,64 +334,7 @@ export function broadcastRoundEnd(io: Server, room: RoomState, roundResult: any)
   }
 
   io.to(room.code).emit('ROUND_ENDED', payload)
-
-  setTimeout(() => {
-    safeTimer('broadcastRoundEnd:nextRound', () => {
-      if (room.status !== 'in_progress') return
-
-      startNextRound(room).then(() => {
-        if (room.status === 'finished') {
-          emitGameEnded(io, room)
-          return
-        }
-
-        const currentScoreboard = Array.from(room.scores.entries())
-          .map(([playerId, score]) => {
-            const player = room.players.get(playerId)
-            return {
-              playerId,
-              nickname: player?.nickname || 'Unknown',
-              score
-            }
-          })
-          .sort((a, b) => b.score - a.score)
-
-        const firstClue = room.currentRound!.clues[0]
-        io.to(room.code).emit('ROUND_STARTED', {
-          roundNumber: room.currentRound!.roundNumber,
-          totalRounds: room.settings.totalRounds,
-          serverStartTime: room.currentRound!.serverStartTime,
-          roundDuration: room.settings.roundDuration,
-          currentScoreboard,
-          clue: {
-            order: firstClue.order,
-            text: firstClue.text
-          }
-        })
-
-        setTimeout(() => {
-          safeTimer('broadcastRoundEnd:activate', () => {
-            activateRound(room)
-            const roundEndDelay = room.settings.roundDuration
-            room.currentRound!.timers.roundEnd = setTimeout(() => {
-              safeTimer('broadcastRoundEnd:endRound', () => {
-                endRound(room)
-                const roundResult = room.roundHistory[room.roundHistory.length - 1]
-                broadcastRoundEnd(io, room, roundResult)
-              })
-            }, roundEndDelay)
-            scheduleClueReveals(io, room)
-          })
-        }, ROUND_START_DELAY_MS)
-      }).catch(error => {
-        logger.error('Error starting next round', error, { roomCode: room.code })
-        io.to(room.code).emit('ROOM_ERROR', {
-          code: 'INTERNAL_ERROR',
-          message: 'Failed to start next round'
-        })
-      })
-    })
-  }, INTER_ROUND_DELAY_MS)
+  scheduleInterRoundAdvance(io, room)
 }
 
 export { GRACE_PERIOD_MS }

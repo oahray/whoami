@@ -50,6 +50,7 @@ export function serializeRoom(room: RoomState): SerializedRoom {
         serverStartTime: room.currentRound.serverStartTime,
         activeStartTime: room.currentRound.activeStartTime,
         revealedClueCount: room.currentRound.revealedClueCount,
+        roundEndedAt: room.currentRound.roundEndedAt ?? null,
         correctGuesses: room.currentRound.correctGuesses
       }
     : null
@@ -88,6 +89,7 @@ export function deserializeRoom(raw: SerializedRoom): RoomState {
   const currentRound: RoundState | null = raw.currentRound
     ? {
         ...raw.currentRound,
+        roundEndedAt: raw.currentRound.roundEndedAt ?? null,
         timers: {
           clueReveal: null,
           roundEnd: null
@@ -113,9 +115,9 @@ export function deserializeRoom(raw: SerializedRoom): RoomState {
 }
 
 /**
- * Phase 1 hydrate: waiting/finished rooms restore as-is (players marked
- * disconnected by the caller). In-progress rooms cannot re-arm timers yet,
- * so demote to a joinable lobby and clear the live round.
+ * Mark players disconnected after a process restart.
+ * In-progress rounds stay intact so timers can be re-armed (Phase 2).
+ * Rooms marked in_progress without a currentRound fall back to a lobby.
  */
 export function prepareRoomForHydrate(room: RoomState, now = Date.now()): RoomState {
   for (const player of room.players.values()) {
@@ -125,9 +127,8 @@ export function prepareRoomForHydrate(room: RoomState, now = Date.now()): RoomSt
     }
   }
 
-  if (room.status === 'in_progress') {
+  if (room.status === 'in_progress' && !room.currentRound) {
     room.status = 'waiting'
-    room.currentRound = null
     room.roundHistory = []
     room.entityPool = []
     room.usedEntityIds = new Set()

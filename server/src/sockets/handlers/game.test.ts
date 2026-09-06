@@ -25,7 +25,9 @@ vi.mock('../../game/roundState.js', async () => {
 })
 
 vi.mock('./utils.js', () => ({
-  broadcastRoundEnd: vi.fn()
+  broadcastRoundEnd: vi.fn(),
+  emitRoundStarted: vi.fn(),
+  scheduleRoundActivation: vi.fn()
 }))
 
 vi.mock('../../db/maintenance.js', () => ({
@@ -41,7 +43,7 @@ import {
   resetRoomForNewGame,
   startGame
 } from '../../game/roundState.js'
-import { broadcastRoundEnd } from './utils.js'
+import { broadcastRoundEnd, emitRoundStarted, scheduleRoundActivation } from './utils.js'
 import { handleStartGame, handleSubmitGuess } from './game.js'
 
 describe('game socket handlers', () => {
@@ -65,7 +67,7 @@ describe('game socket handlers', () => {
     })
   })
 
-  it('resets a finished room and emits ROUND_STARTED with current scoreboard', async () => {
+  it('resets a finished room and starts the first round', async () => {
     const room = actualStore.createRoom('host-socket', 'Host')
     const roomEmit = vi.fn()
     const socket = { id: 'host-socket', emit: vi.fn() } as any
@@ -100,13 +102,8 @@ describe('game socket handlers', () => {
     await handleStartGame(io, socket, {})
 
     expect(resetRoomForNewGame).toHaveBeenCalledWith(room)
-    expect(roomEmit).toHaveBeenCalledWith('ROUND_STARTED', expect.objectContaining({
-      roundNumber: 1,
-      currentScoreboard: [
-        { playerId: 'p2', nickname: 'Paul', score: 250 },
-        { playerId: 'host-socket', nickname: 'Host', score: 100 }
-      ]
-    }))
+    expect(emitRoundStarted).toHaveBeenCalledWith(io, room)
+    expect(scheduleRoundActivation).toHaveBeenCalledWith(io, room)
   })
 
   it('broadcasts correct guesses and round-end when the round has already ended', () => {

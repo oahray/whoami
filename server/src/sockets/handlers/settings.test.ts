@@ -46,6 +46,7 @@ describe('handleUpdateSettings', () => {
       serverStartTime: Date.now(),
       activeStartTime: Date.now(),
       revealedClueCount: 1,
+      roundEndedAt: null,
       correctGuesses: [],
       timers: {
         clueReveal: null,
