@@ -114,6 +114,7 @@ export async function startNextRound(room: RoomState): Promise<void> {
     serverStartTime: Date.now(),
     activeStartTime: null,
     revealedClueCount: 1,
+    roundEndedAt: null,
     correctGuesses: [],
     timers: {
       clueReveal: null,
@@ -147,6 +148,7 @@ export function revealClue(room: RoomState): { order: number; text: string } | n
   const clue = room.currentRound.clues[nextIndex]
   room.currentRound.revealedClueCount = nextIndex + 1
   room.currentRound.phase = 'clue_revealed'
+  persistRoom(room)
   return { order: clue.order, text: clue.text }
 }
 
@@ -234,6 +236,8 @@ export function processGuess(room: RoomState, playerId: string, guess: string): 
         clearTimeout(room.currentRound.timers.roundEnd)
       }
       endRound(room)
+    } else {
+      persistRoom(room)
     }
 
     return {
@@ -244,6 +248,7 @@ export function processGuess(room: RoomState, playerId: string, guess: string): 
     }
   }
 
+  persistRoom(room)
   return {
     correct: false
   }
@@ -264,6 +269,7 @@ export function endRound(room: RoomState): void {
   }
 
   room.currentRound.phase = 'ended'
+  room.currentRound.roundEndedAt = Date.now()
 
   const correctMap = new Map(
     room.currentRound.correctGuesses.map(g => [g.playerId, g])
@@ -293,6 +299,7 @@ export function endRound(room: RoomState): void {
   }
 
   room.roundHistory.push(roundResult)
+  persistRoom(room)
 }
 
 export function endGame(room: RoomState): void {

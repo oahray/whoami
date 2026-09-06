@@ -43,7 +43,7 @@ describe('room serialize', () => {
     expect(restored.currentRound).toBeNull()
   })
 
-  it('preserves shuffled clue order for an in-progress round', () => {
+  it('preserves shuffled clue order and roundEndedAt for an in-progress round', () => {
     const room = createRoom('host-1', 'Host')
     room.status = 'in_progress'
     room.currentRound = {
@@ -62,6 +62,7 @@ describe('room serialize', () => {
       serverStartTime: 1000,
       activeStartTime: 4000,
       revealedClueCount: 2,
+      roundEndedAt: null,
       correctGuesses: [],
       timers: {
         clueReveal: setTimeout(() => {}, 999_999),
@@ -72,16 +73,18 @@ describe('room serialize', () => {
     const json = serializeRoom(room)
     expect(json.currentRound && 'timers' in json.currentRound).toBe(false)
     expect(json.currentRound?.clues.map((c) => c.text)).toEqual(['Shepherd', 'Goliath'])
+    expect(json.currentRound?.roundEndedAt).toBeNull()
 
     const restored = deserializeRoom(json)
     expect(restored.currentRound?.timers.clueReveal).toBeNull()
     expect(restored.currentRound?.clues.map((c) => c.text)).toEqual(['Shepherd', 'Goliath'])
     expect(restored.currentRound?.revealedClueCount).toBe(2)
+    expect(restored.currentRound?.roundEndedAt).toBeNull()
 
     clearTimeout(room.currentRound.timers.clueReveal!)
   })
 
-  it('demotes in-progress rooms to a joinable lobby on hydrate', () => {
+  it('keeps in-progress rooms intact on hydrate and marks players disconnected', () => {
     const room = createRoom('host-1', 'Host')
     room.status = 'in_progress'
     room.scores.set('host-1', 40)
@@ -98,15 +101,27 @@ describe('room serialize', () => {
       serverStartTime: 1,
       activeStartTime: 2,
       revealedClueCount: 1,
+      roundEndedAt: null,
       correctGuesses: [],
       timers: { clueReveal: null, roundEnd: null }
     }
 
     const prepared = prepareRoomForHydrate(room, 5_000)
-    expect(prepared.status).toBe('waiting')
-    expect(prepared.currentRound).toBeNull()
-    expect(prepared.scores.size).toBe(0)
+    expect(prepared.status).toBe('in_progress')
+    expect(prepared.currentRound?.phase).toBe('active')
+    expect(prepared.scores.get('host-1')).toBe(40)
     expect(prepared.players.get('host-1')?.isConnected).toBe(false)
     expect(prepared.players.get('host-1')?.disconnectedAt).toBe(5_000)
+  })
+
+  it('demotes broken in-progress rooms that have no currentRound', () => {
+    const room = createRoom('host-1', 'Host')
+    room.status = 'in_progress'
+    room.scores.set('host-1', 40)
+    room.currentRound = null
+
+    const prepared = prepareRoomForHydrate(room, 5_000)
+    expect(prepared.status).toBe('waiting')
+    expect(prepared.scores.size).toBe(0)
   })
 })

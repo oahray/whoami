@@ -1,32 +1,18 @@
 import { Server, Socket } from 'socket.io'
 import { getRoomBySocket } from '../../rooms/store.js'
-import type { RoomState } from '../../rooms/store.js'
 import {
   startGame,
-  activateRound,
   processGuess,
-  endRound,
   resetRoomForNewGame,
   GameStartError
 } from '../../game/roundState.js'
-import { ROUND_START_DELAY_MS } from '../../game/multiplayerDefaults.js'
-import { broadcastRoundEnd, scheduleClueReveals } from './utils.js'
-import { safeTimer } from '../dispatch.js'
+import {
+  broadcastRoundEnd,
+  emitRoundStarted,
+  scheduleRoundActivation
+} from './utils.js'
 import { getMaintenanceBlock } from '../../db/maintenance.js'
 import { logger } from '../../utils/logger.js'
-
-function buildCurrentScoreboard(room: RoomState) {
-  return Array.from(room.scores.entries() as IterableIterator<[string, number]>)
-    .map(([playerId, score]) => {
-      const player = room.players.get(playerId)
-      return {
-        playerId,
-        nickname: player?.nickname || 'Unknown',
-        score
-      }
-    })
-    .sort((a, b) => b.score - a.score)
-}
 
 export async function handleStartGame(io: Server, socket: Socket, _payload: any) {
   try {
@@ -92,33 +78,8 @@ export async function handleStartGame(io: Server, socket: Socket, _payload: any)
       throw error
     }
 
-    const firstClue = room.currentRound!.clues[0]
-    io.to(room.code).emit('ROUND_STARTED', {
-      roundNumber: room.currentRound!.roundNumber,
-      totalRounds: room.settings.totalRounds,
-      serverStartTime: room.currentRound!.serverStartTime,
-      roundDuration: room.settings.roundDuration,
-      currentScoreboard: buildCurrentScoreboard(room),
-      clue: {
-        order: firstClue.order,
-        text: firstClue.text
-      }
-    })
-
-    setTimeout(() => {
-      safeTimer('handleStartGame:activate', () => {
-        activateRound(room)
-        const roundEndDelay = room.settings.roundDuration
-        room.currentRound!.timers.roundEnd = setTimeout(() => {
-          safeTimer('handleStartGame:endRound', () => {
-            endRound(room)
-            const roundResult = room.roundHistory[room.roundHistory.length - 1]
-            broadcastRoundEnd(io, room, roundResult)
-          })
-        }, roundEndDelay)
-        scheduleClueReveals(io, room)
-      })
-    }, ROUND_START_DELAY_MS)
+    emitRoundStarted(io, room)
+    scheduleRoundActivation(io, room)
   } catch (error: any) {
     const room = getRoomBySocket(socket.id)
     logger.error('Error in handleStartGame', error, {

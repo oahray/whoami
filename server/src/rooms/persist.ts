@@ -77,11 +77,11 @@ export async function fetchRoomsFromRedis(): Promise<{
       try {
         const parsed = JSON.parse(raw) as SerializedRoom
         if (!parsed?.code || typeof parsed.code !== 'string') continue
-        const wasInProgress = parsed.status === 'in_progress'
+        const wasBrokenInProgress = parsed.status === 'in_progress' && !parsed.currentRound
         const room = prepareRoomForHydrate(deserializeRoom(parsed))
         hydrated.push(room)
         restored += 1
-        if (wasInProgress) demoted += 1
+        if (wasBrokenInProgress && room.status === 'waiting') demoted += 1
         await saveRoomToRedis(room)
       } catch (err) {
         logger.error('Failed to hydrate room from Redis', err, { key: keys[i] })

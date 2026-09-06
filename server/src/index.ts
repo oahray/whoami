@@ -30,6 +30,7 @@ import {
 import { isRedisConfigured } from './redis/client.js'
 import { fetchRoomsFromRedis } from './rooms/persist.js'
 import { loadHydratedRooms } from './rooms/store.js'
+import { rearmAllHydratedRoomTimers } from './sockets/handlers/utils.js'
 
 dotenv.config()
 
@@ -197,8 +198,10 @@ process.on('uncaughtException', (err) => {
 })
 
 async function boot() {
+  let hydratedRooms: Awaited<ReturnType<typeof fetchRoomsFromRedis>>['rooms'] = []
   try {
     const { rooms, restored, demoted } = await fetchRoomsFromRedis()
+    hydratedRooms = rooms
     loadHydratedRooms(rooms)
     if (restored > 0) {
       logger.info('Room persistence ready', { restored, demoted })
@@ -212,10 +215,12 @@ async function boot() {
   }
 
   server.listen(PORT, () => {
+    const rearmed = rearmAllHydratedRoomTimers(io, hydratedRooms)
     logger.info('Server started', {
       port: PORT,
       allowedOrigins,
-      redis: isRedisConfigured()
+      redis: isRedisConfigured(),
+      rearmed
     })
   })
 }
