@@ -40,6 +40,41 @@ function About() {
 
         <section className="bg-surface rounded-lg border border-edge shadow-sm p-5 space-y-3">
           <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-primary">category</span>
+            <h2 className="text-lg font-bold text-foreground">Ainogames</h2>
+          </div>
+          <p className="text-foreground text-sm leading-relaxed">
+            WhoAmI is the first game from Ainogames. It is open source and
+            available for everyone to enjoy and contribute to.
+          </p>
+          <div className="flex flex-wrap gap-x-5 gap-y-2">
+            <a
+              href="https://ainogames.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-primary font-semibold text-sm hover:text-primary/80"
+            >
+              Visit Ainogames
+              <span className="material-symbols-outlined text-lg" aria-hidden>
+                open_in_new
+              </span>
+            </a>
+            <a
+              href="https://github.com/oahray/whoami"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-primary font-semibold text-sm hover:text-primary/80"
+            >
+              View source
+              <span className="material-symbols-outlined text-lg" aria-hidden>
+                code
+              </span>
+            </a>
+          </div>
+        </section>
+
+        <section className="bg-surface rounded-lg border border-edge shadow-sm p-5 space-y-3">
+          <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-primary">person</span>
             <h2 className="text-lg font-bold text-foreground">Solo mode</h2>
           </div>
