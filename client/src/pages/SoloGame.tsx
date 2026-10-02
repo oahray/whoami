@@ -7,6 +7,10 @@ import { useMaintenanceStatus } from '../hooks/useMaintenanceStatus'
 import { useStickToBottom } from '../hooks/useStickToBottom'
 import { useVisualViewportLock } from '../hooks/useVisualViewportLock'
 import { encodeDifficultySelection } from '../lib/difficultySelection'
+import {
+  saveDailyResult,
+  type DailyProgress
+} from '../lib/dailySolo'
 import { validateGuess } from '../lib/guessValidation'
 import {
   getInPersonCard,
@@ -87,16 +91,15 @@ function SoloGame() {
   const [remainingMs, setRemainingMs] = useState(0)
   const [guess, setGuess] = useState('')
   const [feedback, setFeedback] = useState<string | null>(null)
-  const [scoreWarning, setScoreWarning] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<{
     record: SoloRecord
     isPersonalBest: boolean
     endedByMaintenance?: boolean
+    dailyProgress?: DailyProgress
   } | null>(null)
   const [restarting, setRestarting] = useState(false)
-  const [scoring, setScoring] = useState(false)
   const { status: maintenanceStatus } = useMaintenanceStatus({ poll: true })
   const maintenanceBlocking = isMaintenanceBlockingNewGames(maintenanceStatus)
   const roundStartedAt = useRef(0)
@@ -137,8 +140,6 @@ function SoloGame() {
     setCard(null)
     setGuess('')
     setFeedback(null)
-    setScoreWarning(null)
-    setScoring(false)
     lastClueCountRef.current = 0
     try {
       const storedCard = cardForCurrentSoloRound(nextSession)
@@ -231,20 +232,32 @@ function SoloGame() {
       achievedAt: new Date().toISOString()
     }
     const saved = saveSoloRecord(record)
+    const dailyProgress =
+      completed.variation === 'daily' &&
+      completed.dailyChallengeId &&
+      completed.dailyDateKey
+        ? saveDailyResult({
+            challengeId: completed.dailyChallengeId,
+            dateKey: completed.dailyDateKey,
+            completedAt: record.achievedAt,
+            record
+          })
+        : undefined
     clearSoloSession()
     setError(null)
     setStatus('finished')
     setResult({
       record,
       isPersonalBest: saved.isPersonalBest,
-      endedByMaintenance: opts?.endedByMaintenance
+      endedByMaintenance: opts?.endedByMaintenance,
+      dailyProgress
     })
     if (record.correctCount > 0) playSound('yay')
   }, [])
 
   const advance = useCallback(async (correct: boolean) => {
     const current = activeSession.current
-    if (!current || status === 'finished' || scoring) return
+    if (!current || status === 'finished') return
     const elapsed = Math.min(
       current.roundDurationMs,
       Math.max(0, Date.now() - roundStartedAt.current)
@@ -279,7 +292,10 @@ function SoloGame() {
       return
     }
 
-    if (updated.variation === 'challenge' && updated.index >= updated.entityIds.length) {
+    if (
+      (updated.variation === 'challenge' || updated.variation === 'daily') &&
+      updated.index >= updated.entityIds.length
+    ) {
       activeSession.current = updated
       setSession(updated)
       finishRun(updated)
@@ -318,7 +334,7 @@ function SoloGame() {
     if (loadError && isLostCardError(loadError)) {
       finishRun(updated, { endedByMaintenance: true })
     }
-  }, [finishRun, loadCard, scoring, status])
+  }, [finishRun, loadCard, status])
 
   const nextPrefetchId =
     session && shouldPrefetchNextSoloCard(session, status)
@@ -393,7 +409,6 @@ function SoloGame() {
 
   useEffect(() => {
     if (status !== 'correct' && status !== 'timeout') return
-    if (scoring) return
 
     // Focus the CTA so Enter activates it natively; also handle Enter if focus
     // landed elsewhere (e.g. body after the guess field unmounted).
@@ -426,7 +441,7 @@ function SoloGame() {
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [status, card?.entity.id, advance, scoring])
+  }, [status, card?.entity.id, advance])
 
   useEffect(() => {
     resetStick()
@@ -448,7 +463,11 @@ function SoloGame() {
         const body = await response.json().catch(() => ({}))
         throw new Error(body.error ?? `Failed to load cards (${response.status})`)
       }
-      const { entityIds } = (await response.json()) as { entityIds: string[] }
+      const { entityIds, scoringVersion, scoringRules } = (await response.json()) as {
+        entityIds: string[]
+        scoringVersion?: number
+        scoringRules?: SoloSession['scoringRules']
+      }
       const nextSession = createSoloSession(
         {
           datasetId: session.datasetId,
@@ -458,7 +477,12 @@ function SoloGame() {
           roundDurationMs: session.roundDurationMs,
           clueRevealIntervalMs: session.clueRevealIntervalMs
         },
-        entityIds
+        entityIds,
+        scoringVersion != null && scoringRules
+          ? { version: scoringVersion, rules: scoringRules }
+          : session.scoringVersion != null && session.scoringRules
+            ? { version: session.scoringVersion, rules: session.scoringRules }
+            : undefined
       )
       saveSoloSession(nextSession)
       activeSession.current = nextSession
@@ -483,8 +507,8 @@ function SoloGame() {
     }
   }
 
-  const submitGuess = async () => {
-    if (!card || status !== 'active' || !guess.trim() || scoring) return
+  const submitGuess = () => {
+    if (!card || status !== 'active' || !guess.trim()) return
     if (!validateGuess(guess, card.entity.name, card.entity.aliases)) {
       setFeedback('Not quite. Keep trying.')
       setGuess('')
@@ -527,19 +551,15 @@ function SoloGame() {
       setSession(pending)
       saveSoloSession(pending)
 
-      setScoring(true)
-      let breakdown: SoloScoreBreakdown
-      try {
-        breakdown = await scoreSoloRound({
+      const breakdown = scoreSoloRound(
+        {
           correct: true,
           elapsedMs,
           revealedClueCount: revealedCluesAt(current, card, elapsedMs),
           incorrectGuessCount: current.currentIncorrectGuessCount ?? 0
-        })
-      } catch {
-        breakdown = ZERO_SCORE_BREAKDOWN
-        setScoreWarning('Your answer was saved, but points could not be calculated.')
-      }
+        },
+        current.scoringRules
+      )
 
       const performance: SoloRoundPerformance = {
         entityId: card.entity.id,
@@ -554,12 +574,16 @@ function SoloGame() {
       activeSession.current = settled
       setSession(settled)
       saveSoloSession(settled)
-      setScoring(false)
     }
   }
 
   if (result && session) {
-    const heading = session.variation === 'challenge' ? 'Challenge complete!' : 'Endurance complete!'
+    const heading =
+      session.variation === 'daily'
+        ? 'Daily challenge complete!'
+        : session.variation === 'challenge'
+          ? 'Challenge complete!'
+          : 'Endurance complete!'
     const averageClues = soloRecordAverageClues(result.record)
     const firstClueCorrect = soloRecordFirstClueCorrectCount(result.record)
     return (
@@ -569,7 +593,11 @@ function SoloGame() {
           <span className="material-symbols-outlined text-5xl text-primary">emoji_events</span>
           <div>
             <h1 className="text-2xl font-black">{heading}</h1>
-            <p className="mt-1 text-foreground-muted">{session.variation === 'challenge' ? 'Your 10-round result' : 'Your final streak'}</p>
+            <p className="mt-1 text-foreground-muted">
+              {session.variation === 'endurance'
+                ? 'Your final streak'
+                : 'Your 10-round result'}
+            </p>
           </div>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
             <div className="rounded-lg bg-primary/10 p-4">
@@ -601,6 +629,11 @@ function SoloGame() {
               New personal best on this device!
             </p>
           )}
+          {result.dailyProgress && (
+            <p role="status" className="banner-success font-semibold">
+              {result.dailyProgress.currentStreak}-day daily streak
+            </p>
+          )}
           {!result.isPersonalBest && (
             <p className="text-sm text-foreground-muted">
               Personal best:{' '}
@@ -618,18 +651,20 @@ function SoloGame() {
           {error && (
             <p role="alert" className="banner-danger">{error}</p>
           )}
-          <div className="grid grid-cols-2 gap-3">
+          <div className={session.variation === 'daily' ? '' : 'grid grid-cols-2 gap-3'}>
             <Link to="/solo" className="rounded-lg border-2 border-edge py-3 font-semibold">
-              New setup
+              {session.variation === 'daily' ? 'Done' : 'New setup'}
             </Link>
-            <button
-              type="button"
-              onClick={() => void tryAgain()}
-              disabled={restarting || maintenanceBlocking}
-              className="rounded-lg bg-primary py-3 font-bold text-white disabled:opacity-50"
-            >
-              {restarting ? 'Starting…' : 'Try again'}
-            </button>
+            {session.variation !== 'daily' && (
+              <button
+                type="button"
+                onClick={() => void tryAgain()}
+                disabled={restarting || maintenanceBlocking}
+                className="rounded-lg bg-primary py-3 font-bold text-white disabled:opacity-50"
+              >
+                {restarting ? 'Starting…' : 'Try again'}
+              </button>
+            )}
           </div>
         </main>
       </div>
@@ -658,9 +693,15 @@ function SoloGame() {
         <div className="setup-shell flex items-center gap-3">
           <Link to="/solo" aria-label="Back to solo setup" className="flex size-10 items-center justify-center rounded-full text-foreground-muted hover:bg-surface-elevated"><span className="material-symbols-outlined">arrow_back</span></Link>
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-primary">{session.variation === 'challenge' ? 'Solo challenge' : 'Endurance'}</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-primary">
+              {session.variation === 'daily'
+                ? 'Daily challenge'
+                : session.variation === 'challenge'
+                  ? 'Solo challenge'
+                  : 'Endurance'}
+            </p>
             <p className="text-sm font-bold">
-              {session.variation === 'challenge'
+              {session.variation !== 'endurance'
                 ? `Round ${Math.min(session.index + 1, 10)} of 10`
                 : `${session.correctCount} correct`}
               <span className="text-foreground-muted">
@@ -713,11 +754,6 @@ function SoloGame() {
                     {card.entity.aliases.join(', ')}
                   </p>
                 )}
-                {scoring && (
-                  <p className="mt-3 text-sm font-semibold text-green-800 dark:text-green-200">
-                    Calculating score…
-                  </p>
-                )}
                 {settledPerformance && (
                   <div className="mt-3 rounded-lg bg-white/60 p-3 dark:bg-black/15">
                     <p className="text-sm text-green-900 dark:text-green-100">
@@ -732,17 +768,13 @@ function SoloGame() {
                     </p>
                   </div>
                 )}
-                {scoreWarning && (
-                  <p className="banner-warning mt-3">{scoreWarning}</p>
-                )}
                 <button
                   ref={advanceButtonRef}
                   type="button"
                   onClick={() => void advance(true)}
-                  disabled={scoring}
                   className="mt-4 w-full rounded-lg bg-primary py-3 font-bold text-white"
                 >
-                  {scoring ? 'Calculating…' : settleAdvanceLabel}
+                  {settleAdvanceLabel}
                 </button>
               </section>
             )}
@@ -791,7 +823,7 @@ function SoloGame() {
               className="flex gap-2"
               onSubmit={(event) => {
                 event.preventDefault()
-                void submitGuess()
+                submitGuess()
               }}
             >
               <input
@@ -810,7 +842,7 @@ function SoloGame() {
               />
               <button
                 type="submit"
-                disabled={!guess.trim() || scoring}
+                disabled={!guess.trim()}
                 className="rounded-lg bg-primary px-4 font-bold text-white hover:bg-primary/90 disabled:opacity-50"
               >
                 Guess

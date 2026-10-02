@@ -3,20 +3,8 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PreferencesProvider } from '../context/PreferencesContext'
 import { resetInPersonCardCacheForTests } from '../lib/inPersonCardFetch'
-import { scoreSoloRound } from '../lib/soloScoring'
 import { saveSoloSession } from '../lib/soloSession'
 import SoloGame from './SoloGame'
-
-vi.mock('../lib/soloScoring', () => ({
-  scoreSoloRound: vi.fn().mockResolvedValue({
-    score: 900,
-    basePoints: 1000,
-    cluePenalty: 0,
-    timePenalty: 100,
-    incorrectGuessPenalty: 0,
-    bonusPoints: 0
-  })
-}))
 
 function renderSoloPlay() {
   return render(
@@ -156,8 +144,8 @@ describe('SoloGame', () => {
     const next = screen.getByRole('button', { name: /next round/i })
     expect(next).toHaveFocus()
     expect(screen.getByText('Exodus 2:1')).toBeInTheDocument()
-    expect(screen.getByText('+900 points')).toBeInTheDocument()
-    expect(screen.getByText(/1,000 base.*100 time/i)).toBeInTheDocument()
+    expect(screen.getByText('+1,000 points')).toBeInTheDocument()
+    expect(screen.getByText('1,000 base')).toBeInTheDocument()
 
     // jsdom does not synthesize button activation from Enter; blur then use the
     // settled-window Enter fallback (same path when focus is not on the CTA).
@@ -196,9 +184,8 @@ describe('SoloGame', () => {
     fireEvent.change(input, { target: { value: 'Moses' } })
     fireEvent.submit(input.closest('form')!)
     await flushCardLoad()
-    expect(scoreSoloRound).toHaveBeenCalledWith(
-      expect.objectContaining({ incorrectGuessCount: 1 })
-    )
+    expect(screen.getByText('+900 points')).toBeInTheDocument()
+    expect(screen.getByText(/100 guesses/i)).toBeInTheDocument()
   })
 
   it('does not auto-advance Endurance after correct; waits for Next round', async () => {

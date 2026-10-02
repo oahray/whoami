@@ -13,7 +13,7 @@ const SESSION_KEY = 'whoami-solo-session'
 const RECORDS_KEY = 'whoami-solo-records'
 const SETUP_KEY = 'whoami-solo-setup'
 
-export type SoloVariation = 'challenge' | 'endurance'
+export type SoloVariation = 'challenge' | 'endurance' | 'daily'
 
 export type SoloConfig = {
   datasetId: string
@@ -23,6 +23,8 @@ export type SoloConfig = {
   variation: SoloVariation
   roundDurationMs: number
   clueRevealIntervalMs: number
+  dailyChallengeId?: string
+  dailyDateKey?: string
 }
 
 export type SoloScoreBreakdown = {
@@ -32,6 +34,14 @@ export type SoloScoreBreakdown = {
   timePenalty: number
   incorrectGuessPenalty: number
   bonusPoints: number
+}
+
+export type KnowledgeScoreRules = {
+  basePoints: number
+  additionalCluePenalty: number
+  elapsedSecondPenalty: number
+  incorrectGuessPenalty: number
+  minimumCorrectScore: number
 }
 
 export type SoloRoundPerformance = {
@@ -63,6 +73,8 @@ export type SoloSession = SoloConfig & {
   currentIncorrectGuessCount?: number
   /** Frozen outcome waiting for the player to advance. */
   settledRoundPerformance?: SoloRoundPerformance | null
+  scoringVersion?: number
+  scoringRules?: KnowledgeScoreRules
 }
 
 export type SoloRecord = SoloConfig & {
@@ -87,10 +99,17 @@ function normalizeConfigDifficulty<T extends { difficulty: unknown }>(value: T):
   return { ...value, difficulty: coerceDifficultySelection(value.difficulty) }
 }
 
-export function createSoloSession(config: SoloConfig, entityIds: string[]): SoloSession {
+export function createSoloSession(
+  config: SoloConfig,
+  entityIds: string[],
+  scoring?: { version: number; rules: KnowledgeScoreRules }
+): SoloSession {
   return {
     ...config,
-    entityIds: config.variation === 'challenge' ? entityIds.slice(0, SOLO_CHALLENGE_ROUNDS) : entityIds,
+    entityIds:
+      config.variation === 'challenge' || config.variation === 'daily'
+        ? entityIds.slice(0, SOLO_CHALLENGE_ROUNDS)
+        : entityIds,
     index: 0,
     correctCount: 0,
     activeElapsedMs: 0,
@@ -101,7 +120,9 @@ export function createSoloSession(config: SoloConfig, entityIds: string[]): Solo
     score: 0,
     rounds: [],
     currentIncorrectGuessCount: 0,
-    settledRoundPerformance: null
+    settledRoundPerformance: null,
+    scoringVersion: scoring?.version,
+    scoringRules: scoring?.rules
   }
 }
 
@@ -384,7 +405,9 @@ export function formatSoloRecordAchievedAt(iso: string, now = Date.now()): strin
 }
 
 export function soloVariationLabel(variation: SoloVariation): string {
-  return variation === 'challenge' ? 'Solo challenge' : 'Endurance'
+  if (variation === 'challenge') return 'Solo challenge'
+  if (variation === 'daily') return 'Daily challenge'
+  return 'Endurance'
 }
 
 export function soloConfigSummary(

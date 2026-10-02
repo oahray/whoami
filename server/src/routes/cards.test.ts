@@ -142,38 +142,6 @@ function inPersonMockResolver(
   }
 }
 
-describe('POST /cards/score', () => {
-  it('returns the canonical knowledge score breakdown', async () => {
-    const response = await request(makeApp()).post('/cards/score').send({
-      correct: true,
-      elapsedMs: 12_900,
-      revealedClueCount: 2,
-      incorrectGuessCount: 1
-    })
-
-    expect(response.status).toBe(200)
-    expect(response.body).toEqual({
-      score: 630,
-      basePoints: 1000,
-      cluePenalty: 150,
-      timePenalty: 120,
-      incorrectGuessPenalty: 100,
-      bonusPoints: 0
-    })
-  })
-
-  it('rejects malformed score inputs', async () => {
-    const response = await request(makeApp()).post('/cards/score').send({
-      correct: true,
-      elapsedMs: 'fast',
-      revealedClueCount: 1,
-      incorrectGuessCount: 0
-    })
-
-    expect(response.status).toBe(400)
-  })
-})
-
 describe('GET /cards/random', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -324,6 +292,35 @@ describe('GET /cards/eligibility', () => {
   })
 })
 
+describe('GET /cards/daily-challenge', () => {
+  it('returns a deterministic fixed challenge with scoring rules', async () => {
+    installMocks(
+      [ENTITY_A, ENTITY_B, ENTITY_PLACE],
+      [
+        ...makeClues('ent-a', 6),
+        ...makeClues('ent-b', 6),
+        ...makeClues('ent-place', 6)
+      ]
+    )
+
+    const first = await request(makeApp()).get('/cards/daily-challenge')
+    const second = await request(makeApp()).get('/cards/daily-challenge')
+
+    expect(first.status).toBe(200)
+    expect(first.body).toEqual(second.body)
+    expect(first.body.challengeId).toMatch(/^\d{4}-\d{2}-\d{2}-v1$/)
+    expect(first.body.entityIds).toHaveLength(3)
+    expect(first.body).toMatchObject({
+      datasetId: 'ds-1',
+      difficulty: 'any',
+      entityType: 'all',
+      roundDurationMs: 30_000,
+      clueRevealIntervalMs: 5_000,
+      scoringVersion: 1
+    })
+  })
+})
+
 describe('GET /cards/deck', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -343,6 +340,14 @@ describe('GET /cards/deck', () => {
     expect(response.status).toBe(200)
     expect(response.body.entityIds).toHaveLength(2)
     expect(response.body.entityIds).toEqual(expect.arrayContaining(['ent-a', 'ent-b']))
+    expect(response.body.scoringVersion).toBe(1)
+    expect(response.body.scoringRules).toMatchObject({
+      basePoints: 1000,
+      additionalCluePenalty: 150,
+      elapsedSecondPenalty: 10,
+      incorrectGuessPenalty: 100,
+      minimumCorrectScore: 100
+    })
   })
 
   it('accepts combined difficulty tiers', async () => {

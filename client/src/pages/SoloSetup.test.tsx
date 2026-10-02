@@ -25,6 +25,31 @@ describe('SoloSetup', () => {
       if (url.includes('/cards/eligibility')) {
         return { ok: true, json: async () => ({ modes: { any: 12, easy: 12, medium: 0, hard: 0, nightmare: 0 } }) } as Response
       }
+      if (url.includes('/cards/daily-challenge')) {
+        return {
+          ok: true,
+          json: async () => ({
+            challengeId: '2026-10-02-v1',
+            challengeVersion: 1,
+            dateKey: '2026-10-02',
+            datasetId: 'ds-1',
+            datasetName: 'Bible',
+            difficulty: 'any',
+            entityType: 'all',
+            roundDurationMs: 30_000,
+            clueRevealIntervalMs: 5_000,
+            entityIds: Array.from({ length: 10 }, (_, index) => `daily-${index}`),
+            scoringVersion: 1,
+            scoringRules: {
+              basePoints: 1000,
+              additionalCluePenalty: 150,
+              elapsedSecondPenalty: 10,
+              incorrectGuessPenalty: 100,
+              minimumCorrectScore: 100
+            }
+          })
+        } as Response
+      }
       if (url.includes('/cards/deck')) {
         return { ok: true, json: async () => ({ entityIds: Array.from({ length: 12 }, (_, index) => `ent-${index}`) }) } as Response
       }
@@ -46,6 +71,23 @@ describe('SoloSetup', () => {
     expect(loadSoloSession()).toMatchObject({
       variation: 'challenge',
       clueRevealIntervalMs: 5000
+    })
+    expect(loadSoloSession()?.entityIds).toHaveLength(10)
+  })
+
+  it('starts today’s fixed challenge with server-provided rules', async () => {
+    renderWithPreferences(<MemoryRouter><SoloSetup /></MemoryRouter>)
+
+    const playToday = await screen.findByRole('button', { name: /play today/i })
+    fireEvent.click(playToday)
+
+    expect(loadSoloSession()).toMatchObject({
+      variation: 'daily',
+      dailyChallengeId: '2026-10-02-v1',
+      entityType: 'all',
+      roundDurationMs: 30_000,
+      scoringVersion: 1,
+      scoringRules: { basePoints: 1000 }
     })
     expect(loadSoloSession()?.entityIds).toHaveLength(10)
   })

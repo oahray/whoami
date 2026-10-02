@@ -6,6 +6,11 @@ import MaintenanceBanner from '../components/MaintenanceBanner'
 import PreferencesMenu from '../components/PreferencesMenu'
 import { useMaintenanceStatus } from '../hooks/useMaintenanceStatus'
 import { API_BASE_URL } from '../lib/apiBase'
+import {
+  fetchDailyChallenge,
+  loadDailyProgress,
+  type DailyChallenge
+} from '../lib/dailySolo'
 import { fetchOkJson } from '../lib/fetchOkJson'
 import {
   logSetupLoadError,
@@ -37,10 +42,12 @@ import {
   formatSoloTime,
   getSoloRecord,
   listSoloRecords,
+  loadSoloSession,
   loadSoloSetupPreferences,
   saveSoloSession,
   saveSoloSetupPreferences,
   soloConfigSummary,
+  type KnowledgeScoreRules,
   type SoloConfig,
   type SoloRecord,
   type SoloVariation
@@ -78,6 +85,10 @@ function SoloSetup() {
   const [loading, setLoading] = useState(true)
   const [eligibilityLoading, setEligibilityLoading] = useState(false)
   const [starting, setStarting] = useState(false)
+  const [dailyChallenge, setDailyChallenge] = useState<DailyChallenge | null>(null)
+  const [dailyLoading, setDailyLoading] = useState(true)
+  const [dailyError, setDailyError] = useState<string | null>(null)
+  const [dailyProgress] = useState(loadDailyProgress)
   const [error, setError] = useState<string | null>(null)
   const [offline, setOffline] = useState(!navigator.onLine)
 
@@ -106,6 +117,9 @@ function SoloSetup() {
   const enduranceRecords = datasetId ? listSoloRecords('endurance', datasetId) : []
   const hasAnyRecords = challengeRecords.length > 0 || enduranceRecords.length > 0
   const selectedDatasetName = datasets.find((dataset) => dataset.id === datasetId)?.name
+  const todayResult = dailyChallenge
+    ? dailyProgress.results[dailyChallenge.challengeId]
+    : undefined
 
   const renderRecordRow = (record: SoloRecord, opts?: { highlightCurrent?: boolean }) => {
     const isCurrent =
@@ -189,6 +203,28 @@ function SoloSetup() {
       window.removeEventListener('offline', offlineHandler)
     }
   }, [])
+
+  useEffect(() => {
+    if (offline) {
+      setDailyLoading(false)
+      return
+    }
+    let cancelled = false
+    setDailyLoading(true)
+    fetchDailyChallenge()
+      .then((challenge) => {
+        if (!cancelled) setDailyChallenge(challenge)
+      })
+      .catch(() => {
+        if (!cancelled) setDailyError('Today’s challenge could not load.')
+      })
+      .finally(() => {
+        if (!cancelled) setDailyLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [offline])
 
   useEffect(() => {
     let cancelled = false
@@ -288,7 +324,11 @@ function SoloSetup() {
         }
         throw new Error(SETUP_START_ERROR)
       }
-      const { entityIds } = (await response.json()) as { entityIds: string[] }
+      const { entityIds, scoringVersion, scoringRules } = (await response.json()) as {
+        entityIds: string[]
+        scoringVersion?: number
+        scoringRules?: KnowledgeScoreRules
+      }
       const config = {
         datasetId,
         difficulty,
@@ -297,7 +337,13 @@ function SoloSetup() {
         roundDurationMs: roundSeconds * 1000,
         clueRevealIntervalMs: clueIntervalSeconds * 1000
       }
-      const session = createSoloSession(config, entityIds)
+      const session = createSoloSession(
+        config,
+        entityIds,
+        scoringVersion != null && scoringRules
+          ? { version: scoringVersion, rules: scoringRules }
+          : undefined
+      )
       saveSoloSetupPreferences(config)
       saveSoloSession(session)
       navigate('/solo/play')
@@ -307,6 +353,40 @@ function SoloSetup() {
     } finally {
       setStarting(false)
     }
+  }
+
+  const startDaily = () => {
+    if (!dailyChallenge || offline || maintenanceBlocking) return
+    const existing = loadSoloSession()
+    if (
+      existing?.variation === 'daily' &&
+      existing.dailyChallengeId === dailyChallenge.challengeId
+    ) {
+      navigate('/solo/play')
+      return
+    }
+    const session = createSoloSession(
+      {
+        datasetId: dailyChallenge.datasetId,
+        difficulty: [],
+        entityType: 'all',
+        variation: 'daily',
+        roundDurationMs: dailyChallenge.roundDurationMs,
+        clueRevealIntervalMs: dailyChallenge.clueRevealIntervalMs,
+        dailyChallengeId: dailyChallenge.challengeId,
+        dailyDateKey: dailyChallenge.dateKey
+      },
+      dailyChallenge.entityIds,
+      {
+        version: dailyChallenge.scoringVersion,
+        rules: dailyChallenge.scoringRules
+      }
+    )
+    saveSoloSession(session)
+    unlockAudio()
+    fadeOutMenuMusic()
+    playSound('go')
+    navigate('/solo/play')
   }
 
   return (
@@ -338,8 +418,59 @@ function SoloSetup() {
         {error && (
           <p role="alert" className="banner-danger">{error}</p>
         )}
+        {!dailyLoading && dailyChallenge && (
+          <section className="rounded-xl border border-primary/30 bg-primary/10 p-4 shadow-sm md:p-5">
+            <div className="flex items-start gap-3">
+              <span className="material-symbols-outlined text-2xl text-primary" aria-hidden>
+                today
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-black uppercase tracking-widest text-primary">
+                  Today&apos;s challenge
+                </p>
+                <h2 className="mt-1 text-lg font-black">
+                  {new Intl.DateTimeFormat(undefined, {
+                    dateStyle: 'long',
+                    timeZone: 'UTC'
+                  }).format(new Date(`${dailyChallenge.dateKey}T00:00:00Z`))}
+                </h2>
+                <p className="mt-1 text-sm text-foreground-muted">
+                  {dailyChallenge.entityIds.length} cards · Fixed settings ·{' '}
+                  {dailyChallenge.datasetName}
+                </p>
+                <p className="mt-2 text-sm font-semibold">
+                  Current streak: {dailyProgress.currentStreak}{' '}
+                  {dailyProgress.currentStreak === 1 ? 'day' : 'days'}
+                </p>
+              </div>
+            </div>
+            {todayResult ? (
+              <div className="banner-success mt-4 text-center font-semibold">
+                Completed today · {formatSoloScore(todayResult.record.score ?? 0)} points
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={startDaily}
+                disabled={offline || maintenanceBlocking}
+                className="mt-4 w-full rounded-lg bg-primary py-3 font-bold text-white hover:bg-primary/90 disabled:opacity-50"
+              >
+                Play today
+              </button>
+            )}
+          </section>
+        )}
+        {!dailyLoading && dailyError && !dailyChallenge && (
+          <p className="text-center text-xs text-foreground-muted">{dailyError}</p>
+        )}
         {!loading && datasets.length > 0 && (
           <section className="space-y-4 rounded-lg border border-edge bg-surface p-4 shadow-sm">
+            <div>
+              <h2 className="text-base font-bold">Custom game</h2>
+              <p className="text-xs text-foreground-muted">
+                Choose your own content, difficulty, and timing.
+              </p>
+            </div>
             {datasets.length > 1 && (
               <label className="block text-sm font-semibold">
                 Content

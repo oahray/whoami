@@ -3,16 +3,25 @@ import { parseEntityTypeFilter } from '../game/entityTypeFilter.js'
 import { parseDifficultySelection } from '../game/difficultySelection.js'
 import {
   buildInPersonCardForEntity,
+  getEligibleEntityIds,
   getInPersonDeck,
   getInPersonEligibility,
   getRandomInPersonCard,
   InPersonPlayError
 } from '../game/inPersonPlay.js'
 import { getMaintenanceBlock } from '../db/maintenance.js'
-import { calculateKnowledgeScore } from '../game/scoring.js'
+import { getDefaultEnabledDataset } from '../db/entities.js'
+import {
+  DEFAULT_KNOWLEDGE_SCORE_RULES,
+  KNOWLEDGE_SCORE_VERSION
+} from '../game/scoring.js'
 import { logger } from '../utils/logger.js'
 
 const router = Router()
+let dailyChallengeCache: {
+  dateKey: string
+  payload: Record<string, unknown>
+} | null = null
 
 function parseDatasetId(raw: unknown): string {
   return typeof raw === 'string' ? raw.trim() : ''
@@ -24,6 +33,19 @@ function parseDifficultyQuery(raw: unknown) {
 
 function parseEntityTypeQuery(raw: unknown) {
   return parseEntityTypeFilter(raw)
+}
+
+function stableHash(value: string): number {
+  let hash = 2166136261
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index)
+    hash = Math.imul(hash, 16777619)
+  }
+  return hash >>> 0
+}
+
+function dailyDateKey(now = new Date()): string {
+  return now.toISOString().slice(0, 10)
 }
 
 function handleInPersonError(error: unknown, res: Response, context: string) {
@@ -61,33 +83,50 @@ router.get('/cards/eligibility', async (req, res) => {
   }
 })
 
-router.post('/cards/score', (req, res) => {
-  const { correct, elapsedMs, revealedClueCount, incorrectGuessCount } =
-    req.body ?? {}
-  const valid =
-    typeof correct === 'boolean' &&
-    typeof elapsedMs === 'number' &&
-    Number.isFinite(elapsedMs) &&
-    elapsedMs >= 0 &&
-    typeof revealedClueCount === 'number' &&
-    Number.isInteger(revealedClueCount) &&
-    revealedClueCount >= 0 &&
-    typeof incorrectGuessCount === 'number' &&
-    Number.isInteger(incorrectGuessCount) &&
-    incorrectGuessCount >= 0
+router.get('/cards/daily-challenge', async (_req, res) => {
+  try {
+    const dateKey = dailyDateKey()
+    if (dailyChallengeCache?.dateKey === dateKey) {
+      return res.json(dailyChallengeCache.payload)
+    }
+    const dataset = await getDefaultEnabledDataset()
+    if (!dataset) {
+      return res.status(404).json({ error: 'No default dataset is available' })
+    }
+    const challengeVersion = 1
+    const challengeId = `${dateKey}-v${challengeVersion}`
+    const entityIds = await getEligibleEntityIds(dataset.id, [], 'all')
+    const orderedIds = [...entityIds]
+      .sort(
+        (left, right) =>
+          stableHash(`${challengeId}:${left}`) -
+            stableHash(`${challengeId}:${right}`) ||
+          left.localeCompare(right)
+      )
+      .slice(0, 10)
+    if (orderedIds.length === 0) {
+      return res.status(404).json({ error: 'No cards are available for today' })
+    }
 
-  if (!valid) {
-    return res.status(400).json({ error: 'Invalid score inputs' })
+    const payload = {
+      challengeId,
+      challengeVersion,
+      dateKey,
+      datasetId: dataset.id,
+      datasetName: dataset.name,
+      difficulty: 'any',
+      entityType: 'all',
+      roundDurationMs: 30_000,
+      clueRevealIntervalMs: 5_000,
+      entityIds: orderedIds,
+      scoringVersion: KNOWLEDGE_SCORE_VERSION,
+      scoringRules: DEFAULT_KNOWLEDGE_SCORE_RULES
+    }
+    dailyChallengeCache = { dateKey, payload }
+    return res.json(payload)
+  } catch (error) {
+    return handleInPersonError(error, res, 'Failed to load daily challenge')
   }
-
-  return res.json(
-    calculateKnowledgeScore({
-      correct,
-      elapsedMs,
-      revealedClueCount,
-      incorrectGuessCount
-    })
-  )
 })
 
 router.get('/cards/deck', async (req, res) => {
@@ -114,7 +153,11 @@ router.get('/cards/deck', async (req, res) => {
       return res.status(400).json({ error: 'Invalid entity type' })
     }
     const deck = await getInPersonDeck(datasetId, difficultySelection, entityType)
-    res.json(deck)
+    res.json({
+      ...deck,
+      scoringVersion: KNOWLEDGE_SCORE_VERSION,
+      scoringRules: DEFAULT_KNOWLEDGE_SCORE_RULES
+    })
   } catch (error) {
     return handleInPersonError(error, res, 'Failed to fetch deck')
   }

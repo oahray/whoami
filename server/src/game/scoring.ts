@@ -43,6 +43,8 @@ export const DEFAULT_KNOWLEDGE_SCORE_RULES: Readonly<KnowledgeScoreRules> = {
   minimumCorrectScore: 100
 }
 
+export const KNOWLEDGE_SCORE_VERSION = 1
+
 function nonNegativeInteger(value: number): number {
   if (!Number.isFinite(value)) return 0
   return Math.max(0, Math.floor(value))
