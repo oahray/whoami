@@ -1,4 +1,5 @@
 import { avatarSrc, isAvatarId } from './avatars'
+import { paintNotarySeal, shareSealAnchor } from './exportShareSeal'
 import {
   formatGameHistorySettings,
   type GameHistoryEntry,
@@ -171,15 +172,18 @@ export async function exportLeaderboardPng(options: {
   roundRect(ctx, 36, 36, WIDTH - 72, height - 72, 28)
   ctx.stroke()
 
+  const seal = shareSealAnchor(WIDTH, 36)
+  const headerMaxWidth = Math.max(240, seal.textMaxX - PAD)
+
   // Brand
   ctx.fillStyle = '#8fa2ff'
   ctx.font = '700 28px Inter, system-ui, sans-serif'
   ctx.textAlign = 'left'
-  ctx.fillText('WHO AM I?', PAD, 110)
+  ctx.fillText('WHO AM I?', PAD, 110, headerMaxWidth)
 
   ctx.fillStyle = '#f3efe6'
   ctx.font = '800 72px Inter, system-ui, sans-serif'
-  ctx.fillText(`Game ${entry.gameNumber}`, PAD, 188)
+  ctx.fillText(`Game ${entry.gameNumber}`, PAD, 188, headerMaxWidth)
 
   const when = new Date(entry.endedAt).toLocaleString(undefined, {
     month: 'short',
@@ -190,28 +194,24 @@ export async function exportLeaderboardPng(options: {
   const { difficulty, roundTime, clueInterval } = formatGameHistorySettings(entry)
   ctx.fillStyle = 'rgba(243,239,230,0.62)'
   ctx.font = '500 28px Inter, system-ui, sans-serif'
-  ctx.fillText(`${when}  ·  ${entry.totalRounds} rounds`, PAD, 236)
+  ctx.fillText(`${when}  ·  ${entry.totalRounds} rounds`, PAD, 236, headerMaxWidth)
   ctx.fillStyle = 'rgba(243,239,230,0.48)'
   ctx.font = '500 24px Inter, system-ui, sans-serif'
-  ctx.fillText(`${difficulty}  ·  ${roundTime}/round  ·  clues ${clueInterval}`, PAD, 276)
+  ctx.fillText(
+    `${difficulty}  ·  ${roundTime}/round  ·  clues ${clueInterval}`,
+    PAD,
+    276,
+    headerMaxWidth
+  )
 
-  // Room seal
-  const sealX = WIDTH - PAD - 110
-  const sealY = 150
-  ctx.beginPath()
-  ctx.arc(sealX, sealY, 70, 0, Math.PI * 2)
-  ctx.fillStyle = 'rgba(43,75,238,0.22)'
-  ctx.fill()
-  ctx.strokeStyle = 'rgba(143,162,255,0.55)'
-  ctx.lineWidth = 3
-  ctx.stroke()
-  ctx.fillStyle = '#d7e0ff'
-  ctx.font = '700 18px Inter, system-ui, sans-serif'
-  ctx.textAlign = 'center'
-  ctx.fillText('ROOM', sealX, sealY - 12)
-  ctx.fillStyle = '#ffffff'
-  ctx.font = '800 26px Inter, system-ui, sans-serif'
-  ctx.fillText(roomCode, sealX, sealY + 22)
+  paintNotarySeal(ctx, {
+    cx: seal.x,
+    cy: seal.y,
+    radius: seal.radius,
+    line1: 'ROOM',
+    line2: roomCode,
+    accent: 'blue'
+  })
 
   // Divider
   ctx.strokeStyle = 'rgba(255,255,255,0.12)'

@@ -13,10 +13,17 @@ vi.mock('../hooks/useMaintenanceStatus', () => ({
   })
 }))
 
+const downloadSoloDailyPng = vi.fn().mockResolvedValue(undefined)
+vi.mock('../lib/exportSoloDailyPng', () => ({
+  downloadSoloDailyPng: (...args: unknown[]) => downloadSoloDailyPng(...args),
+  shareSoloDailyPng: vi.fn().mockResolvedValue(undefined)
+}))
+
 describe('SoloSetup', () => {
   beforeEach(() => {
     sessionStorage.clear()
     localStorage.clear()
+    downloadSoloDailyPng.mockClear()
     Object.defineProperty(navigator, 'onLine', { value: true, configurable: true })
     vi.stubGlobal('fetch', vi.fn(async (input) => {
       const url = String(input)
@@ -52,7 +59,17 @@ describe('SoloSetup', () => {
         } as Response
       }
       if (url.includes('/cards/deck')) {
-        return { ok: true, json: async () => ({ entityIds: Array.from({ length: 12 }, (_, index) => `ent-${index}`) }) } as Response
+        const entityIds = Array.from({ length: 12 }, (_, index) => `ent-${index}`)
+        return {
+          ok: true,
+          json: async () => ({
+            entityIds,
+            entities: entityIds.map((id) => ({
+              id,
+              name: id === 'ent-3' ? 'Moses' : id
+            }))
+          })
+        } as Response
       }
       throw new Error(`Unexpected fetch: ${url}`)
     }))
@@ -91,6 +108,52 @@ describe('SoloSetup', () => {
       scoringRules: { basePoints: 1000 }
     })
     expect(loadSoloSession()?.entityIds).toHaveLength(10)
+  })
+
+  it('lets you download today’s completed daily result image', async () => {
+    localStorage.setItem(
+      'whoami-solo-daily-progress',
+      JSON.stringify({
+        currentStreak: 3,
+        bestStreak: 5,
+        lastCompletedDate: '2026-10-02',
+        results: {
+          '2026-10-02-v1': {
+            challengeId: '2026-10-02-v1',
+            dateKey: '2026-10-02',
+            completedAt: '2026-10-02T12:00:00.000Z',
+            record: {
+              datasetId: 'ds-1',
+              difficulty: [],
+              entityType: 'all',
+              variation: 'daily',
+              roundDurationMs: 30_000,
+              clueRevealIntervalMs: 5_000,
+              correctCount: 8,
+              activeElapsedMs: 90_000,
+              score: 6400,
+              rounds: [],
+              achievedAt: '2026-10-02T12:00:00.000Z'
+            }
+          }
+        }
+      })
+    )
+
+    renderWithPreferences(<MemoryRouter><SoloSetup /></MemoryRouter>)
+
+    expect(await screen.findByText(/completed today/i)).toBeInTheDocument()
+    expect(screen.getByText(/save or share the image if you want to keep/i)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /download daily result image/i }))
+    await waitFor(() => expect(downloadSoloDailyPng).toHaveBeenCalled())
+    expect(downloadSoloDailyPng).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dateKey: '2026-10-02',
+        datasetName: 'Bible',
+        currentStreak: 3,
+        bestStreak: 5
+      })
+    )
   })
 
   it('shows progress and starts Review with eligible missed entities only', async () => {

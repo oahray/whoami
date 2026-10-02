@@ -11,6 +11,10 @@ import {
   saveDailyResult,
   type DailyProgress
 } from '../lib/dailySolo'
+import {
+  downloadSoloDailyPng,
+  shareSoloDailyPng
+} from '../lib/exportSoloDailyPng'
 import { validateGuess } from '../lib/guessValidation'
 import {
   getInPersonCard,
@@ -101,6 +105,9 @@ function SoloGame() {
     dailyProgress?: DailyProgress
   } | null>(null)
   const [restarting, setRestarting] = useState(false)
+  const [dailyShareState, setDailyShareState] = useState<
+    'idle' | 'working' | 'shared' | 'downloaded' | 'error'
+  >('idle')
   const { status: maintenanceStatus } = useMaintenanceStatus({ poll: true })
   const maintenanceBlocking = isMaintenanceBlockingNewGames(maintenanceStatus)
   const roundStartedAt = useRef(0)
@@ -653,6 +660,39 @@ function SoloGame() {
         : listSoloRecords(session.variation, session.datasetId)[0]?.score
     const isSingleAction =
       session.variation === 'daily' || session.variation === 'review'
+    const canShareDailyImage =
+      typeof navigator !== 'undefined' && typeof navigator.share === 'function'
+    const dailyShareInput =
+      session.variation === 'daily' && session.dailyDateKey
+        ? {
+            dateKey: session.dailyDateKey,
+            record: result.record,
+            currentStreak: result.dailyProgress?.currentStreak ?? 0,
+            bestStreak: result.dailyProgress?.bestStreak
+          }
+        : null
+
+    const runDailyShare = (mode: 'share' | 'download') => {
+      if (!dailyShareInput) return
+      setDailyShareState('working')
+      const action =
+        mode === 'share' ? shareSoloDailyPng(dailyShareInput) : downloadSoloDailyPng(dailyShareInput)
+      void action
+        .then(() => {
+          setDailyShareState(mode === 'share' ? 'shared' : 'downloaded')
+          window.setTimeout(() => setDailyShareState('idle'), 2200)
+        })
+        .catch((err) => {
+          if (err instanceof Error && err.name === 'AbortError') {
+            setDailyShareState('idle')
+            return
+          }
+          console.warn('Solo daily share failed:', err)
+          setDailyShareState('error')
+          window.setTimeout(() => setDailyShareState('idle'), 2200)
+        })
+    }
+
     return (
       <div className="min-h-screen bg-app-bg font-display text-foreground flex items-end justify-center md:items-center p-0 md:p-6">
         <main className="w-full max-w-lg rounded-t-2xl border border-edge bg-surface p-6 text-center shadow-2xl md:rounded-2xl md:p-8">
@@ -725,6 +765,64 @@ function SoloGame() {
           )}
           {error && (
             <p role="alert" className="banner-danger mt-4">{error}</p>
+          )}
+          {dailyShareInput && (
+            <div className="mt-5 flex items-center justify-center gap-2">
+              {canShareDailyImage && (
+                <button
+                  type="button"
+                  onClick={() => runDailyShare('share')}
+                  disabled={dailyShareState === 'working'}
+                  aria-label="Share daily result image"
+                  title={
+                    dailyShareState === 'working'
+                      ? 'Sharing…'
+                      : dailyShareState === 'shared'
+                        ? 'Shared!'
+                        : dailyShareState === 'error'
+                          ? 'Failed'
+                          : 'Share image'
+                  }
+                  className="flex size-11 items-center justify-center rounded-lg bg-primary text-white hover:bg-primary/90 disabled:opacity-60"
+                >
+                  <span className="material-symbols-outlined text-xl" aria-hidden>
+                    {dailyShareState === 'working'
+                      ? 'hourglass_top'
+                      : dailyShareState === 'shared'
+                        ? 'check'
+                        : dailyShareState === 'error'
+                          ? 'error'
+                          : 'share'}
+                  </span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => runDailyShare('download')}
+                disabled={dailyShareState === 'working'}
+                aria-label="Download daily result image"
+                title={
+                  dailyShareState === 'working'
+                    ? 'Saving…'
+                    : dailyShareState === 'downloaded'
+                      ? 'Saved!'
+                      : dailyShareState === 'error'
+                        ? 'Failed'
+                        : 'Download image'
+                }
+                className="flex size-11 items-center justify-center rounded-lg border-2 border-edge text-foreground hover:bg-surface-muted disabled:opacity-60"
+              >
+                <span className="material-symbols-outlined text-xl" aria-hidden>
+                  {dailyShareState === 'working'
+                    ? 'hourglass_top'
+                    : dailyShareState === 'downloaded'
+                      ? 'check'
+                      : dailyShareState === 'error'
+                        ? 'error'
+                        : 'download'}
+                </span>
+              </button>
+            </div>
           )}
           <div className={`mt-6 ${isSingleAction ? '' : 'grid grid-cols-2 gap-3'}`}>
             {isSingleAction ? (

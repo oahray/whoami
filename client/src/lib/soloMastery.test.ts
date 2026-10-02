@@ -5,7 +5,8 @@ import {
   getMasterySummary,
   getNeedsReviewEntityIds,
   listEntityMastery,
-  masterySettleCue
+  masterySettleCue,
+  rekeyMasteryToCatalog
 } from './soloMastery'
 
 describe('soloMastery', () => {
@@ -78,6 +79,34 @@ describe('soloMastery', () => {
       needsReview: 0,
       firstClueAccuracy: 1 / 3
     })
+  })
+
+  it('remaps mastery onto new entity ids by name after a content reimport', () => {
+    applyMasteryOutcome({
+      eventId: 'run-old:0',
+      datasetId: 'bible',
+      entityId: 'old-moses-id',
+      entityName: 'Moses',
+      correct: false,
+      revealedClueCount: 4
+    })
+    applyMasteryOutcome({
+      eventId: 'run-old:1',
+      datasetId: 'bible',
+      entityId: 'gone-id',
+      entityName: 'Deleted Person',
+      correct: false,
+      revealedClueCount: 3
+    })
+
+    const result = rekeyMasteryToCatalog('bible', [
+      { id: 'new-moses-id', name: 'Moses' },
+      { id: 'aaron', name: 'Aaron' }
+    ])
+
+    expect(result).toEqual({ remapped: 1, removed: 1 })
+    expect(getNeedsReviewEntityIds('bible')).toEqual(['new-moses-id'])
+    expect(listEntityMastery('bible').map((entity) => entity.entityId)).toEqual(['new-moses-id'])
   })
 
   it('only shows a settle cue when mastery state changes', () => {

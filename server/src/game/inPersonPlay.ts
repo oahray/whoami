@@ -204,15 +204,19 @@ export async function getInPersonDeck(
   datasetId: string,
   difficultySelection: DifficultySelection | GameDifficultyMode,
   entityType: EntityTypeFilter = DEFAULT_ENTITY_TYPE_FILTER
-): Promise<{ entityIds: string[] }> {
-  const entityIds = await getEligibleEntityIds(datasetId, difficultySelection, entityType)
-  if (entityIds.length === 0) {
+): Promise<{ entityIds: string[]; entities: Array<{ id: string; name: string }> }> {
+  const entities = await getEligibleEntities(datasetId, difficultySelection, entityType)
+  if (entities.length === 0) {
     throw new InPersonPlayError(
       'NO_CARDS',
       'No published entities with enough clues for this dataset, entity type, and difficulty'
     )
   }
-  return { entityIds: shuffle(entityIds) }
+  const shuffled = shuffle(entities)
+  return {
+    entityIds: shuffled.map((entity) => entity.id),
+    entities: shuffled
+  }
 }
 
 export async function buildInPersonCardForEntity(params: {
