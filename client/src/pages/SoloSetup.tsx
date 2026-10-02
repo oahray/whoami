@@ -12,6 +12,11 @@ import {
   type DailyChallenge
 } from '../lib/dailySolo'
 import {
+  downloadSoloBoardPng,
+  shareSoloBoardPng,
+  type SoloBoardShareVariation
+} from '../lib/exportSoloBoardPng'
+import {
   downloadSoloDailyPng,
   shareSoloDailyPng
 } from '../lib/exportSoloDailyPng'
@@ -103,6 +108,10 @@ function SoloSetup() {
   const [dailyShareState, setDailyShareState] = useState<
     'idle' | 'working' | 'shared' | 'downloaded' | 'error'
   >('idle')
+  const [boardShareKey, setBoardShareKey] = useState<SoloBoardShareVariation | null>(null)
+  const [boardShareState, setBoardShareState] = useState<
+    'idle' | 'working' | 'shared' | 'downloaded' | 'error'
+  >('idle')
   const [masteryTick, setMasteryTick] = useState(0)
   const [clearProgressOpen, setClearProgressOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -169,7 +178,117 @@ function SoloSetup() {
     )
   }
 
-  const renderRecordMode = (title: string, records: SoloRecord[]) => {
+  const runBoardShare = (variation: SoloBoardShareVariation, mode: 'share' | 'download') => {
+    const records = variation === 'challenge' ? challengeRecords : enduranceRecords
+    if (records.length === 0) return
+    setBoardShareKey(variation)
+    setBoardShareState('working')
+    const input = {
+      variation,
+      datasetName: selectedDatasetName,
+      records
+    }
+    const action = mode === 'share' ? shareSoloBoardPng(input) : downloadSoloBoardPng(input)
+    void action
+      .then(() => {
+        setBoardShareState(mode === 'share' ? 'shared' : 'downloaded')
+        window.setTimeout(() => {
+          setBoardShareState('idle')
+          setBoardShareKey(null)
+        }, 2200)
+      })
+      .catch((err) => {
+        if (err instanceof Error && err.name === 'AbortError') {
+          setBoardShareState('idle')
+          setBoardShareKey(null)
+          return
+        }
+        console.warn('Solo board share failed:', err)
+        setBoardShareState('error')
+        window.setTimeout(() => {
+          setBoardShareState('idle')
+          setBoardShareKey(null)
+        }, 2200)
+      })
+  }
+
+  const renderBoardShareControls = (variation: SoloBoardShareVariation) => {
+    const active = boardShareKey === variation
+    const state = active ? boardShareState : 'idle'
+    const canShare =
+      typeof navigator !== 'undefined' && typeof navigator.share === 'function'
+    const busy = state === 'working'
+    return (
+      <div className="flex shrink-0 items-center gap-1.5">
+        {canShare && (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.preventDefault()
+              runBoardShare(variation, 'share')
+            }}
+            disabled={busy}
+            aria-label={`Share ${variation === 'challenge' ? 'Classic' : 'Endurance'} board image`}
+            title={
+              state === 'working'
+                ? 'Sharing…'
+                : state === 'shared'
+                  ? 'Shared!'
+                  : state === 'error'
+                    ? 'Failed'
+                    : 'Share board'
+            }
+            className="flex size-9 items-center justify-center rounded-lg bg-primary text-white hover:bg-primary/90 disabled:opacity-60"
+          >
+            <span className="material-symbols-outlined text-lg" aria-hidden>
+              {state === 'working'
+                ? 'hourglass_top'
+                : state === 'shared'
+                  ? 'check'
+                  : state === 'error'
+                    ? 'error'
+                    : 'share'}
+            </span>
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={(event) => {
+            event.preventDefault()
+            runBoardShare(variation, 'download')
+          }}
+          disabled={busy}
+          aria-label={`Download ${variation === 'challenge' ? 'Classic' : 'Endurance'} board image`}
+          title={
+            state === 'working'
+              ? 'Saving…'
+              : state === 'downloaded'
+                ? 'Saved!'
+                : state === 'error'
+                  ? 'Failed'
+                  : 'Download board'
+          }
+          className="flex size-9 items-center justify-center rounded-lg border border-edge bg-surface text-foreground hover:bg-surface-muted disabled:opacity-60"
+        >
+          <span className="material-symbols-outlined text-lg" aria-hidden>
+            {state === 'working'
+              ? 'hourglass_top'
+              : state === 'downloaded'
+                ? 'check'
+                : state === 'error'
+                  ? 'error'
+                  : 'download'}
+          </span>
+        </button>
+      </div>
+    )
+  }
+
+  const renderRecordMode = (
+    title: string,
+    records: SoloRecord[],
+    variation: SoloBoardShareVariation
+  ) => {
     if (records.length === 0) {
       return (
         <div className="space-y-1">
@@ -185,13 +304,16 @@ function SoloSetup() {
         <summary className="cursor-pointer list-none p-3 [&::-webkit-details-marker]:hidden">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5">
-                <h3 className="text-sm font-bold">{title}</h3>
-                {rest.length > 0 && (
-                  <span className="material-symbols-outlined text-base text-foreground-muted transition-transform group-open:rotate-180">
-                    expand_more
-                  </span>
-                )}
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5">
+                  <h3 className="text-sm font-bold">{title}</h3>
+                  {rest.length > 0 && (
+                    <span className="material-symbols-outlined text-base text-foreground-muted transition-transform group-open:rotate-180">
+                      expand_more
+                    </span>
+                  )}
+                </div>
+                {renderBoardShareControls(variation)}
               </div>
               <div className="mt-2">{renderRecordRow(best)}</div>
             </div>
@@ -965,8 +1087,8 @@ function SoloSetup() {
               <p className="text-sm text-foreground-muted">No records yet. Finish a run to set one.</p>
             ) : (
               <div className="space-y-2">
-                {renderRecordMode('Classic', challengeRecords)}
-                {renderRecordMode('Endurance', enduranceRecords)}
+                {renderRecordMode('Classic', challengeRecords, 'challenge')}
+                {renderRecordMode('Endurance', enduranceRecords, 'endurance')}
               </div>
             )}
           </section>

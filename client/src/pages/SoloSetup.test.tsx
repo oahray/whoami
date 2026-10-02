@@ -19,11 +19,18 @@ vi.mock('../lib/exportSoloDailyPng', () => ({
   shareSoloDailyPng: vi.fn().mockResolvedValue(undefined)
 }))
 
+const downloadSoloBoardPng = vi.fn().mockResolvedValue(undefined)
+vi.mock('../lib/exportSoloBoardPng', () => ({
+  downloadSoloBoardPng: (...args: unknown[]) => downloadSoloBoardPng(...args),
+  shareSoloBoardPng: vi.fn().mockResolvedValue(undefined)
+}))
+
 describe('SoloSetup', () => {
   beforeEach(() => {
     sessionStorage.clear()
     localStorage.clear()
     downloadSoloDailyPng.mockClear()
+    downloadSoloBoardPng.mockClear()
     Object.defineProperty(navigator, 'onLine', { value: true, configurable: true })
     vi.stubGlobal('fetch', vi.fn(async (input) => {
       const url = String(input)
@@ -243,6 +250,15 @@ describe('SoloSetup', () => {
     expect(screen.queryByText(/^Bible$/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/12 character/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/available/i)).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /download classic board image/i }))
+    await waitFor(() => expect(downloadSoloBoardPng).toHaveBeenCalled())
+    expect(downloadSoloBoardPng).toHaveBeenCalledWith(
+      expect.objectContaining({
+        variation: 'challenge',
+        records: expect.arrayContaining([expect.objectContaining({ correctCount: 7 })])
+      })
+    )
   })
 
   it('restores the last selected setup options', async () => {
