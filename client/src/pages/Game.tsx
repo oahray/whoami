@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import AloneInRoomDialog from '../components/AloneInRoomDialog'
 import LoadingState from '../components/LoadingState'
 import PlayerAvatar from '../components/PlayerAvatar'
 import SoundToggle from '../components/SoundToggle'
 import { downloadLeaderboardPng } from '../lib/exportLeaderboardPng'
 import { INTER_ROUND_DELAY_MS } from '../lib/gameTiming'
 import { playSound } from '../lib/sounds'
+import { useAloneInRoomPrompt } from '../hooks/useAloneInRoomPrompt'
 import { useGame } from '../hooks/useGame'
 import { useSocket } from '../hooks/useSocket'
 import { useStickToBottom } from '../hooks/useStickToBottom'
@@ -42,7 +44,7 @@ function rankScoreboard<T extends Record<string, any>>(items: T[], getScore: (t:
 function Game() {
   const navigate = useNavigate()
   const { emit, on, off } = useSocket()
-  const { roomCode, playerId, gameState, settings, error, players, isReconnecting, gameHistory, setError } = useGame()
+  const { roomCode, playerId, gameState, settings, error, players, isReconnecting, gameHistory, setError, reset } = useGame()
   const [guess, setGuess] = useState('')
   const [timeRemaining, setTimeRemaining] = useState(0)
   const [roundEndData, setRoundEndData] = useState<any>(null)
@@ -53,6 +55,7 @@ function Game() {
   const [guessFeed, setGuessFeed] = useState<Array<{ nickname: string; avatarId?: string; guess?: string; correct: boolean }>>([])
   const [currentPhase, setCurrentPhase] = useState<'starting' | 'active' | 'clue_revealed' | 'ended'>('starting')
   const [standingOpen, setStandingOpen] = useState(false)
+  const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false)
   const [exportState, setExportState] = useState<'idle' | 'working' | 'downloaded' | 'error'>('idle')
   const standingListRef = useRef<HTMLDivElement | null>(null)
   const guessInputRef = useRef<HTMLInputElement | null>(null)
@@ -76,6 +79,38 @@ function Game() {
   const canGuess = !!gameState && !isFinalScoresView && (currentPhase === 'active' || currentPhase === 'clue_revealed')
   const preGuessPhase = !!gameState && !isFinalScoresView && currentPhase === 'starting'
   const hasStoredRoom = typeof window !== 'undefined' && !!localStorage.getItem('whoami_room')
+
+  const { alonePromptOpen, dismissAlonePrompt } = useAloneInRoomPrompt(players, playerId)
+
+  const leaveGame = () => {
+    dismissAlonePrompt()
+    setLeaveConfirmOpen(false)
+    emit('LEAVE_ROOM', {})
+    localStorage.removeItem('whoami_room')
+    reset()
+    navigate('/')
+  }
+
+  const requestLeaveGame = () => {
+    if (isFinalScoresView) {
+      leaveGame()
+      return
+    }
+    setLeaveConfirmOpen(true)
+  }
+
+  useEffect(() => {
+    if (alonePromptOpen) setLeaveConfirmOpen(false)
+  }, [alonePromptOpen])
+
+  useEffect(() => {
+    if (!leaveConfirmOpen) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setLeaveConfirmOpen(false)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [leaveConfirmOpen])
 
   useEffect(() => {
     gameStateRef.current = gameState
@@ -392,28 +427,54 @@ function Game() {
           style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 0.75rem)' }}
         >
           <div className="flex items-center justify-between gap-3 pt-1 lg:pt-10">
-            <div className="min-w-0">
-              <h2 className="text-base lg:text-xl font-bold leading-none truncate">
-                {isFinalScoresView ? 'Final Scores' : `Round ${gameState.roundNumber} of ${settings?.totalRounds ?? 0}`}
-              </h2>
-              {roomCode && (
-                <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] lg:text-xs font-semibold uppercase tracking-wider text-primary">
-                  <span className="material-symbols-outlined text-[12px] lg:text-sm">key</span>
-                  Room {roomCode}
-                </p>
-              )}
+            <div className="flex min-w-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={requestLeaveGame}
+                aria-label="Leave game"
+                className="flex size-10 shrink-0 items-center justify-center rounded-full text-foreground-muted hover:bg-surface-elevated"
+              >
+                <span className="material-symbols-outlined" aria-hidden>
+                  arrow_back
+                </span>
+              </button>
+              <div className="min-w-0">
+                <h2 className="truncate text-base font-bold leading-none lg:text-xl">
+                  {isFinalScoresView
+                    ? 'Final Scores'
+                    : `Round ${gameState.roundNumber} of ${settings?.totalRounds ?? 0}`}
+                </h2>
+                {roomCode && (
+                  <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary lg:text-xs">
+                    <span className="material-symbols-outlined text-[12px] lg:text-sm">key</span>
+                    Room {roomCode}
+                  </p>
+                )}
+              </div>
             </div>
-            <div className="flex items-center gap-1 shrink-0">
+            <div className="flex shrink-0 items-center gap-1">
+              <button
+                type="button"
+                onClick={requestLeaveGame}
+                className="hidden rounded-full bg-surface-elevated px-4 py-2 text-sm font-semibold text-foreground hover:bg-surface-muted md:inline-flex"
+              >
+                Leave
+              </button>
               <SoundToggle />
               {!isFinalScoresView && (
-                <div className="flex items-center gap-2 bg-primary/5 rounded-lg px-3 py-1.5 border border-primary/10">
-                  <span className="material-symbols-outlined text-primary text-base">timer</span>
+                <div className="flex items-center gap-2 rounded-lg border border-primary/10 bg-primary/5 px-3 py-1.5">
+                  <span className="material-symbols-outlined text-base text-primary">timer</span>
                   <div className="leading-tight">
-                    <p className="text-[9px] uppercase tracking-wider text-primary font-bold">
+                    <p className="text-[9px] font-bold uppercase tracking-wider text-primary">
                       {preGuessPhase ? 'Starts in' : 'Time'}
                     </p>
                     <p className="text-base font-black text-foreground">
-                      {preGuessPhase ? Math.ceil(timeRemaining / 1000) : canGuess ? Math.ceil(timeRemaining / 1000) : 0}s
+                      {preGuessPhase
+                        ? Math.ceil(timeRemaining / 1000)
+                        : canGuess
+                          ? Math.ceil(timeRemaining / 1000)
+                          : 0}
+                      s
                     </p>
                   </div>
                 </div>
@@ -522,12 +583,15 @@ function Game() {
                 <div
                   role="status"
                   aria-live="polite"
-                  className="banner-success-emphasis shrink-0 p-3 lg:p-4 text-center"
+                  className="banner-success-emphasis shrink-0 p-3 text-center lg:p-4"
                 >
-                  <div className="text-sm font-semibold text-green-800 dark:text-green-200 lg:text-base">
-                    ✓ You guessed correctly!
+                  <div className="text-sm font-semibold text-foreground lg:text-base">
+                    <span className="material-symbols-outlined mr-1 align-middle text-base text-green-500">
+                      check_circle
+                    </span>
+                    You guessed correctly!
                   </div>
-                  <div className="mt-1 text-xs text-green-700 dark:text-green-300 lg:text-sm">
+                  <div className="mt-1 text-xs text-foreground-muted lg:text-sm">
                     Waiting for other players...
                   </div>
                 </div>
@@ -773,6 +837,51 @@ function Game() {
           </div>
         )}
       </div>
+
+      <AloneInRoomDialog
+        open={alonePromptOpen}
+        onStay={dismissAlonePrompt}
+        onLeave={leaveGame}
+      />
+
+      {leaveConfirmOpen && !alonePromptOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 backdrop-blur-sm md:items-center md:p-6"
+          role="presentation"
+          onClick={() => setLeaveConfirmOpen(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="leave-game-title"
+            className="w-full max-w-md rounded-t-2xl border border-edge bg-surface p-6 shadow-2xl md:rounded-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h3 id="leave-game-title" className="text-lg font-black text-foreground">
+              Leave this game?
+            </h3>
+            <p className="mt-2 text-sm text-foreground-muted">
+              You&apos;ll leave the room and return home. Other players can keep playing.
+            </p>
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setLeaveConfirmOpen(false)}
+                className="rounded-lg border-2 border-edge py-3 font-semibold hover:bg-surface-muted"
+              >
+                Stay
+              </button>
+              <button
+                type="button"
+                onClick={leaveGame}
+                className="rounded-lg bg-red-600 py-3 font-bold text-white hover:bg-red-700"
+              >
+                Leave game
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {roundEndData && (
         <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-slate-900/60 backdrop-blur-sm md:p-6">

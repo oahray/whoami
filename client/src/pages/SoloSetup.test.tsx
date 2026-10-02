@@ -114,6 +114,7 @@ describe('SoloSetup', () => {
     renderWithPreferences(<MemoryRouter><SoloSetup /></MemoryRouter>)
 
     expect(await screen.findByRole('heading', { name: /progress/i })).toBeInTheDocument()
+    expect(screen.getByText(/how learning works/i)).toBeInTheDocument()
     const review = await screen.findByRole('button', { name: /review 2 missed/i })
     await waitFor(() => expect(review).toBeEnabled())
     fireEvent.click(review)
@@ -121,9 +122,21 @@ describe('SoloSetup', () => {
     await waitFor(() =>
       expect(loadSoloSession()).toMatchObject({
         variation: 'review',
+        entityType: 'all',
         entityIds: ['ent-3']
       })
     )
+    const deckCall = vi.mocked(fetch).mock.calls.find((call) => String(call[0]).includes('/cards/deck'))
+    expect(String(deckCall?.[0])).toContain('difficulty=any')
+    expect(String(deckCall?.[0])).toContain('entityType=all')
+  })
+
+  it('explains how to unlock Review when nothing needs review yet', async () => {
+    renderWithPreferences(<MemoryRouter><SoloSetup /></MemoryRouter>)
+
+    expect(await screen.findByRole('heading', { name: /progress/i })).toBeInTheDocument()
+    expect(screen.getByText(/miss or time out a card/i)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /review \d+ missed/i })).not.toBeInTheDocument()
   })
 
   it('shows personal bests without revealing content pool size', async () => {

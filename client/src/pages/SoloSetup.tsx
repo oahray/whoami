@@ -36,6 +36,7 @@ import {
 } from '../lib/inPersonEligibility'
 import { isMaintenanceBlockingNewGames } from '../lib/maintenance'
 import {
+  clearMasteryForDataset,
   getMasterySummary,
   getNeedsReviewEntityIds
 } from '../lib/soloMastery'
@@ -51,6 +52,7 @@ import {
   saveSoloSession,
   saveSoloSetupPreferences,
   soloConfigSummary,
+  SOLO_CHALLENGE_ROUNDS,
   type KnowledgeScoreRules,
   type SoloConfig,
   type SoloRecord,
@@ -93,6 +95,8 @@ function SoloSetup() {
   const [dailyLoading, setDailyLoading] = useState(true)
   const [dailyError, setDailyError] = useState<string | null>(null)
   const [dailyProgress] = useState(loadDailyProgress)
+  const [masteryTick, setMasteryTick] = useState(0)
+  const [clearProgressOpen, setClearProgressOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [offline, setOffline] = useState(!navigator.onLine)
 
@@ -394,19 +398,27 @@ function SoloSetup() {
     navigate('/solo/play')
   }
 
+  const canStartReview =
+    Boolean(datasetId) &&
+    masterySummary.needsReview > 0 &&
+    !starting &&
+    !offline &&
+    !maintenanceBlocking
+
   const startReview = async () => {
-    if (!canStart || masterySummary.needsReview === 0) return
+    if (!canStartReview) return
     setStarting(true)
     setError(null)
     unlockAudio()
     fadeOutMenuMusic()
     playSound('go')
     try {
-      const reviewIds = new Set(getNeedsReviewEntityIds(datasetId))
+      const reviewIds = getNeedsReviewEntityIds(datasetId)
+      // Ignore Custom game filters so missed cards stay reachable.
       const query = new URLSearchParams({
         datasetId,
-        difficulty: encodeDifficultySelection(difficulty),
-        entityType
+        difficulty: 'any',
+        entityType: 'all'
       })
       const response = await fetch(`${API_BASE_URL}/cards/deck?${query}`)
       if (!response.ok) throw new Error(SETUP_START_ERROR)
@@ -415,20 +427,21 @@ function SoloSetup() {
         scoringVersion?: number
         scoringRules?: KnowledgeScoreRules
       }
-      const eligibleReviewIds = entityIds.filter((id) => reviewIds.has(id))
-      if (eligibleReviewIds.length === 0) {
-        throw new Error('No review cards match the current content filters.')
+      const eligibleIds = new Set(entityIds)
+      const reviewDeck = reviewIds.filter((id) => eligibleIds.has(id))
+      if (reviewDeck.length === 0) {
+        throw new Error('Those review cards are no longer available. Try again after the next update.')
       }
       const session = createSoloSession(
         {
           datasetId,
-          difficulty,
-          entityType,
+          difficulty: [],
+          entityType: 'all',
           variation: 'review',
           roundDurationMs: roundSeconds * 1000,
           clueRevealIntervalMs: clueIntervalSeconds * 1000
         },
-        eligibleReviewIds,
+        reviewDeck.slice(0, SOLO_CHALLENGE_ROUNDS),
         scoringVersion != null && scoringRules
           ? { version: scoringVersion, rules: scoringRules }
           : undefined
@@ -514,6 +527,99 @@ function SoloSetup() {
         )}
         {!dailyLoading && dailyError && !dailyChallenge && (
           <p className="text-center text-xs text-foreground-muted">{dailyError}</p>
+        )}
+        {!loading && (
+          <section
+            key={masteryTick}
+            className="space-y-4 rounded-lg border border-edge bg-surface p-4 shadow-sm"
+          >
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary" aria-hidden>
+                school
+              </span>
+              <div>
+                <h2 className="text-base font-bold">Progress</h2>
+                <p className="text-xs text-foreground-muted">
+                  Cards you meet are tracked on this device
+                  {selectedDatasetName ? ` · ${selectedDatasetName}` : ''}.
+                </p>
+              </div>
+            </div>
+            <details className="rounded-lg bg-surface-muted p-3">
+              <summary className="cursor-pointer text-sm font-semibold text-foreground">
+                How learning works
+              </summary>
+              <ul className="mt-2 list-disc space-y-1.5 pl-4 text-xs text-foreground-muted">
+                <li>
+                  <span className="font-semibold text-foreground">Needs review</span> — you missed
+                  or timed out. Tap <span className="font-semibold text-foreground">Review</span>{' '}
+                  here to practice those cards.
+                </li>
+                <li>
+                  <span className="font-semibold text-foreground">Learning</span> — you got it right
+                  at least once and are still building confidence.
+                </li>
+                <li>
+                  <span className="font-semibold text-foreground">Mastered</span> — correct several
+                  times, including at least once from the first clue.
+                </li>
+              </ul>
+            </details>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div className="rounded-lg bg-surface-muted p-3">
+                <p className="text-xl font-black">{masterySummary.encountered}</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted">
+                  Encountered
+                </p>
+              </div>
+              <div className="rounded-lg bg-surface-muted p-3">
+                <p className="text-xl font-black">{masterySummary.mastered}</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted">
+                  Mastered
+                </p>
+              </div>
+              <div className="rounded-lg bg-surface-muted p-3">
+                <p className="text-xl font-black">{masterySummary.needsReview}</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted">
+                  Needs review
+                </p>
+              </div>
+              <div className="rounded-lg bg-surface-muted p-3">
+                <p className="text-xl font-black">
+                  {masterySummary.firstClueAccuracy == null
+                    ? '—'
+                    : `${Math.round(masterySummary.firstClueAccuracy * 100)}%`}
+                </p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted">
+                  First clue
+                </p>
+              </div>
+            </div>
+            {masterySummary.needsReview > 0 ? (
+              <button
+                type="button"
+                onClick={() => void startReview()}
+                disabled={!canStartReview}
+                className="w-full rounded-lg bg-primary py-3 font-bold text-white hover:bg-primary/90 disabled:opacity-50"
+              >
+                {starting ? 'Starting…' : `Review ${masterySummary.needsReview} missed`}
+              </button>
+            ) : (
+              <p className="rounded-lg border border-dashed border-edge px-3 py-3 text-center text-sm text-foreground-muted">
+                Miss or time out a card in Daily, Challenge, or Endurance — then{' '}
+                <span className="font-semibold text-foreground">Review</span> shows up here.
+              </p>
+            )}
+            {masterySummary.encountered > 0 && (
+              <button
+                type="button"
+                onClick={() => setClearProgressOpen(true)}
+                className="w-full text-sm font-semibold text-foreground-muted underline-offset-2 hover:text-foreground hover:underline"
+              >
+                Clear learning progress
+              </button>
+            )}
+          </section>
         )}
         {!loading && datasets.length > 0 && (
           <section className="space-y-4 rounded-lg border border-edge bg-surface p-4 shadow-sm">
@@ -671,61 +777,49 @@ function SoloSetup() {
           </section>
         )}
 
-        {!loading && (
-          <section className="space-y-4 rounded-lg border border-edge bg-surface p-4 shadow-sm">
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary" aria-hidden>
-                school
-              </span>
-              <div>
-                <h2 className="text-base font-bold">Progress</h2>
-                <p className="text-xs text-foreground-muted">
-                  Learning progress on this device
-                  {selectedDatasetName ? ` · ${selectedDatasetName}` : ''}.
-                </p>
+        {clearProgressOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 backdrop-blur-sm md:items-center md:p-6"
+            role="presentation"
+            onClick={() => setClearProgressOpen(false)}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="clear-progress-title"
+              className="w-full max-w-md rounded-t-2xl border border-edge bg-surface p-6 shadow-2xl md:rounded-2xl"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <h3 id="clear-progress-title" className="text-lg font-black text-foreground">
+                Clear learning progress?
+              </h3>
+              <p className="mt-2 text-sm text-foreground-muted">
+                This removes encountered, mastered, and needs-review data
+                {selectedDatasetName ? ` for ${selectedDatasetName}` : ''} on this
+                device. Personal bests and daily streak are kept.
+              </p>
+              <div className="mt-6 grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setClearProgressOpen(false)}
+                  className="rounded-lg border-2 border-edge py-3 font-semibold hover:bg-surface-muted"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (datasetId) clearMasteryForDataset(datasetId)
+                    setMasteryTick((tick) => tick + 1)
+                    setClearProgressOpen(false)
+                  }}
+                  className="rounded-lg bg-red-600 py-3 font-bold text-white hover:bg-red-700"
+                >
+                  Clear progress
+                </button>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <div className="rounded-lg bg-surface-muted p-3">
-                <p className="text-xl font-black">{masterySummary.encountered}</p>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted">
-                  Encountered
-                </p>
-              </div>
-              <div className="rounded-lg bg-surface-muted p-3">
-                <p className="text-xl font-black">{masterySummary.mastered}</p>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted">
-                  Mastered
-                </p>
-              </div>
-              <div className="rounded-lg bg-surface-muted p-3">
-                <p className="text-xl font-black">{masterySummary.needsReview}</p>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted">
-                  Needs review
-                </p>
-              </div>
-              <div className="rounded-lg bg-surface-muted p-3">
-                <p className="text-xl font-black">
-                  {masterySummary.firstClueAccuracy == null
-                    ? '—'
-                    : `${Math.round(masterySummary.firstClueAccuracy * 100)}%`}
-                </p>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted">
-                  First clue
-                </p>
-              </div>
-            </div>
-            {masterySummary.needsReview > 0 && (
-              <button
-                type="button"
-                onClick={() => void startReview()}
-                disabled={!canStart}
-                className="w-full rounded-lg border-2 border-primary py-3 font-bold text-primary disabled:opacity-50"
-              >
-                Review {masterySummary.needsReview} missed
-              </button>
-            )}
-          </section>
+          </div>
         )}
 
         {!loading && (

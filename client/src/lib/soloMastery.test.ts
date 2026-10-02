@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
   applyMasteryOutcome,
+  clearMasteryForDataset,
   getMasterySummary,
   getNeedsReviewEntityIds,
   listEntityMastery
@@ -76,6 +77,30 @@ describe('soloMastery', () => {
       needsReview: 0,
       firstClueAccuracy: 1 / 3
     })
+  })
+
+  it('clears progress for one dataset only', () => {
+    applyMasteryOutcome({
+      eventId: 'bible:ent:1',
+      datasetId: 'bible',
+      entityId: 'paul',
+      entityName: 'Paul',
+      correct: false,
+      revealedClueCount: 4
+    })
+    applyMasteryOutcome({
+      eventId: 'history:ent:1',
+      datasetId: 'history',
+      entityId: 'caesar',
+      entityName: 'Caesar',
+      correct: true,
+      revealedClueCount: 1
+    })
+
+    clearMasteryForDataset('bible')
+
+    expect(getMasterySummary('bible').encountered).toBe(0)
+    expect(getMasterySummary('history').encountered).toBe(1)
   })
 
   it('scopes progress by dataset', () => {

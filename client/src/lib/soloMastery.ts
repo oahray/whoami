@@ -157,3 +157,18 @@ export function getMasterySummary(datasetId?: string): MasterySummary {
     firstClueAccuracy: correct > 0 ? firstClue / correct : null
   }
 }
+
+/** Clear learning progress for one dataset (encounters, mastery, review). */
+export function clearMasteryForDataset(datasetId: string): void {
+  const store = loadStore()
+  const nextEntities: Record<string, EntityMastery> = {}
+  for (const [entityKey, entity] of Object.entries(store.entities)) {
+    if (entity.datasetId !== datasetId) nextEntities[entityKey] = entity
+  }
+  const nextEvents: Record<string, true> = {}
+  for (const eventId of Object.keys(store.appliedEvents)) {
+    // Event ids are `${datasetId}:${entityId}:${startedAt}`.
+    if (!eventId.startsWith(`${datasetId}:`)) nextEvents[eventId] = true
+  }
+  saveStore({ version: 1, entities: nextEntities, appliedEvents: nextEvents })
+}

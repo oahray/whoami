@@ -27,7 +27,9 @@ import {
   ENTITY_TYPE_OPTIONS,
   entityTypeOptionLabel
 } from '../lib/entityTypeFilter'
+import AloneInRoomDialog from '../components/AloneInRoomDialog'
 import MaintenanceBanner from '../components/MaintenanceBanner'
+import { useAloneInRoomPrompt } from '../hooks/useAloneInRoomPrompt'
 import { useGame } from '../hooks/useGame'
 import { useMaintenanceStatus } from '../hooks/useMaintenanceStatus'
 import { useSocket } from '../hooks/useSocket'
@@ -75,6 +77,7 @@ function Lobby() {
     isReconnecting
   } = useGame()
   const hasStoredRoom = typeof window !== 'undefined' && !!localStorage.getItem('whoami_room')
+  const { alonePromptOpen, dismissAlonePrompt } = useAloneInRoomPrompt(players, playerId)
 
   useEffect(() => {
     const handleLobbyReaction = (...args: unknown[]) => {
@@ -249,6 +252,7 @@ function Lobby() {
   }
 
   const handleLeaveRoom = () => {
+    dismissAlonePrompt()
     emit('LEAVE_ROOM', {})
     localStorage.removeItem('whoami_room')
     reset()
@@ -811,6 +815,12 @@ function Lobby() {
           </div>
         </div>
       )}
+
+      <AloneInRoomDialog
+        open={alonePromptOpen}
+        onStay={dismissAlonePrompt}
+        onLeave={handleLeaveRoom}
+      />
     </div>
   )
 }

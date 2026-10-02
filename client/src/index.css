@@ -172,11 +172,11 @@ body {
   }
 
   .banner-success {
-    @apply rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-900 dark:border-green-800 dark:bg-green-950/40 dark:text-green-100;
+    @apply rounded-lg border border-edge border-l-4 border-l-green-500 bg-surface p-3 text-sm text-foreground shadow-sm dark:border-l-green-400;
   }
 
   .banner-success-emphasis {
-    @apply rounded-lg border-2 border-green-400 bg-green-50 dark:border-green-600 dark:bg-green-950/40;
+    @apply rounded-lg border border-edge border-l-4 border-l-green-500 bg-surface shadow-sm dark:border-l-green-400;
   }
 
   /* Solo / Pass & play content measure: phone-first, wider on desktop */

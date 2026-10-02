@@ -80,10 +80,18 @@ function About() {
           </div>
           <p className="text-foreground text-sm leading-relaxed">
             Play on your own and keep personal bests on this device. Choose a{' '}
-            <strong>10-round Solo challenge</strong> for accuracy and time, or{' '}
-            <strong>Endurance</strong> to see how long your streak lasts. Pick difficulty tiers,
-            card type, and timers before you start. After each round you can review citations for the
-            clues you saw.
+            <strong>10-round Solo challenge</strong> for accuracy and time,{' '}
+            <strong>Endurance</strong> for streak length, or the fixed{' '}
+            <strong>Daily challenge</strong>. Pick difficulty tiers, card type, and timers before
+            you start. After each round you can review citations for the clues you saw.
+          </p>
+          <p className="text-foreground text-sm leading-relaxed">
+            Solo also tracks <strong>learning progress</strong> for each card on this device:{' '}
+            <strong>Needs review</strong> if you miss or time out, <strong>Learning</strong> after
+            a correct answer, and <strong>Mastered</strong> after several correct answers including
+            one from the first clue.             When you have missed cards, Solo setup shows a{' '}
+            <strong>Review</strong> button in the Progress section (above Custom game). Progress
+            stays on this device until you clear it.
           </p>
           <p className="text-foreground-muted text-xs">
             <Link to="/solo" className="text-primary font-semibold hover:text-primary/80">
@@ -112,7 +120,8 @@ function About() {
           </ol>
           <p className="text-foreground text-sm leading-relaxed">
             To keep games comfortable for everyone, you can <strong>leave a lobby or live game at any
-            time</strong>. The host can also <strong>kick a player</strong> out of the room if needed.
+            time</strong> with the back control or Leave button. The host can also{' '}
+            <strong>kick a player</strong> out of the room if needed.
           </p>
           <p className="text-foreground-muted text-xs">
             You need an internet connection and the game server for online play. Finished games are

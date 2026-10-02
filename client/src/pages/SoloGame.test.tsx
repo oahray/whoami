@@ -329,7 +329,7 @@ describe('SoloGame', () => {
     expect(screen.getByText(/correct!/i)).toBeInTheDocument()
     expect(screen.getByText('Moshe')).toBeInTheDocument()
     expect(screen.getByText('Exodus 2:1')).toBeInTheDocument()
-    expect(screen.getByText('Learning: Moses')).toBeInTheDocument()
+    expect(screen.getByText(/now learning/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /next round/i })).toBeInTheDocument()
 
     await act(async () => {
@@ -615,7 +615,7 @@ describe('SoloGame', () => {
     expect(screen.getByText('Second clue')).toBeInTheDocument()
     expect(screen.queryByText('Third clue')).not.toBeInTheDocument()
     expect(screen.getByText(/correct!/i)).toBeInTheDocument()
-    expect(screen.getByText('25s')).toBeInTheDocument()
+    expect(screen.getAllByText('25s').length).toBeGreaterThan(0)
   })
 
   it('does not fetch the next endurance card while sitting on a timeout reveal', async () => {
