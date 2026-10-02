@@ -44,7 +44,7 @@ import {
   type SoloSession
 } from '../lib/soloSession'
 import { scoreSoloRound } from '../lib/soloScoring'
-import { applyMasteryOutcome } from '../lib/soloMastery'
+import { applyMasteryOutcome, masterySettleCue } from '../lib/soloMastery'
 import { playSound } from '../lib/sounds'
 import { API_BASE_URL } from '../lib/apiBase'
 import type { InPersonCard } from '../types'
@@ -776,14 +776,7 @@ function SoloGame() {
   const visibleClues = card?.clues.slice(0, revealedCount) ?? []
   const settledPerformance = session.settledRoundPerformance ?? null
   const masteryChange = session.settledMasteryChange ?? null
-  const masteryChangeLabel =
-    masteryChange?.changed
-      ? masteryChange.state === 'mastered'
-        ? 'Mastered · solid recall'
-        : masteryChange.state === 'needs_review'
-          ? 'Needs review · tap Review on Solo setup'
-          : 'Now learning · saved in Progress'
-      : null
+  const masteryCue = masteryChange ? masterySettleCue(masteryChange) : null
   const displayedScore =
     soloSessionScore(session) + (settledPerformance?.score ?? 0)
 
@@ -1006,9 +999,12 @@ function SoloGame() {
                       </p>
                     </div>
                   )}
-                  {masteryChangeLabel && (
-                    <p className="mt-2 text-sm font-bold text-foreground lg:mt-3">
-                      {masteryChangeLabel}
+                  {masteryCue && (
+                    <p className="mt-2 inline-flex items-center justify-center gap-1.5 text-sm font-bold text-foreground lg:mt-3">
+                      <span className="material-symbols-outlined text-base text-primary" aria-hidden>
+                        {masteryCue.icon}
+                      </span>
+                      {masteryCue.label}
                     </p>
                   )}
                 </section>
@@ -1025,15 +1021,21 @@ function SoloGame() {
                     Time&apos;s up
                   </p>
                   <p className="mt-1 text-sm text-amber-900/90 dark:text-amber-100/90">
-                    Answer hidden so you can practice it later.
+                    We hid the answer so you can try again later.
                   </p>
                   <div className="mt-2 rounded-lg bg-surface-muted/80 px-3 py-2 dark:bg-black/15 lg:mt-3 lg:py-3">
                     <p className="text-lg font-black text-primary lg:text-2xl">+0 points</p>
                     <p className="mt-0.5 text-xs text-foreground-muted">Round timed out</p>
                   </div>
-                  {masteryChangeLabel && (
-                    <p className="mt-2 text-sm font-bold text-amber-950 dark:text-amber-50 lg:mt-3">
-                      {masteryChangeLabel}
+                  {masteryCue && (
+                    <p className="mt-2 inline-flex items-center justify-center gap-1.5 text-sm font-bold text-amber-950 dark:text-amber-50 lg:mt-3">
+                      <span
+                        className="material-symbols-outlined text-base text-amber-700 dark:text-amber-300"
+                        aria-hidden
+                      >
+                        {masteryCue.icon}
+                      </span>
+                      {masteryCue.label}
                     </p>
                   )}
                 </section>

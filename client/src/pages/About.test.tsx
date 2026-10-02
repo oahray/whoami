@@ -24,7 +24,7 @@ describe('About', () => {
       'https://github.com/oahray/whoami'
     )
     expect(screen.getByRole('heading', { name: 'Solo mode' })).toBeInTheDocument()
-    expect(screen.getByText(/learning progress/i)).toBeInTheDocument()
+    expect(screen.getByText(/how you're doing with each card/i)).toBeInTheDocument()
     expect(screen.getByText(/needs review/i)).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Play online' })).toBeInTheDocument()
     expect(screen.getByText(/leave a lobby or live game at any time/i)).toBeInTheDocument()
