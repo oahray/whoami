@@ -1,4 +1,5 @@
 import type { InPersonCard } from '../types'
+import type { MasteryChange } from './soloMastery'
 import type { EntityTypeFilter } from './entityTypeFilter'
 import {
   coerceDifficultySelection,
@@ -13,7 +14,7 @@ const SESSION_KEY = 'whoami-solo-session'
 const RECORDS_KEY = 'whoami-solo-records'
 const SETUP_KEY = 'whoami-solo-setup'
 
-export type SoloVariation = 'challenge' | 'endurance'
+export type SoloVariation = 'challenge' | 'endurance' | 'daily' | 'review'
 
 export type SoloConfig = {
   datasetId: string
@@ -23,6 +24,35 @@ export type SoloConfig = {
   variation: SoloVariation
   roundDurationMs: number
   clueRevealIntervalMs: number
+  dailyChallengeId?: string
+  dailyDateKey?: string
+}
+
+export type SoloScoreBreakdown = {
+  score: number
+  basePoints: number
+  cluePenalty: number
+  timePenalty: number
+  incorrectGuessPenalty: number
+  bonusPoints: number
+}
+
+export type KnowledgeScoreRules = {
+  basePoints: number
+  additionalCluePenalty: number
+  elapsedSecondPenalty: number
+  incorrectGuessPenalty: number
+  minimumCorrectScore: number
+}
+
+export type SoloRoundPerformance = {
+  entityId: string
+  correct: boolean
+  revealedClueCount: number
+  incorrectGuessCount: number
+  elapsedMs: number
+  score: number
+  breakdown: SoloScoreBreakdown
 }
 
 export type SoloSession = SoloConfig & {
@@ -38,12 +68,25 @@ export type SoloSession = SoloConfig & {
   roundStatus?: 'active' | 'correct' | 'timeout' | null
   /** Frozen card for `entityIds[index]`; survives refresh without reshuffling clues. */
   currentCard?: InPersonCard | null
+  /** Cumulative score. Optional while migrating sessions created before scoring. */
+  score?: number
+  rounds?: SoloRoundPerformance[]
+  currentIncorrectGuessCount?: number
+  /** Frozen outcome waiting for the player to advance. */
+  settledRoundPerformance?: SoloRoundPerformance | null
+  /** Mastery state change for the frozen outcome; survives refresh. */
+  settledMasteryChange?: MasteryChange | null
+  scoringVersion?: number
+  scoringRules?: KnowledgeScoreRules
 }
 
 export type SoloRecord = SoloConfig & {
   correctCount: number
   activeElapsedMs: number
   achievedAt: string
+  /** Missing on records created before scored Solo launched. */
+  score?: number
+  rounds?: SoloRoundPerformance[]
 }
 
 export type SoloSetupPreferences = {
@@ -59,17 +102,31 @@ function normalizeConfigDifficulty<T extends { difficulty: unknown }>(value: T):
   return { ...value, difficulty: coerceDifficultySelection(value.difficulty) }
 }
 
-export function createSoloSession(config: SoloConfig, entityIds: string[]): SoloSession {
+export function createSoloSession(
+  config: SoloConfig,
+  entityIds: string[],
+  scoring?: { version: number; rules: KnowledgeScoreRules }
+): SoloSession {
   return {
     ...config,
-    entityIds: config.variation === 'challenge' ? entityIds.slice(0, SOLO_CHALLENGE_ROUNDS) : entityIds,
+    entityIds:
+      config.variation === 'challenge' || config.variation === 'daily'
+        ? entityIds.slice(0, SOLO_CHALLENGE_ROUNDS)
+        : entityIds,
     index: 0,
     correctCount: 0,
     activeElapsedMs: 0,
     roundStartedAt: null,
     roundRemainingMs: null,
     roundStatus: null,
-    currentCard: null
+    currentCard: null,
+    score: 0,
+    rounds: [],
+    currentIncorrectGuessCount: 0,
+    settledRoundPerformance: null,
+    settledMasteryChange: null,
+    scoringVersion: scoring?.version,
+    scoringRules: scoring?.rules
   }
 }
 
@@ -120,7 +177,18 @@ export function loadSoloSession(): SoloSession | null {
     if (session.currentCard != null && !isInPersonCard(session.currentCard)) {
       session.currentCard = null
     }
-    return session
+    const rounds = Array.isArray(session.rounds) ? session.rounds : []
+    return {
+      ...session,
+      rounds,
+      score:
+        typeof session.score === 'number'
+          ? session.score
+          : rounds.reduce((sum, round) => sum + round.score, 0),
+      currentIncorrectGuessCount: session.currentIncorrectGuessCount ?? 0,
+      settledRoundPerformance: session.settledRoundPerformance ?? null,
+      settledMasteryChange: session.settledMasteryChange ?? null
+    }
   } catch {
     return null
   }
@@ -170,9 +238,14 @@ function sameRecordBucket(a: Pick<SoloRecord, 'datasetId' | 'variation'>, b: Pic
 }
 
 export function isBetterRecord(
-  candidate: Pick<SoloRecord, 'correctCount' | 'activeElapsedMs'>,
-  current: Pick<SoloRecord, 'correctCount' | 'activeElapsedMs'>
+  candidate: Pick<SoloRecord, 'correctCount' | 'activeElapsedMs' | 'score'>,
+  current: Pick<SoloRecord, 'correctCount' | 'activeElapsedMs' | 'score'>
 ): boolean {
+  if (candidate.score != null || current.score != null) {
+    if (candidate.score == null) return false
+    if (current.score == null) return true
+    if (candidate.score !== current.score) return candidate.score > current.score
+  }
   return (
     candidate.correctCount > current.correctCount ||
     (candidate.correctCount === current.correctCount &&
@@ -181,6 +254,11 @@ export function isBetterRecord(
 }
 
 function compareRecords(a: SoloRecord, b: SoloRecord): number {
+  if (a.score != null || b.score != null) {
+    if (a.score == null) return 1
+    if (b.score == null) return -1
+    if (b.score !== a.score) return b.score - a.score
+  }
   if (b.correctCount !== a.correctCount) return b.correctCount - a.correctCount
   if (a.activeElapsedMs !== b.activeElapsedMs) return a.activeElapsedMs - b.activeElapsedMs
   return b.achievedAt.localeCompare(a.achievedAt)
@@ -290,6 +368,32 @@ export function formatSoloTime(milliseconds: number): string {
   return `${minutes}:${String(totalSeconds % 60).padStart(2, '0')}`
 }
 
+export function formatSoloScore(score: number): string {
+  return new Intl.NumberFormat().format(Math.max(0, Math.floor(score)))
+}
+
+export function soloSessionScore(session: Pick<SoloSession, 'score' | 'rounds'>): number {
+  if (typeof session.score === 'number') return session.score
+  return (session.rounds ?? []).reduce((sum, round) => sum + round.score, 0)
+}
+
+export function soloRecordAverageClues(record: Pick<SoloRecord, 'rounds'>): number | null {
+  const correctRounds = (record.rounds ?? []).filter((round) => round.correct)
+  if (correctRounds.length === 0) return null
+  return (
+    correctRounds.reduce((sum, round) => sum + round.revealedClueCount, 0) /
+    correctRounds.length
+  )
+}
+
+export function soloRecordFirstClueCorrectCount(
+  record: Pick<SoloRecord, 'rounds'>
+): number {
+  return (record.rounds ?? []).filter(
+    (round) => round.correct && round.revealedClueCount === 1
+  ).length
+}
+
 /** Relative or short absolute date for when a personal best was set. */
 export function formatSoloRecordAchievedAt(iso: string, now = Date.now()): string {
   const t = Date.parse(iso)
@@ -306,7 +410,10 @@ export function formatSoloRecordAchievedAt(iso: string, now = Date.now()): strin
 }
 
 export function soloVariationLabel(variation: SoloVariation): string {
-  return variation === 'challenge' ? 'Solo challenge' : 'Endurance'
+  if (variation === 'challenge') return 'Solo challenge'
+  if (variation === 'daily') return 'Daily challenge'
+  if (variation === 'review') return 'Review'
+  return 'Endurance'
 }
 
 export function soloConfigSummary(

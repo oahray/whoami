@@ -6,6 +6,11 @@ import MaintenanceBanner from '../components/MaintenanceBanner'
 import PreferencesMenu from '../components/PreferencesMenu'
 import { useMaintenanceStatus } from '../hooks/useMaintenanceStatus'
 import { API_BASE_URL } from '../lib/apiBase'
+import {
+  fetchDailyChallenge,
+  loadDailyProgress,
+  type DailyChallenge
+} from '../lib/dailySolo'
 import { fetchOkJson } from '../lib/fetchOkJson'
 import {
   logSetupLoadError,
@@ -31,15 +36,24 @@ import {
 } from '../lib/inPersonEligibility'
 import { isMaintenanceBlockingNewGames } from '../lib/maintenance'
 import {
+  clearMasteryForDataset,
+  getMasterySummary,
+  getNeedsReviewEntityIds
+} from '../lib/soloMastery'
+import {
   createSoloSession,
   formatSoloRecordAchievedAt,
+  formatSoloScore,
   formatSoloTime,
   getSoloRecord,
   listSoloRecords,
+  loadSoloSession,
   loadSoloSetupPreferences,
   saveSoloSession,
   saveSoloSetupPreferences,
   soloConfigSummary,
+  SOLO_CHALLENGE_ROUNDS,
+  type KnowledgeScoreRules,
   type SoloConfig,
   type SoloRecord,
   type SoloVariation
@@ -77,6 +91,12 @@ function SoloSetup() {
   const [loading, setLoading] = useState(true)
   const [eligibilityLoading, setEligibilityLoading] = useState(false)
   const [starting, setStarting] = useState(false)
+  const [dailyChallenge, setDailyChallenge] = useState<DailyChallenge | null>(null)
+  const [dailyLoading, setDailyLoading] = useState(true)
+  const [dailyError, setDailyError] = useState<string | null>(null)
+  const [dailyProgress] = useState(loadDailyProgress)
+  const [masteryTick, setMasteryTick] = useState(0)
+  const [clearProgressOpen, setClearProgressOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [offline, setOffline] = useState(!navigator.onLine)
 
@@ -105,6 +125,10 @@ function SoloSetup() {
   const enduranceRecords = datasetId ? listSoloRecords('endurance', datasetId) : []
   const hasAnyRecords = challengeRecords.length > 0 || enduranceRecords.length > 0
   const selectedDatasetName = datasets.find((dataset) => dataset.id === datasetId)?.name
+  const masterySummary = getMasterySummary(datasetId || undefined)
+  const todayResult = dailyChallenge
+    ? dailyProgress.results[dailyChallenge.challengeId]
+    : undefined
 
   const renderRecordRow = (record: SoloRecord, opts?: { highlightCurrent?: boolean }) => {
     const isCurrent =
@@ -124,9 +148,13 @@ function SoloSetup() {
           {when && <p className="mt-0.5 text-xs text-foreground-muted">{when}</p>}
         </div>
         <div className="text-right shrink-0">
-          <p className="font-black text-primary">{record.correctCount}</p>
+          <p className="font-black text-primary">
+            {record.score == null
+              ? record.correctCount
+              : `${formatSoloScore(record.score)} pts`}
+          </p>
           <p className="text-[10px] uppercase tracking-wider text-foreground-muted">
-            {formatSoloTime(record.activeElapsedMs)}
+            {record.correctCount} correct · {formatSoloTime(record.activeElapsedMs)}
           </p>
         </div>
       </div>
@@ -184,6 +212,28 @@ function SoloSetup() {
       window.removeEventListener('offline', offlineHandler)
     }
   }, [])
+
+  useEffect(() => {
+    if (offline) {
+      setDailyLoading(false)
+      return
+    }
+    let cancelled = false
+    setDailyLoading(true)
+    fetchDailyChallenge()
+      .then((challenge) => {
+        if (!cancelled) setDailyChallenge(challenge)
+      })
+      .catch(() => {
+        if (!cancelled) setDailyError('Today’s challenge could not load.')
+      })
+      .finally(() => {
+        if (!cancelled) setDailyLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [offline])
 
   useEffect(() => {
     let cancelled = false
@@ -283,7 +333,11 @@ function SoloSetup() {
         }
         throw new Error(SETUP_START_ERROR)
       }
-      const { entityIds } = (await response.json()) as { entityIds: string[] }
+      const { entityIds, scoringVersion, scoringRules } = (await response.json()) as {
+        entityIds: string[]
+        scoringVersion?: number
+        scoringRules?: KnowledgeScoreRules
+      }
       const config = {
         datasetId,
         difficulty,
@@ -292,12 +346,109 @@ function SoloSetup() {
         roundDurationMs: roundSeconds * 1000,
         clueRevealIntervalMs: clueIntervalSeconds * 1000
       }
-      const session = createSoloSession(config, entityIds)
+      const session = createSoloSession(
+        config,
+        entityIds,
+        scoringVersion != null && scoringRules
+          ? { version: scoringVersion, rules: scoringRules }
+          : undefined
+      )
       saveSoloSetupPreferences(config)
       saveSoloSession(session)
       navigate('/solo/play')
     } catch (err) {
       logSetupLoadError('Solo setup: start', err)
+      setError(err instanceof Error ? err.message : SETUP_START_ERROR)
+    } finally {
+      setStarting(false)
+    }
+  }
+
+  const startDaily = () => {
+    if (!dailyChallenge || offline || maintenanceBlocking) return
+    const existing = loadSoloSession()
+    if (
+      existing?.variation === 'daily' &&
+      existing.dailyChallengeId === dailyChallenge.challengeId
+    ) {
+      navigate('/solo/play')
+      return
+    }
+    const session = createSoloSession(
+      {
+        datasetId: dailyChallenge.datasetId,
+        difficulty: [],
+        entityType: 'all',
+        variation: 'daily',
+        roundDurationMs: dailyChallenge.roundDurationMs,
+        clueRevealIntervalMs: dailyChallenge.clueRevealIntervalMs,
+        dailyChallengeId: dailyChallenge.challengeId,
+        dailyDateKey: dailyChallenge.dateKey
+      },
+      dailyChallenge.entityIds,
+      {
+        version: dailyChallenge.scoringVersion,
+        rules: dailyChallenge.scoringRules
+      }
+    )
+    saveSoloSession(session)
+    unlockAudio()
+    fadeOutMenuMusic()
+    playSound('go')
+    navigate('/solo/play')
+  }
+
+  const canStartReview =
+    Boolean(datasetId) &&
+    masterySummary.needsReview > 0 &&
+    !starting &&
+    !offline &&
+    !maintenanceBlocking
+
+  const startReview = async () => {
+    if (!canStartReview) return
+    setStarting(true)
+    setError(null)
+    unlockAudio()
+    fadeOutMenuMusic()
+    playSound('go')
+    try {
+      const reviewIds = getNeedsReviewEntityIds(datasetId)
+      // Ignore Custom game filters so missed cards stay reachable.
+      const query = new URLSearchParams({
+        datasetId,
+        difficulty: 'any',
+        entityType: 'all'
+      })
+      const response = await fetch(`${API_BASE_URL}/cards/deck?${query}`)
+      if (!response.ok) throw new Error(SETUP_START_ERROR)
+      const { entityIds, scoringVersion, scoringRules } = (await response.json()) as {
+        entityIds: string[]
+        scoringVersion?: number
+        scoringRules?: KnowledgeScoreRules
+      }
+      const eligibleIds = new Set(entityIds)
+      const reviewDeck = reviewIds.filter((id) => eligibleIds.has(id))
+      if (reviewDeck.length === 0) {
+        throw new Error('Those review cards are no longer available. Try again after the next update.')
+      }
+      const session = createSoloSession(
+        {
+          datasetId,
+          difficulty: [],
+          entityType: 'all',
+          variation: 'review',
+          roundDurationMs: roundSeconds * 1000,
+          clueRevealIntervalMs: clueIntervalSeconds * 1000
+        },
+        reviewDeck.slice(0, SOLO_CHALLENGE_ROUNDS),
+        scoringVersion != null && scoringRules
+          ? { version: scoringVersion, rules: scoringRules }
+          : undefined
+      )
+      saveSoloSession(session)
+      navigate('/solo/play')
+    } catch (err) {
       setError(err instanceof Error ? err.message : SETUP_START_ERROR)
     } finally {
       setStarting(false)
@@ -333,8 +484,151 @@ function SoloSetup() {
         {error && (
           <p role="alert" className="banner-danger">{error}</p>
         )}
+        {!dailyLoading && dailyChallenge && (
+          <section className="rounded-xl border border-primary/30 bg-primary/10 p-4 shadow-sm md:p-5">
+            <div className="flex items-start gap-3">
+              <span className="material-symbols-outlined text-2xl text-primary" aria-hidden>
+                today
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[10px] font-black uppercase tracking-widest text-primary">
+                  Today&apos;s challenge
+                </p>
+                <h2 className="mt-1 text-lg font-black">
+                  {new Intl.DateTimeFormat(undefined, {
+                    dateStyle: 'long',
+                    timeZone: 'UTC'
+                  }).format(new Date(`${dailyChallenge.dateKey}T00:00:00Z`))}
+                </h2>
+                <p className="mt-1 text-sm text-foreground-muted">
+                  {dailyChallenge.entityIds.length} cards · {dailyChallenge.datasetName}
+                </p>
+                <p className="mt-2 text-sm font-semibold">
+                  Current streak: {dailyProgress.currentStreak}{' '}
+                  {dailyProgress.currentStreak === 1 ? 'day' : 'days'}
+                </p>
+              </div>
+            </div>
+            {todayResult ? (
+              <div className="banner-success mt-4 text-center font-semibold">
+                Completed today · {formatSoloScore(todayResult.record.score ?? 0)} points
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={startDaily}
+                disabled={offline || maintenanceBlocking}
+                className="mt-4 w-full rounded-lg bg-primary py-3 font-bold text-white hover:bg-primary/90 disabled:opacity-50"
+              >
+                Play today
+              </button>
+            )}
+          </section>
+        )}
+        {!dailyLoading && dailyError && !dailyChallenge && (
+          <p className="text-center text-xs text-foreground-muted">{dailyError}</p>
+        )}
+        {!loading && (
+          <section
+            key={masteryTick}
+            className="space-y-4 rounded-lg border border-edge bg-surface p-4 shadow-sm"
+          >
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary" aria-hidden>
+                school
+              </span>
+              <div>
+                <h2 className="text-base font-bold">Progress</h2>
+                <p className="text-xs text-foreground-muted">
+                  Cards you meet are tracked on this device
+                  {selectedDatasetName ? ` · ${selectedDatasetName}` : ''}.
+                </p>
+              </div>
+            </div>
+            <details className="rounded-lg bg-surface-muted p-3">
+              <summary className="cursor-pointer text-sm font-semibold text-foreground">
+                How learning works
+              </summary>
+              <ul className="mt-2 list-disc space-y-1.5 pl-4 text-xs text-foreground-muted">
+                <li>
+                  <span className="font-semibold text-foreground">Needs review</span> — you missed
+                  or timed out. Tap <span className="font-semibold text-foreground">Review</span>{' '}
+                  here to practice those cards.
+                </li>
+                <li>
+                  <span className="font-semibold text-foreground">Learning</span> — you got it right
+                  at least once and are still building confidence.
+                </li>
+                <li>
+                  <span className="font-semibold text-foreground">Mastered</span> — correct several
+                  times, including at least once from the first clue.
+                </li>
+              </ul>
+            </details>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div className="rounded-lg bg-surface-muted p-3">
+                <p className="text-xl font-black">{masterySummary.encountered}</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted">
+                  Encountered
+                </p>
+              </div>
+              <div className="rounded-lg bg-surface-muted p-3">
+                <p className="text-xl font-black">{masterySummary.mastered}</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted">
+                  Mastered
+                </p>
+              </div>
+              <div className="rounded-lg bg-surface-muted p-3">
+                <p className="text-xl font-black">{masterySummary.needsReview}</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted">
+                  Needs review
+                </p>
+              </div>
+              <div className="rounded-lg bg-surface-muted p-3">
+                <p className="text-xl font-black">
+                  {masterySummary.firstClueAccuracy == null
+                    ? '—'
+                    : `${Math.round(masterySummary.firstClueAccuracy * 100)}%`}
+                </p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted">
+                  First clue
+                </p>
+              </div>
+            </div>
+            {masterySummary.needsReview > 0 ? (
+              <button
+                type="button"
+                onClick={() => void startReview()}
+                disabled={!canStartReview}
+                className="w-full rounded-lg bg-primary py-3 font-bold text-white hover:bg-primary/90 disabled:opacity-50"
+              >
+                {starting ? 'Starting…' : `Review ${masterySummary.needsReview} missed`}
+              </button>
+            ) : (
+              <p className="rounded-lg border border-dashed border-edge px-3 py-3 text-center text-sm text-foreground-muted">
+                Miss or time out a card in Daily, Challenge, or Endurance — then{' '}
+                <span className="font-semibold text-foreground">Review</span> shows up here.
+              </p>
+            )}
+            {masterySummary.encountered > 0 && (
+              <button
+                type="button"
+                onClick={() => setClearProgressOpen(true)}
+                className="w-full text-sm font-semibold text-foreground-muted underline-offset-2 hover:text-foreground hover:underline"
+              >
+                Clear learning progress
+              </button>
+            )}
+          </section>
+        )}
         {!loading && datasets.length > 0 && (
           <section className="space-y-4 rounded-lg border border-edge bg-surface p-4 shadow-sm">
+            <div>
+              <h2 className="text-base font-bold">Custom game</h2>
+              <p className="text-xs text-foreground-muted">
+                Choose your own content, difficulty, and timing.
+              </p>
+            </div>
             {datasets.length > 1 && (
               <label className="block text-sm font-semibold">
                 Content
@@ -462,7 +756,9 @@ function SoloSetup() {
                   Best for this setup
                 </p>
                 <p className="mt-1 font-bold">
-                  {currentBest.correctCount} correct · {formatSoloTime(currentBest.activeElapsedMs)}
+                  {currentBest.score == null
+                    ? `${currentBest.correctCount} correct · ${formatSoloTime(currentBest.activeElapsedMs)}`
+                    : `${formatSoloScore(currentBest.score)} points · ${currentBest.correctCount} correct`}
                 </p>
               </div>
             )}
@@ -479,6 +775,51 @@ function SoloSetup() {
                   : 'Start Endurance'}
             </button>
           </section>
+        )}
+
+        {clearProgressOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 backdrop-blur-sm md:items-center md:p-6"
+            role="presentation"
+            onClick={() => setClearProgressOpen(false)}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="clear-progress-title"
+              className="w-full max-w-md rounded-t-2xl border border-edge bg-surface p-6 shadow-2xl md:rounded-2xl"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <h3 id="clear-progress-title" className="text-lg font-black text-foreground">
+                Clear learning progress?
+              </h3>
+              <p className="mt-2 text-sm text-foreground-muted">
+                This removes encountered, mastered, and needs-review data
+                {selectedDatasetName ? ` for ${selectedDatasetName}` : ''} on this
+                device. Personal bests and daily streak are kept.
+              </p>
+              <div className="mt-6 grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setClearProgressOpen(false)}
+                  className="rounded-lg border-2 border-edge py-3 font-semibold hover:bg-surface-muted"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (datasetId) clearMasteryForDataset(datasetId)
+                    setMasteryTick((tick) => tick + 1)
+                    setClearProgressOpen(false)
+                  }}
+                  className="rounded-lg bg-red-600 py-3 font-bold text-white hover:bg-red-700"
+                >
+                  Clear progress
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
         {!loading && (

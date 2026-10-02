@@ -3,6 +3,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderWithPreferences } from '../test/renderWithPreferences'
 import { loadSoloSession } from '../lib/soloSession'
+import { applyMasteryOutcome } from '../lib/soloMastery'
 import SoloSetup from './SoloSetup'
 
 vi.mock('../hooks/useMaintenanceStatus', () => ({
@@ -24,6 +25,31 @@ describe('SoloSetup', () => {
       }
       if (url.includes('/cards/eligibility')) {
         return { ok: true, json: async () => ({ modes: { any: 12, easy: 12, medium: 0, hard: 0, nightmare: 0 } }) } as Response
+      }
+      if (url.includes('/cards/daily-challenge')) {
+        return {
+          ok: true,
+          json: async () => ({
+            challengeId: '2026-10-02-v1',
+            challengeVersion: 1,
+            dateKey: '2026-10-02',
+            datasetId: 'ds-1',
+            datasetName: 'Bible',
+            difficulty: 'any',
+            entityType: 'all',
+            roundDurationMs: 30_000,
+            clueRevealIntervalMs: 5_000,
+            entityIds: Array.from({ length: 10 }, (_, index) => `daily-${index}`),
+            scoringVersion: 1,
+            scoringRules: {
+              basePoints: 1000,
+              additionalCluePenalty: 150,
+              elapsedSecondPenalty: 10,
+              incorrectGuessPenalty: 100,
+              minimumCorrectScore: 100
+            }
+          })
+        } as Response
       }
       if (url.includes('/cards/deck')) {
         return { ok: true, json: async () => ({ entityIds: Array.from({ length: 12 }, (_, index) => `ent-${index}`) }) } as Response
@@ -48,6 +74,69 @@ describe('SoloSetup', () => {
       clueRevealIntervalMs: 5000
     })
     expect(loadSoloSession()?.entityIds).toHaveLength(10)
+  })
+
+  it('starts today’s fixed challenge with server-provided rules', async () => {
+    renderWithPreferences(<MemoryRouter><SoloSetup /></MemoryRouter>)
+
+    const playToday = await screen.findByRole('button', { name: /play today/i })
+    fireEvent.click(playToday)
+
+    expect(loadSoloSession()).toMatchObject({
+      variation: 'daily',
+      dailyChallengeId: '2026-10-02-v1',
+      entityType: 'all',
+      roundDurationMs: 30_000,
+      scoringVersion: 1,
+      scoringRules: { basePoints: 1000 }
+    })
+    expect(loadSoloSession()?.entityIds).toHaveLength(10)
+  })
+
+  it('shows progress and starts Review with eligible missed entities only', async () => {
+    applyMasteryOutcome({
+      eventId: 'miss-1',
+      datasetId: 'ds-1',
+      entityId: 'ent-3',
+      entityName: 'Moses',
+      correct: false,
+      revealedClueCount: 4
+    })
+    applyMasteryOutcome({
+      eventId: 'miss-2',
+      datasetId: 'ds-1',
+      entityId: 'not-in-current-deck',
+      entityName: 'Noah',
+      correct: false,
+      revealedClueCount: 5
+    })
+
+    renderWithPreferences(<MemoryRouter><SoloSetup /></MemoryRouter>)
+
+    expect(await screen.findByRole('heading', { name: /progress/i })).toBeInTheDocument()
+    expect(screen.getByText(/how learning works/i)).toBeInTheDocument()
+    const review = await screen.findByRole('button', { name: /review 2 missed/i })
+    await waitFor(() => expect(review).toBeEnabled())
+    fireEvent.click(review)
+
+    await waitFor(() =>
+      expect(loadSoloSession()).toMatchObject({
+        variation: 'review',
+        entityType: 'all',
+        entityIds: ['ent-3']
+      })
+    )
+    const deckCall = vi.mocked(fetch).mock.calls.find((call) => String(call[0]).includes('/cards/deck'))
+    expect(String(deckCall?.[0])).toContain('difficulty=any')
+    expect(String(deckCall?.[0])).toContain('entityType=all')
+  })
+
+  it('explains how to unlock Review when nothing needs review yet', async () => {
+    renderWithPreferences(<MemoryRouter><SoloSetup /></MemoryRouter>)
+
+    expect(await screen.findByRole('heading', { name: /progress/i })).toBeInTheDocument()
+    expect(screen.getByText(/miss or time out a card/i)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /review \d+ missed/i })).not.toBeInTheDocument()
   })
 
   it('shows personal bests without revealing content pool size', async () => {

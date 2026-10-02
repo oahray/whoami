@@ -56,7 +56,7 @@ describe('SoloGame', () => {
     vi.useRealTimers()
   })
 
-  it('shows the answer and citations after Endurance timeout, then the results', async () => {
+  it('hides the answer and citations after Endurance timeout, then shows results', async () => {
     saveSoloSession({
       datasetId: 'ds-1',
       difficulty: [],
@@ -81,9 +81,10 @@ describe('SoloGame', () => {
     })
 
     expect(screen.getByText(/time's up/i)).toBeInTheDocument()
-    expect(screen.getByText('Moses')).toBeInTheDocument()
-    expect(screen.getByText('Moshe')).toBeInTheDocument()
-    expect(screen.getByText('Exodus 2:1')).toBeInTheDocument()
+    expect(screen.getByText(/answer hidden/i)).toBeInTheDocument()
+    expect(screen.queryByText('Moses')).not.toBeInTheDocument()
+    expect(screen.queryByText('Moshe')).not.toBeInTheDocument()
+    expect(screen.queryByText('Exodus 2:1')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /see results/i })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: /endurance complete/i })).not.toBeInTheDocument()
 
@@ -139,10 +140,13 @@ describe('SoloGame', () => {
 
     fireEvent.change(screen.getByPlaceholderText(/enter your guess/i), { target: { value: 'Moses' } })
     fireEvent.submit(screen.getByPlaceholderText(/enter your guess/i).closest('form')!)
+    await flushCardLoad()
 
     const next = screen.getByRole('button', { name: /next round/i })
     expect(next).toHaveFocus()
     expect(screen.getByText('Exodus 2:1')).toBeInTheDocument()
+    expect(screen.getByText('+1,000 points')).toBeInTheDocument()
+    expect(screen.getByText('1,000 base')).toBeInTheDocument()
 
     // jsdom does not synthesize button activation from Enter; blur then use the
     // settled-window Enter fallback (same path when focus is not on the CTA).
@@ -177,6 +181,12 @@ describe('SoloGame', () => {
     expect(feedback).toHaveTextContent(/not quite/i)
     expect(input).toHaveFocus()
     expect(input).toHaveValue('')
+
+    fireEvent.change(input, { target: { value: 'Moses' } })
+    fireEvent.submit(input.closest('form')!)
+    await flushCardLoad()
+    expect(screen.getByText('+900 points')).toBeInTheDocument()
+    expect(screen.getByText(/100 guesses/i)).toBeInTheDocument()
   })
 
   it('does not auto-advance Endurance after correct; waits for Next round', async () => {
@@ -221,6 +231,7 @@ describe('SoloGame', () => {
 
     fireEvent.change(screen.getByPlaceholderText(/enter your guess/i), { target: { value: 'Moses' } })
     fireEvent.click(screen.getByRole('button', { name: /^guess$/i }))
+    await flushCardLoad()
 
     expect(screen.getByRole('button', { name: /next round/i })).toBeInTheDocument()
 
@@ -257,7 +268,8 @@ describe('SoloGame', () => {
       await vi.advanceTimersByTimeAsync(200)
     })
     expect(screen.getByText(/time's up/i)).toBeInTheDocument()
-    expect(screen.getByText('Exodus 2:1')).toBeInTheDocument()
+    expect(screen.queryByText('Exodus 2:1')).not.toBeInTheDocument()
+    expect(screen.queryByText('Moses')).not.toBeInTheDocument()
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(15_000)
@@ -314,10 +326,12 @@ describe('SoloGame', () => {
 
     fireEvent.change(screen.getByPlaceholderText(/enter your guess/i), { target: { value: 'Moses' } })
     fireEvent.click(screen.getByRole('button', { name: /^guess$/i }))
+    await flushCardLoad()
 
     expect(screen.getByText(/correct!/i)).toBeInTheDocument()
     expect(screen.getByText('Moshe')).toBeInTheDocument()
     expect(screen.getByText('Exodus 2:1')).toBeInTheDocument()
+    expect(screen.getByText(/now learning/i)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /next round/i })).toBeInTheDocument()
 
     await act(async () => {
@@ -382,7 +396,8 @@ describe('SoloGame', () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(200)
     })
-    fireEvent.click(screen.getByRole('button', { name: /next round/i }))
+    expect(screen.getByRole('button', { name: /see results/i })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /see results/i }))
 
     expect(screen.getByRole('heading', { name: /challenge complete/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /new setup/i })).toHaveAttribute('href', '/solo')
@@ -395,6 +410,48 @@ describe('SoloGame', () => {
 
     expect(screen.getByText('New clue')).toBeInTheDocument()
     expect(screen.queryByText('Solo setup')).not.toBeInTheDocument()
+  })
+
+  it('labels the last Challenge settle as See results', async () => {
+    saveSoloSession({
+      datasetId: 'ds-1',
+      difficulty: [],
+      entityType: 'character',
+      variation: 'challenge',
+      roundDurationMs: 30_000,
+      clueRevealIntervalMs: 10_000,
+      entityIds: ['ent-1', 'ent-2'],
+      index: 1,
+      correctCount: 1,
+      activeElapsedMs: 0
+    })
+
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const url = String(input)
+      if (url.includes('/maintenance/status')) {
+        return {
+          ok: true,
+          json: async () => ({ phase: 'none', endsAt: null, startsAt: null })
+        } as Response
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          entity: { id: 'ent-2', name: 'Aaron', type: 'character', aliases: [] },
+          clues: [{ order: 1, text: 'Last clue', citations: null }]
+        })
+      } as Response
+    })
+
+    renderSoloPlay()
+    await flushCardLoad()
+
+    fireEvent.change(screen.getByPlaceholderText(/enter your guess/i), { target: { value: 'Aaron' } })
+    fireEvent.click(screen.getByRole('button', { name: /^guess$/i }))
+    await flushCardLoad()
+
+    expect(screen.getByRole('button', { name: /see results/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /next round/i })).not.toBeInTheDocument()
   })
 
   it('ends the run when the next card is gone after a settle', async () => {
@@ -441,6 +498,7 @@ describe('SoloGame', () => {
 
     fireEvent.change(screen.getByPlaceholderText(/enter your guess/i), { target: { value: 'Moses' } })
     fireEvent.click(screen.getByRole('button', { name: /^guess$/i }))
+    await flushCardLoad()
     fireEvent.click(screen.getByRole('button', { name: /next round/i }))
 
     await act(async () => {
@@ -559,7 +617,7 @@ describe('SoloGame', () => {
     expect(screen.getByText('Second clue')).toBeInTheDocument()
     expect(screen.queryByText('Third clue')).not.toBeInTheDocument()
     expect(screen.getByText(/correct!/i)).toBeInTheDocument()
-    expect(screen.getByText('25s')).toBeInTheDocument()
+    expect(screen.getAllByText('25s').length).toBeGreaterThan(0)
   })
 
   it('does not fetch the next endurance card while sitting on a timeout reveal', async () => {

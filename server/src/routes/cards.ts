@@ -3,15 +3,28 @@ import { parseEntityTypeFilter } from '../game/entityTypeFilter.js'
 import { parseDifficultySelection } from '../game/difficultySelection.js'
 import {
   buildInPersonCardForEntity,
+  getEligibleEntityIds,
   getInPersonDeck,
   getInPersonEligibility,
   getRandomInPersonCard,
   InPersonPlayError
 } from '../game/inPersonPlay.js'
 import { getMaintenanceBlock } from '../db/maintenance.js'
+import { getDefaultEnabledDataset } from '../db/entities.js'
+import {
+  DEFAULT_KNOWLEDGE_SCORE_RULES,
+  KNOWLEDGE_SCORE_VERSION
+} from '../game/scoring.js'
+import { pickSeededSample } from '../game/shuffle.js'
 import { logger } from '../utils/logger.js'
 
 const router = Router()
+const DAILY_CHALLENGE_VERSION = 3
+const DAILY_CHALLENGE_ROUNDS = 10
+let dailyChallengeCache: {
+  cacheKey: string
+  payload: Record<string, unknown>
+} | null = null
 
 function parseDatasetId(raw: unknown): string {
   return typeof raw === 'string' ? raw.trim() : ''
@@ -23,6 +36,10 @@ function parseDifficultyQuery(raw: unknown) {
 
 function parseEntityTypeQuery(raw: unknown) {
   return parseEntityTypeFilter(raw)
+}
+
+function dailyDateKey(now = new Date()): string {
+  return now.toISOString().slice(0, 10)
 }
 
 function handleInPersonError(error: unknown, res: Response, context: string) {
@@ -60,6 +77,45 @@ router.get('/cards/eligibility', async (req, res) => {
   }
 })
 
+router.get('/cards/daily-challenge', async (_req, res) => {
+  try {
+    const dateKey = dailyDateKey()
+    const cacheKey = `${dateKey}-v${DAILY_CHALLENGE_VERSION}`
+    if (dailyChallengeCache?.cacheKey === cacheKey) {
+      return res.json(dailyChallengeCache.payload)
+    }
+    const dataset = await getDefaultEnabledDataset()
+    if (!dataset) {
+      return res.status(404).json({ error: 'No default dataset is available' })
+    }
+    const challengeId = cacheKey
+    const eligibleIds = await getEligibleEntityIds(dataset.id, [], 'all')
+    const orderedIds = pickSeededSample(eligibleIds, DAILY_CHALLENGE_ROUNDS, challengeId)
+    if (orderedIds.length === 0) {
+      return res.status(404).json({ error: 'No cards are available for today' })
+    }
+
+    const payload = {
+      challengeId,
+      challengeVersion: DAILY_CHALLENGE_VERSION,
+      dateKey,
+      datasetId: dataset.id,
+      datasetName: dataset.name,
+      difficulty: 'any',
+      entityType: 'all',
+      roundDurationMs: 30_000,
+      clueRevealIntervalMs: 5_000,
+      entityIds: orderedIds,
+      scoringVersion: KNOWLEDGE_SCORE_VERSION,
+      scoringRules: DEFAULT_KNOWLEDGE_SCORE_RULES
+    }
+    dailyChallengeCache = { cacheKey, payload }
+    return res.json(payload)
+  } catch (error) {
+    return handleInPersonError(error, res, 'Failed to load daily challenge')
+  }
+})
+
 router.get('/cards/deck', async (req, res) => {
   try {
     const maintenance = await getMaintenanceBlock()
@@ -84,7 +140,11 @@ router.get('/cards/deck', async (req, res) => {
       return res.status(400).json({ error: 'Invalid entity type' })
     }
     const deck = await getInPersonDeck(datasetId, difficultySelection, entityType)
-    res.json(deck)
+    res.json({
+      ...deck,
+      scoringVersion: KNOWLEDGE_SCORE_VERSION,
+      scoringRules: DEFAULT_KNOWLEDGE_SCORE_RULES
+    })
   } catch (error) {
     return handleInPersonError(error, res, 'Failed to fetch deck')
   }
