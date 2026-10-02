@@ -215,12 +215,12 @@ describe('Lobby', () => {
 
     expect(screen.getByRole('button', { name: /^easy$/i })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('button', { name: /^medium$/i })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('button', { name: /^hard$/i })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByRole('button', { name: /^nightmare$/i })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: /^hard$/i })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: /^nightmare$/i })).toHaveAttribute('aria-pressed', 'false')
 
     fireEvent.click(screen.getByRole('button', { name: /^hard$/i }))
 
-    expect(emit).toHaveBeenCalledWith('UPDATE_SETTINGS', { difficultyMode: 'easy,medium,nightmare' })
+    expect(emit).toHaveBeenCalledWith('UPDATE_SETTINGS', { difficultyMode: 'easy,medium,hard' })
   })
 
   it('emits LOBBY_REACTION when a reaction button is pressed', () => {

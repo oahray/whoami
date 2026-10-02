@@ -90,7 +90,9 @@ describe('Round Flow Integration', () => {
       expect(room.currentRound?.clues).toHaveLength(2)
       expect(room.currentRound?.correctGuesses).toHaveLength(0)
       expect(buildEntityPool).toHaveBeenCalled()
-      expect(getCluesForEntity).toHaveBeenCalledWith('entity-1', { difficultySelection: [] })
+      expect(getCluesForEntity).toHaveBeenCalledWith('entity-1', {
+        difficultySelection: ['easy', 'medium']
+      })
     })
 
     it('should activate round and allow guessing', async () => {
