@@ -30,6 +30,7 @@ import {
 import {
   coerceDifficultySelection,
   encodeDifficultySelection,
+  DEFAULT_DIFFICULTY_SELECTION,
   type DifficultySelection
 } from '../lib/difficultySelection'
 import {
@@ -88,7 +89,7 @@ function SoloSetup() {
     savedPrefs?.entityType ?? DEFAULT_ENTITY_TYPE_FILTER
   )
   const [difficulty, setDifficulty] = useState<DifficultySelection>(
-    coerceDifficultySelection(savedPrefs?.difficulty)
+    savedPrefs ? coerceDifficultySelection(savedPrefs.difficulty) : DEFAULT_DIFFICULTY_SELECTION
   )
   const [variation, setVariation] = useState<SoloVariation>(savedPrefs?.variation ?? 'challenge')
   const [roundSeconds, setRoundSeconds] = useState(

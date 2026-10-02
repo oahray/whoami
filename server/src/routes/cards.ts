@@ -20,7 +20,7 @@ import { pickSeededSample } from '../game/shuffle.js'
 import { logger } from '../utils/logger.js'
 
 const router = Router()
-const DAILY_CHALLENGE_VERSION = 3
+const DAILY_CHALLENGE_VERSION = 1
 const DAILY_CHALLENGE_ROUNDS = 10
 let dailyChallengeCache: {
   cacheKey: string

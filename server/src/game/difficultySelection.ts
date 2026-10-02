@@ -9,6 +9,9 @@ export type DifficultyTier = (typeof DIFFICULTY_TIERS)[number]
  */
 export type DifficultySelection = DifficultyTier[]
 
+/** Fresh-install / reset default for Solo, in-person, and multiplayer (not Daily). */
+export const DEFAULT_DIFFICULTY_SELECTION: DifficultySelection = ['easy', 'medium']
+
 export function isAnyDifficultySelection(selection: DifficultySelection): boolean {
   return selection.length === 0
 }
