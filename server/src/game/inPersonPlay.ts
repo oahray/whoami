@@ -174,11 +174,11 @@ export async function getInPersonEligibility(
   return countEligibleModes(countsByEntity, coerceSelection(difficultySelection))
 }
 
-export async function getEligibleEntityIds(
+export async function getEligibleEntities(
   datasetId: string,
   difficultySelection: DifficultySelection | GameDifficultyMode,
   entityType: EntityTypeFilter = DEFAULT_ENTITY_TYPE_FILTER
-): Promise<string[]> {
+): Promise<Array<{ id: string; name: string }>> {
   await assertPlayableDataset(datasetId)
   const selection = coerceSelection(difficultySelection)
   const entities = await fetchPublishedEntities(datasetId, entityType)
@@ -188,7 +188,16 @@ export async function getEligibleEntityIds(
       const counts = countsByEntity.get(e.id)
       return counts ? isEligibleForSelection(counts, selection) : false
     })
-    .map((e) => e.id)
+    .map((e) => ({ id: e.id, name: e.name }))
+}
+
+export async function getEligibleEntityIds(
+  datasetId: string,
+  difficultySelection: DifficultySelection | GameDifficultyMode,
+  entityType: EntityTypeFilter = DEFAULT_ENTITY_TYPE_FILTER
+): Promise<string[]> {
+  const entities = await getEligibleEntities(datasetId, difficultySelection, entityType)
+  return entities.map((entity) => entity.id)
 }
 
 export async function getInPersonDeck(

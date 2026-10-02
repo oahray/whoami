@@ -15,11 +15,14 @@ import {
   DEFAULT_KNOWLEDGE_SCORE_RULES,
   KNOWLEDGE_SCORE_VERSION
 } from '../game/scoring.js'
+import { pickSeededSample } from '../game/shuffle.js'
 import { logger } from '../utils/logger.js'
 
 const router = Router()
+const DAILY_CHALLENGE_VERSION = 3
+const DAILY_CHALLENGE_ROUNDS = 10
 let dailyChallengeCache: {
-  dateKey: string
+  cacheKey: string
   payload: Record<string, unknown>
 } | null = null
 
@@ -33,15 +36,6 @@ function parseDifficultyQuery(raw: unknown) {
 
 function parseEntityTypeQuery(raw: unknown) {
   return parseEntityTypeFilter(raw)
-}
-
-function stableHash(value: string): number {
-  let hash = 2166136261
-  for (let index = 0; index < value.length; index += 1) {
-    hash ^= value.charCodeAt(index)
-    hash = Math.imul(hash, 16777619)
-  }
-  return hash >>> 0
 }
 
 function dailyDateKey(now = new Date()): string {
@@ -86,31 +80,24 @@ router.get('/cards/eligibility', async (req, res) => {
 router.get('/cards/daily-challenge', async (_req, res) => {
   try {
     const dateKey = dailyDateKey()
-    if (dailyChallengeCache?.dateKey === dateKey) {
+    const cacheKey = `${dateKey}-v${DAILY_CHALLENGE_VERSION}`
+    if (dailyChallengeCache?.cacheKey === cacheKey) {
       return res.json(dailyChallengeCache.payload)
     }
     const dataset = await getDefaultEnabledDataset()
     if (!dataset) {
       return res.status(404).json({ error: 'No default dataset is available' })
     }
-    const challengeVersion = 1
-    const challengeId = `${dateKey}-v${challengeVersion}`
-    const entityIds = await getEligibleEntityIds(dataset.id, [], 'all')
-    const orderedIds = [...entityIds]
-      .sort(
-        (left, right) =>
-          stableHash(`${challengeId}:${left}`) -
-            stableHash(`${challengeId}:${right}`) ||
-          left.localeCompare(right)
-      )
-      .slice(0, 10)
+    const challengeId = cacheKey
+    const eligibleIds = await getEligibleEntityIds(dataset.id, [], 'all')
+    const orderedIds = pickSeededSample(eligibleIds, DAILY_CHALLENGE_ROUNDS, challengeId)
     if (orderedIds.length === 0) {
       return res.status(404).json({ error: 'No cards are available for today' })
     }
 
     const payload = {
       challengeId,
-      challengeVersion,
+      challengeVersion: DAILY_CHALLENGE_VERSION,
       dateKey,
       datasetId: dataset.id,
       datasetName: dataset.name,
@@ -122,7 +109,7 @@ router.get('/cards/daily-challenge', async (_req, res) => {
       scoringVersion: KNOWLEDGE_SCORE_VERSION,
       scoringRules: DEFAULT_KNOWLEDGE_SCORE_RULES
     }
-    dailyChallengeCache = { dateKey, payload }
+    dailyChallengeCache = { cacheKey, payload }
     return res.json(payload)
   } catch (error) {
     return handleInPersonError(error, res, 'Failed to load daily challenge')

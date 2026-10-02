@@ -308,7 +308,8 @@ describe('GET /cards/daily-challenge', () => {
 
     expect(first.status).toBe(200)
     expect(first.body).toEqual(second.body)
-    expect(first.body.challengeId).toMatch(/^\d{4}-\d{2}-\d{2}-v1$/)
+    expect(first.body.challengeId).toMatch(/^\d{4}-\d{2}-\d{2}-v3$/)
+    expect(first.body.challengeVersion).toBe(3)
     expect(first.body.entityIds).toHaveLength(3)
     expect(first.body).toMatchObject({
       datasetId: 'ds-1',

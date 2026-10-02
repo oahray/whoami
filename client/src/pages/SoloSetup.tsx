@@ -435,8 +435,7 @@ function SoloSetup() {
                   }).format(new Date(`${dailyChallenge.dateKey}T00:00:00Z`))}
                 </h2>
                 <p className="mt-1 text-sm text-foreground-muted">
-                  {dailyChallenge.entityIds.length} cards · Fixed settings ·{' '}
-                  {dailyChallenge.datasetName}
+                  {dailyChallenge.entityIds.length} cards · {dailyChallenge.datasetName}
                 </p>
                 <p className="mt-2 text-sm font-semibold">
                   Current streak: {dailyProgress.currentStreak}{' '}

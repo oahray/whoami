@@ -393,7 +393,8 @@ describe('SoloGame', () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(200)
     })
-    fireEvent.click(screen.getByRole('button', { name: /next round/i }))
+    expect(screen.getByRole('button', { name: /see results/i })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /see results/i }))
 
     expect(screen.getByRole('heading', { name: /challenge complete/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /new setup/i })).toHaveAttribute('href', '/solo')
@@ -406,6 +407,48 @@ describe('SoloGame', () => {
 
     expect(screen.getByText('New clue')).toBeInTheDocument()
     expect(screen.queryByText('Solo setup')).not.toBeInTheDocument()
+  })
+
+  it('labels the last Challenge settle as See results', async () => {
+    saveSoloSession({
+      datasetId: 'ds-1',
+      difficulty: [],
+      entityType: 'character',
+      variation: 'challenge',
+      roundDurationMs: 30_000,
+      clueRevealIntervalMs: 10_000,
+      entityIds: ['ent-1', 'ent-2'],
+      index: 1,
+      correctCount: 1,
+      activeElapsedMs: 0
+    })
+
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const url = String(input)
+      if (url.includes('/maintenance/status')) {
+        return {
+          ok: true,
+          json: async () => ({ phase: 'none', endsAt: null, startsAt: null })
+        } as Response
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          entity: { id: 'ent-2', name: 'Aaron', type: 'character', aliases: [] },
+          clues: [{ order: 1, text: 'Last clue', citations: null }]
+        })
+      } as Response
+    })
+
+    renderSoloPlay()
+    await flushCardLoad()
+
+    fireEvent.change(screen.getByPlaceholderText(/enter your guess/i), { target: { value: 'Aaron' } })
+    fireEvent.click(screen.getByRole('button', { name: /^guess$/i }))
+    await flushCardLoad()
+
+    expect(screen.getByRole('button', { name: /see results/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /next round/i })).not.toBeInTheDocument()
   })
 
   it('ends the run when the next card is gone after a settle', async () => {

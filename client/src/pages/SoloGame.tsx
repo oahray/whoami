@@ -674,8 +674,13 @@ function SoloGame() {
   if (!session) return <LoadingState label="Loading solo mode" layout="page" />
 
   const settled = status === 'correct' || status === 'timeout'
+  const isLastChallengeRound =
+    (session.variation === 'challenge' || session.variation === 'daily') &&
+    session.index >= session.entityIds.length - 1
   const settleAdvanceLabel =
-    session.variation === 'endurance' && status !== 'correct' ? 'See results' : 'Next round'
+    (session.variation === 'endurance' && status !== 'correct') || isLastChallengeRound
+      ? 'See results'
+      : 'Next round'
   const revealedCount = card
     ? Math.min(card.clues.length, 1 + Math.floor((session.roundDurationMs - remainingMs) / session.clueRevealIntervalMs))
     : 0
