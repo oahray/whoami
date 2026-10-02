@@ -329,6 +329,7 @@ describe('SoloGame', () => {
     expect(screen.getByText(/correct!/i)).toBeInTheDocument()
     expect(screen.getByText('Moshe')).toBeInTheDocument()
     expect(screen.getByText('Exodus 2:1')).toBeInTheDocument()
+    expect(screen.getByText('Learning: Moses')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /next round/i })).toBeInTheDocument()
 
     await act(async () => {

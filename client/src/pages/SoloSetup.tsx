@@ -36,6 +36,10 @@ import {
 } from '../lib/inPersonEligibility'
 import { isMaintenanceBlockingNewGames } from '../lib/maintenance'
 import {
+  getMasterySummary,
+  getNeedsReviewEntityIds
+} from '../lib/soloMastery'
+import {
   createSoloSession,
   formatSoloRecordAchievedAt,
   formatSoloScore,
@@ -117,6 +121,7 @@ function SoloSetup() {
   const enduranceRecords = datasetId ? listSoloRecords('endurance', datasetId) : []
   const hasAnyRecords = challengeRecords.length > 0 || enduranceRecords.length > 0
   const selectedDatasetName = datasets.find((dataset) => dataset.id === datasetId)?.name
+  const masterySummary = getMasterySummary(datasetId || undefined)
   const todayResult = dailyChallenge
     ? dailyProgress.results[dailyChallenge.challengeId]
     : undefined
@@ -389,6 +394,54 @@ function SoloSetup() {
     navigate('/solo/play')
   }
 
+  const startReview = async () => {
+    if (!canStart || masterySummary.needsReview === 0) return
+    setStarting(true)
+    setError(null)
+    unlockAudio()
+    fadeOutMenuMusic()
+    playSound('go')
+    try {
+      const reviewIds = new Set(getNeedsReviewEntityIds(datasetId))
+      const query = new URLSearchParams({
+        datasetId,
+        difficulty: encodeDifficultySelection(difficulty),
+        entityType
+      })
+      const response = await fetch(`${API_BASE_URL}/cards/deck?${query}`)
+      if (!response.ok) throw new Error(SETUP_START_ERROR)
+      const { entityIds, scoringVersion, scoringRules } = (await response.json()) as {
+        entityIds: string[]
+        scoringVersion?: number
+        scoringRules?: KnowledgeScoreRules
+      }
+      const eligibleReviewIds = entityIds.filter((id) => reviewIds.has(id))
+      if (eligibleReviewIds.length === 0) {
+        throw new Error('No review cards match the current content filters.')
+      }
+      const session = createSoloSession(
+        {
+          datasetId,
+          difficulty,
+          entityType,
+          variation: 'review',
+          roundDurationMs: roundSeconds * 1000,
+          clueRevealIntervalMs: clueIntervalSeconds * 1000
+        },
+        eligibleReviewIds,
+        scoringVersion != null && scoringRules
+          ? { version: scoringVersion, rules: scoringRules }
+          : undefined
+      )
+      saveSoloSession(session)
+      navigate('/solo/play')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : SETUP_START_ERROR)
+    } finally {
+      setStarting(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-app-bg font-display text-foreground">
       <header className="border-b border-edge bg-surface/95 px-3 py-2">
@@ -615,6 +668,63 @@ function SoloSetup() {
                   ? 'Start 10-round challenge'
                   : 'Start Endurance'}
             </button>
+          </section>
+        )}
+
+        {!loading && (
+          <section className="space-y-4 rounded-lg border border-edge bg-surface p-4 shadow-sm">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary" aria-hidden>
+                school
+              </span>
+              <div>
+                <h2 className="text-base font-bold">Progress</h2>
+                <p className="text-xs text-foreground-muted">
+                  Learning progress on this device
+                  {selectedDatasetName ? ` · ${selectedDatasetName}` : ''}.
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div className="rounded-lg bg-surface-muted p-3">
+                <p className="text-xl font-black">{masterySummary.encountered}</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted">
+                  Encountered
+                </p>
+              </div>
+              <div className="rounded-lg bg-surface-muted p-3">
+                <p className="text-xl font-black">{masterySummary.mastered}</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted">
+                  Mastered
+                </p>
+              </div>
+              <div className="rounded-lg bg-surface-muted p-3">
+                <p className="text-xl font-black">{masterySummary.needsReview}</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted">
+                  Needs review
+                </p>
+              </div>
+              <div className="rounded-lg bg-surface-muted p-3">
+                <p className="text-xl font-black">
+                  {masterySummary.firstClueAccuracy == null
+                    ? '—'
+                    : `${Math.round(masterySummary.firstClueAccuracy * 100)}%`}
+                </p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted">
+                  First clue
+                </p>
+              </div>
+            </div>
+            {masterySummary.needsReview > 0 && (
+              <button
+                type="button"
+                onClick={() => void startReview()}
+                disabled={!canStart}
+                className="w-full rounded-lg border-2 border-primary py-3 font-bold text-primary disabled:opacity-50"
+              >
+                Review {masterySummary.needsReview} missed
+              </button>
+            )}
           </section>
         )}
 

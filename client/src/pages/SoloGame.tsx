@@ -44,6 +44,7 @@ import {
   type SoloSession
 } from '../lib/soloSession'
 import { scoreSoloRound } from '../lib/soloScoring'
+import { applyMasteryOutcome } from '../lib/soloMastery'
 import { playSound } from '../lib/sounds'
 import { API_BASE_URL } from '../lib/apiBase'
 import type { InPersonCard } from '../types'
@@ -155,6 +156,32 @@ function SoloGame() {
       const remaining = settledRound && nextSession.roundRemainingMs != null
         ? nextSession.roundRemainingMs
         : Math.max(0, nextSession.roundDurationMs - (Date.now() - startedAt))
+      const expiredOnRestore = !freshRound && !settledRound && remaining === 0
+      const restoredTimeoutPerformance: SoloRoundPerformance | null = expiredOnRestore
+        ? {
+            entityId: loadedCard.entity.id,
+            correct: false,
+            revealedClueCount: revealedCluesAt(
+              nextSession,
+              loadedCard,
+              nextSession.roundDurationMs
+            ),
+            incorrectGuessCount: nextSession.currentIncorrectGuessCount ?? 0,
+            elapsedMs: nextSession.roundDurationMs,
+            score: 0,
+            breakdown: ZERO_SCORE_BREAKDOWN
+          }
+        : null
+      const restoredMasteryChange = restoredTimeoutPerformance
+        ? applyMasteryOutcome({
+            eventId: `${nextSession.datasetId}:${loadedCard.entity.id}:${startedAt}`,
+            datasetId: nextSession.datasetId,
+            entityId: loadedCard.entity.id,
+            entityName: loadedCard.entity.name,
+            correct: false,
+            revealedClueCount: restoredTimeoutPerformance.revealedClueCount
+          })
+        : null
       setRemainingMs(remaining)
 
       if (settledRound) {
@@ -192,7 +219,10 @@ function SoloGame() {
           : (nextSession.currentIncorrectGuessCount ?? 0),
         settledRoundPerformance: freshRound
           ? null
-          : (nextSession.settledRoundPerformance ?? null)
+          : (nextSession.settledRoundPerformance ?? restoredTimeoutPerformance),
+        settledMasteryChange: freshRound
+          ? null
+          : (nextSession.settledMasteryChange ?? restoredMasteryChange)
       }
       activeSession.current = withRound
       setSession(withRound)
@@ -231,7 +261,10 @@ function SoloGame() {
       rounds: completed.rounds ?? [],
       achievedAt: new Date().toISOString()
     }
-    const saved = saveSoloRecord(record)
+    const saved =
+      completed.variation === 'review'
+        ? { record, isPersonalBest: false }
+        : saveSoloRecord(record)
     const dailyProgress =
       completed.variation === 'daily' &&
       completed.dailyChallengeId &&
@@ -282,7 +315,8 @@ function SoloGame() {
       score: soloSessionScore(current) + performance.score,
       rounds: [...(current.rounds ?? []), performance],
       currentIncorrectGuessCount: 0,
-      settledRoundPerformance: null
+      settledRoundPerformance: null,
+      settledMasteryChange: null
     }
 
     if (updated.variation === 'endurance' && !correct) {
@@ -293,7 +327,9 @@ function SoloGame() {
     }
 
     if (
-      (updated.variation === 'challenge' || updated.variation === 'daily') &&
+      (updated.variation === 'challenge' ||
+        updated.variation === 'daily' ||
+        updated.variation === 'review') &&
       updated.index >= updated.entityIds.length
     ) {
       activeSession.current = updated
@@ -316,7 +352,8 @@ function SoloGame() {
       roundRemainingMs: null,
       roundStatus: null,
       currentIncorrectGuessCount: 0,
-      settledRoundPerformance: null
+      settledRoundPerformance: null,
+      settledMasteryChange: null
     })
     playSound('card-flip')
     const loadError = await loadCard(
@@ -327,7 +364,8 @@ function SoloGame() {
         roundRemainingMs: null,
         roundStatus: null,
         currentIncorrectGuessCount: 0,
-        settledRoundPerformance: null
+        settledRoundPerformance: null,
+        settledMasteryChange: null
       },
       { freshRound: true }
     )
@@ -377,7 +415,15 @@ function SoloGame() {
           ...current,
           roundStatus: 'timeout' as const,
           roundRemainingMs: 0,
-          settledRoundPerformance: performance
+          settledRoundPerformance: performance,
+          settledMasteryChange: applyMasteryOutcome({
+            eventId: `${current.datasetId}:${card.entity.id}:${roundStartedAt.current}`,
+            datasetId: current.datasetId,
+            entityId: card.entity.id,
+            entityName: card.entity.name,
+            correct: false,
+            revealedClueCount: performance.revealedClueCount
+          })
         }
         activeSession.current = settled
         setSession(settled)
@@ -570,7 +616,18 @@ function SoloGame() {
         score: breakdown.score,
         breakdown
       }
-      const settled = { ...pending, settledRoundPerformance: performance }
+      const settled = {
+        ...pending,
+        settledRoundPerformance: performance,
+        settledMasteryChange: applyMasteryOutcome({
+          eventId: `${current.datasetId}:${card.entity.id}:${roundStartedAt.current}`,
+          datasetId: current.datasetId,
+          entityId: card.entity.id,
+          entityName: card.entity.name,
+          correct: true,
+          revealedClueCount: performance.revealedClueCount
+        })
+      }
       activeSession.current = settled
       setSession(settled)
       saveSoloSession(settled)
@@ -581,6 +638,8 @@ function SoloGame() {
     const heading =
       session.variation === 'daily'
         ? 'Daily challenge complete!'
+        : session.variation === 'review'
+          ? 'Review complete!'
         : session.variation === 'challenge'
           ? 'Challenge complete!'
           : 'Endurance complete!'
@@ -596,7 +655,9 @@ function SoloGame() {
             <p className="mt-1 text-foreground-muted">
               {session.variation === 'endurance'
                 ? 'Your final streak'
-                : 'Your 10-round result'}
+                : session.variation === 'review'
+                  ? 'Your review result'
+                  : 'Your 10-round result'}
             </p>
           </div>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -634,7 +695,7 @@ function SoloGame() {
               {result.dailyProgress.currentStreak}-day daily streak
             </p>
           )}
-          {!result.isPersonalBest && (
+          {!result.isPersonalBest && session.variation !== 'review' && (
             <p className="text-sm text-foreground-muted">
               Personal best:{' '}
               {formatSoloScore(
@@ -651,11 +712,19 @@ function SoloGame() {
           {error && (
             <p role="alert" className="banner-danger">{error}</p>
           )}
-          <div className={session.variation === 'daily' ? '' : 'grid grid-cols-2 gap-3'}>
+          <div
+            className={
+              session.variation === 'daily' || session.variation === 'review'
+                ? ''
+                : 'grid grid-cols-2 gap-3'
+            }
+          >
             <Link to="/solo" className="rounded-lg border-2 border-edge py-3 font-semibold">
-              {session.variation === 'daily' ? 'Done' : 'New setup'}
+              {session.variation === 'daily' || session.variation === 'review'
+                ? 'Done'
+                : 'New setup'}
             </Link>
-            {session.variation !== 'daily' && (
+            {session.variation !== 'daily' && session.variation !== 'review' && (
               <button
                 type="button"
                 onClick={() => void tryAgain()}
@@ -675,7 +744,9 @@ function SoloGame() {
 
   const settled = status === 'correct' || status === 'timeout'
   const isLastChallengeRound =
-    (session.variation === 'challenge' || session.variation === 'daily') &&
+    (session.variation === 'challenge' ||
+      session.variation === 'daily' ||
+      session.variation === 'review') &&
     session.index >= session.entityIds.length - 1
   const settleAdvanceLabel =
     (session.variation === 'endurance' && status !== 'correct') || isLastChallengeRound
@@ -686,6 +757,15 @@ function SoloGame() {
     : 0
   const visibleClues = card?.clues.slice(0, revealedCount) ?? []
   const settledPerformance = session.settledRoundPerformance ?? null
+  const masteryChange = session.settledMasteryChange ?? null
+  const masteryChangeLabel =
+    masteryChange?.changed
+      ? masteryChange.state === 'mastered'
+        ? `Mastered: ${masteryChange.entityName}`
+        : masteryChange.state === 'needs_review'
+          ? `Needs review: ${masteryChange.entityName}`
+          : `Learning: ${masteryChange.entityName}`
+      : null
   const displayedScore =
     soloSessionScore(session) + (settledPerformance?.score ?? 0)
 
@@ -701,13 +781,15 @@ function SoloGame() {
             <p className="text-[10px] font-bold uppercase tracking-widest text-primary">
               {session.variation === 'daily'
                 ? 'Daily challenge'
+                : session.variation === 'review'
+                  ? 'Review'
                 : session.variation === 'challenge'
                   ? 'Solo challenge'
                   : 'Endurance'}
             </p>
             <p className="text-sm font-bold">
               {session.variation !== 'endurance'
-                ? `Round ${Math.min(session.index + 1, 10)} of 10`
+                ? `Round ${Math.min(session.index + 1, session.entityIds.length)} of ${session.entityIds.length}`
                 : `${session.correctCount} correct`}
               <span className="text-foreground-muted">
                 {' · '}
@@ -773,6 +855,11 @@ function SoloGame() {
                     </p>
                   </div>
                 )}
+                {masteryChangeLabel && (
+                  <p className="mt-3 text-sm font-bold text-green-900 dark:text-green-100">
+                    {masteryChangeLabel}
+                  </p>
+                )}
                 <button
                   ref={advanceButtonRef}
                   type="button"
@@ -800,6 +887,11 @@ function SoloGame() {
                   <p className="text-2xl font-black text-primary">+0 points</p>
                   <p className="mt-1 text-xs text-foreground-muted">Round timed out</p>
                 </div>
+                {masteryChangeLabel && (
+                  <p className="mt-3 text-sm font-bold text-amber-950 dark:text-amber-50">
+                    {masteryChangeLabel}
+                  </p>
+                )}
                 <button
                   ref={advanceButtonRef}
                   type="button"

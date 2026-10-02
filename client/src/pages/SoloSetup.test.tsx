@@ -3,6 +3,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { renderWithPreferences } from '../test/renderWithPreferences'
 import { loadSoloSession } from '../lib/soloSession'
+import { applyMasteryOutcome } from '../lib/soloMastery'
 import SoloSetup from './SoloSetup'
 
 vi.mock('../hooks/useMaintenanceStatus', () => ({
@@ -90,6 +91,39 @@ describe('SoloSetup', () => {
       scoringRules: { basePoints: 1000 }
     })
     expect(loadSoloSession()?.entityIds).toHaveLength(10)
+  })
+
+  it('shows progress and starts Review with eligible missed entities only', async () => {
+    applyMasteryOutcome({
+      eventId: 'miss-1',
+      datasetId: 'ds-1',
+      entityId: 'ent-3',
+      entityName: 'Moses',
+      correct: false,
+      revealedClueCount: 4
+    })
+    applyMasteryOutcome({
+      eventId: 'miss-2',
+      datasetId: 'ds-1',
+      entityId: 'not-in-current-deck',
+      entityName: 'Noah',
+      correct: false,
+      revealedClueCount: 5
+    })
+
+    renderWithPreferences(<MemoryRouter><SoloSetup /></MemoryRouter>)
+
+    expect(await screen.findByRole('heading', { name: /progress/i })).toBeInTheDocument()
+    const review = await screen.findByRole('button', { name: /review 2 missed/i })
+    await waitFor(() => expect(review).toBeEnabled())
+    fireEvent.click(review)
+
+    await waitFor(() =>
+      expect(loadSoloSession()).toMatchObject({
+        variation: 'review',
+        entityIds: ['ent-3']
+      })
+    )
   })
 
   it('shows personal bests without revealing content pool size', async () => {

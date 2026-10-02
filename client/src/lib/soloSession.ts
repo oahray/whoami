@@ -1,4 +1,5 @@
 import type { InPersonCard } from '../types'
+import type { MasteryChange } from './soloMastery'
 import type { EntityTypeFilter } from './entityTypeFilter'
 import {
   coerceDifficultySelection,
@@ -13,7 +14,7 @@ const SESSION_KEY = 'whoami-solo-session'
 const RECORDS_KEY = 'whoami-solo-records'
 const SETUP_KEY = 'whoami-solo-setup'
 
-export type SoloVariation = 'challenge' | 'endurance' | 'daily'
+export type SoloVariation = 'challenge' | 'endurance' | 'daily' | 'review'
 
 export type SoloConfig = {
   datasetId: string
@@ -73,6 +74,8 @@ export type SoloSession = SoloConfig & {
   currentIncorrectGuessCount?: number
   /** Frozen outcome waiting for the player to advance. */
   settledRoundPerformance?: SoloRoundPerformance | null
+  /** Mastery state change for the frozen outcome; survives refresh. */
+  settledMasteryChange?: MasteryChange | null
   scoringVersion?: number
   scoringRules?: KnowledgeScoreRules
 }
@@ -121,6 +124,7 @@ export function createSoloSession(
     rounds: [],
     currentIncorrectGuessCount: 0,
     settledRoundPerformance: null,
+    settledMasteryChange: null,
     scoringVersion: scoring?.version,
     scoringRules: scoring?.rules
   }
@@ -182,7 +186,8 @@ export function loadSoloSession(): SoloSession | null {
           ? session.score
           : rounds.reduce((sum, round) => sum + round.score, 0),
       currentIncorrectGuessCount: session.currentIncorrectGuessCount ?? 0,
-      settledRoundPerformance: session.settledRoundPerformance ?? null
+      settledRoundPerformance: session.settledRoundPerformance ?? null,
+      settledMasteryChange: session.settledMasteryChange ?? null
     }
   } catch {
     return null
@@ -407,6 +412,7 @@ export function formatSoloRecordAchievedAt(iso: string, now = Date.now()): strin
 export function soloVariationLabel(variation: SoloVariation): string {
   if (variation === 'challenge') return 'Solo challenge'
   if (variation === 'daily') return 'Daily challenge'
+  if (variation === 'review') return 'Review'
   return 'Endurance'
 }
 
