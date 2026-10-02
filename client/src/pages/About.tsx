@@ -83,7 +83,8 @@ function About() {
             <strong>10-round Solo challenge</strong>, stretch your streak in{' '}
             <strong>Endurance</strong>, or take the fixed <strong>Daily challenge</strong>. You can
             set difficulty, card type, and timers before you start. Get a card right and you&apos;ll
-            see citations; if time runs out, we keep the answer hidden so you can learn it later.
+            see citations; if time runs out, the answer stays out of sight so you can practice it in
+            Review.
           </p>
           <p className="text-foreground text-sm leading-relaxed">
             Solo also remembers how you&apos;re doing with each card on this device.{' '}

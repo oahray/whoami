@@ -81,7 +81,7 @@ describe('SoloGame', () => {
     })
 
     expect(screen.getByText(/time's up/i)).toBeInTheDocument()
-    expect(screen.getByText(/hid the answer/i)).toBeInTheDocument()
+    expect(screen.getByText(/practice it in review/i)).toBeInTheDocument()
     expect(screen.queryByText('Moses')).not.toBeInTheDocument()
     expect(screen.queryByText('Moshe')).not.toBeInTheDocument()
     expect(screen.queryByText('Exodus 2:1')).not.toBeInTheDocument()
