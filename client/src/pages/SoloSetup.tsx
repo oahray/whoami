@@ -734,7 +734,7 @@ function SoloSetup() {
               </button>
             ) : (
               <p className="rounded-lg border border-dashed border-edge px-3 py-3 text-center text-sm text-foreground-muted">
-                Miss or time out a card in Daily, Challenge, or Endurance.{' '}
+                Miss or time out a card in Daily, Classic, or Endurance.{' '}
                 <span className="font-semibold text-foreground">Review</span> will show up here.
               </p>
             )}
@@ -819,7 +819,7 @@ function SoloSetup() {
               <div className="mt-2 grid grid-cols-2 gap-2">
                 {(
                   [
-                    { value: 'challenge', label: 'Solo challenge', hint: '10 rounds' },
+                    { value: 'challenge', label: 'Classic', hint: '10 rounds' },
                     { value: 'endurance', label: 'Endurance', hint: 'Keep your streak alive' }
                   ] as const
                 ).map((option) => (
@@ -899,7 +899,7 @@ function SoloSetup() {
               {starting
                 ? 'Starting…'
                 : variation === 'challenge'
-                  ? 'Start 10-round challenge'
+                  ? 'Start Classic'
                   : 'Start Endurance'}
             </button>
           </section>
@@ -965,7 +965,7 @@ function SoloSetup() {
               <p className="text-sm text-foreground-muted">No records yet. Finish a run to set one.</p>
             ) : (
               <div className="space-y-2">
-                {renderRecordMode('Solo challenge', challengeRecords)}
+                {renderRecordMode('Classic', challengeRecords)}
                 {renderRecordMode('Endurance', enduranceRecords)}
               </div>
             )}

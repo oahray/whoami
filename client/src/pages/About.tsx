@@ -80,7 +80,7 @@ function About() {
           </div>
           <p className="text-foreground text-sm leading-relaxed">
             Play on your own and keep personal bests on this device. Try a{' '}
-            <strong>10-round Solo challenge</strong>, stretch your streak in{' '}
+            <strong>Classic</strong> (10 rounds), stretch your streak in{' '}
             <strong>Endurance</strong>, or take the fixed <strong>Daily challenge</strong>. You can
             set difficulty, card type, and timers before you start. Get a card right and you&apos;ll
             see citations; if time runs out, the answer stays out of sight so you can practice it in

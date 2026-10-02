@@ -479,7 +479,7 @@ export function formatSoloRecordAchievedAt(iso: string, now = Date.now()): strin
 }
 
 export function soloVariationLabel(variation: SoloVariation): string {
-  if (variation === 'challenge') return 'Solo challenge'
+  if (variation === 'challenge') return 'Classic'
   if (variation === 'daily') return 'Daily challenge'
   if (variation === 'review') return 'Review'
   return 'Endurance'

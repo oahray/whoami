@@ -79,11 +79,11 @@ describe('SoloSetup', () => {
     renderWithPreferences(<MemoryRouter><SoloSetup /></MemoryRouter>)
 
     await waitFor(
-      () => expect(screen.getByRole('button', { name: /start 10-round challenge/i })).toBeEnabled(),
+      () => expect(screen.getByRole('button', { name: /start classic/i })).toBeEnabled(),
       { timeout: 5000 }
     )
     fireEvent.change(screen.getByLabelText(/new clue every/i), { target: { value: '5' } })
-    fireEvent.click(screen.getByRole('button', { name: /start 10-round challenge/i }))
+    fireEvent.click(screen.getByRole('button', { name: /start classic/i }))
 
     await waitFor(() => expect(loadSoloSession()).not.toBeNull())
     expect(loadSoloSession()).toMatchObject({
@@ -234,7 +234,7 @@ describe('SoloSetup', () => {
     )
 
     await waitFor(() => expect(screen.getByRole('heading', { name: /personal bests/i })).toBeInTheDocument())
-    expect(screen.getByRole('heading', { name: /^solo challenge$/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /^classic$/i })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /^endurance$/i })).toBeInTheDocument()
     expect(screen.getByText(/7 correct/i)).toBeInTheDocument()
     expect(screen.getByText(/12 correct/i)).toBeInTheDocument()
@@ -277,7 +277,7 @@ describe('SoloSetup', () => {
     )
 
     await waitFor(
-      () => expect(screen.getByRole('button', { name: /start 10-round challenge/i })).toBeEnabled(),
+      () => expect(screen.getByRole('button', { name: /start classic/i })).toBeEnabled(),
       { timeout: 5000 }
     )
 
@@ -342,7 +342,7 @@ describe('SoloSetup', () => {
     )
 
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: /start 10-round challenge/i })).toBeEnabled()
+      expect(screen.getByRole('button', { name: /start classic/i })).toBeEnabled()
     )
     expect(screen.queryByText(/failed to load content/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/\(500\)/)).not.toBeInTheDocument()

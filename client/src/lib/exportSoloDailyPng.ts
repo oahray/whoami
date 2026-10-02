@@ -94,51 +94,19 @@ function roundRect(
   ctx.closePath()
 }
 
-/** Flat ink + geometric ledger pattern (no glows / soft gradients). */
-function paintLedgerPatternField(
+/** Flat ink field — no pattern or wash for now. */
+function paintPlainInkField(
   ctx: CanvasRenderingContext2D,
   width: number,
   height: number
 ) {
   ctx.fillStyle = '#0a1228'
   ctx.fillRect(0, 0, width, height)
-
-  // Fine diagonal hatch
-  ctx.save()
-  ctx.strokeStyle = 'rgba(94,234,212,0.07)'
-  ctx.lineWidth = 1
-  const hatchStep = 28
-  for (let x = -height; x < width + height; x += hatchStep) {
-    ctx.beginPath()
-    ctx.moveTo(x, 0)
-    ctx.lineTo(x + height, height)
-    ctx.stroke()
-  }
-  ctx.restore()
-
-  // Offset diamond lattice
-  ctx.strokeStyle = 'rgba(243,239,230,0.06)'
-  ctx.lineWidth = 1.25
-  const cell = 56
-  for (let row = 0; row * cell < height + cell; row += 1) {
-    for (let col = 0; col * cell < width + cell; col += 1) {
-      const cx = col * cell + (row % 2 === 0 ? 0 : cell / 2)
-      const cy = row * cell
-      const r = 7
-      ctx.beginPath()
-      ctx.moveTo(cx, cy - r)
-      ctx.lineTo(cx + r, cy)
-      ctx.lineTo(cx, cy + r)
-      ctx.lineTo(cx - r, cy)
-      ctx.closePath()
-      ctx.stroke()
-    }
-  }
 }
 
 /**
  * Shareable Solo Daily result card.
- * Flat night ledger + hatch/diamond pattern; teal Solo seal (not ROOM).
+ * Flat night ledger; teal Solo seal (not ROOM).
  */
 export async function exportSoloDailyPng(options: SoloDailyShareInput): Promise<Blob> {
   const appOrigin = resolveAppOrigin(options.appOrigin)
@@ -168,7 +136,7 @@ export async function exportSoloDailyPng(options: SoloDailyShareInput): Promise<
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('Canvas unavailable')
 
-  paintLedgerPatternField(ctx, WIDTH, height)
+  paintPlainInkField(ctx, WIDTH, height)
 
   ctx.strokeStyle = 'rgba(255,255,255,0.1)'
   ctx.lineWidth = 2

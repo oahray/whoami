@@ -650,7 +650,7 @@ function SoloGame() {
         : session.variation === 'review'
           ? 'Review complete!'
         : session.variation === 'challenge'
-          ? 'Challenge complete!'
+          ? 'Classic complete!'
           : 'Endurance complete!'
     const averageClues = soloRecordAverageClues(result.record)
     const firstClueCorrect = soloRecordFirstClueCorrectCount(result.record)
@@ -884,7 +884,7 @@ function SoloGame() {
       : session.variation === 'review'
         ? 'Review'
         : session.variation === 'challenge'
-          ? 'Solo challenge'
+          ? 'Classic'
           : 'Endurance'
   const roundLabel =
     session.variation !== 'endurance'
