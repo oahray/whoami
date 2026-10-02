@@ -33,6 +33,7 @@ import { isMaintenanceBlockingNewGames } from '../lib/maintenance'
 import {
   createSoloSession,
   formatSoloRecordAchievedAt,
+  formatSoloScore,
   formatSoloTime,
   getSoloRecord,
   listSoloRecords,
@@ -124,9 +125,13 @@ function SoloSetup() {
           {when && <p className="mt-0.5 text-xs text-foreground-muted">{when}</p>}
         </div>
         <div className="text-right shrink-0">
-          <p className="font-black text-primary">{record.correctCount}</p>
+          <p className="font-black text-primary">
+            {record.score == null
+              ? record.correctCount
+              : `${formatSoloScore(record.score)} pts`}
+          </p>
           <p className="text-[10px] uppercase tracking-wider text-foreground-muted">
-            {formatSoloTime(record.activeElapsedMs)}
+            {record.correctCount} correct · {formatSoloTime(record.activeElapsedMs)}
           </p>
         </div>
       </div>
@@ -462,7 +467,9 @@ function SoloSetup() {
                   Best for this setup
                 </p>
                 <p className="mt-1 font-bold">
-                  {currentBest.correctCount} correct · {formatSoloTime(currentBest.activeElapsedMs)}
+                  {currentBest.score == null
+                    ? `${currentBest.correctCount} correct · ${formatSoloTime(currentBest.activeElapsedMs)}`
+                    : `${formatSoloScore(currentBest.score)} points · ${currentBest.correctCount} correct`}
                 </p>
               </div>
             )}

@@ -3,8 +3,20 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PreferencesProvider } from '../context/PreferencesContext'
 import { resetInPersonCardCacheForTests } from '../lib/inPersonCardFetch'
+import { scoreSoloRound } from '../lib/soloScoring'
 import { saveSoloSession } from '../lib/soloSession'
 import SoloGame from './SoloGame'
+
+vi.mock('../lib/soloScoring', () => ({
+  scoreSoloRound: vi.fn().mockResolvedValue({
+    score: 900,
+    basePoints: 1000,
+    cluePenalty: 0,
+    timePenalty: 100,
+    incorrectGuessPenalty: 0,
+    bonusPoints: 0
+  })
+}))
 
 function renderSoloPlay() {
   return render(
@@ -139,10 +151,13 @@ describe('SoloGame', () => {
 
     fireEvent.change(screen.getByPlaceholderText(/enter your guess/i), { target: { value: 'Moses' } })
     fireEvent.submit(screen.getByPlaceholderText(/enter your guess/i).closest('form')!)
+    await flushCardLoad()
 
     const next = screen.getByRole('button', { name: /next round/i })
     expect(next).toHaveFocus()
     expect(screen.getByText('Exodus 2:1')).toBeInTheDocument()
+    expect(screen.getByText('+900 points')).toBeInTheDocument()
+    expect(screen.getByText(/1,000 base.*100 time/i)).toBeInTheDocument()
 
     // jsdom does not synthesize button activation from Enter; blur then use the
     // settled-window Enter fallback (same path when focus is not on the CTA).
@@ -177,6 +192,13 @@ describe('SoloGame', () => {
     expect(feedback).toHaveTextContent(/not quite/i)
     expect(input).toHaveFocus()
     expect(input).toHaveValue('')
+
+    fireEvent.change(input, { target: { value: 'Moses' } })
+    fireEvent.submit(input.closest('form')!)
+    await flushCardLoad()
+    expect(scoreSoloRound).toHaveBeenCalledWith(
+      expect.objectContaining({ incorrectGuessCount: 1 })
+    )
   })
 
   it('does not auto-advance Endurance after correct; waits for Next round', async () => {
@@ -221,6 +243,7 @@ describe('SoloGame', () => {
 
     fireEvent.change(screen.getByPlaceholderText(/enter your guess/i), { target: { value: 'Moses' } })
     fireEvent.click(screen.getByRole('button', { name: /^guess$/i }))
+    await flushCardLoad()
 
     expect(screen.getByRole('button', { name: /next round/i })).toBeInTheDocument()
 
@@ -314,6 +337,7 @@ describe('SoloGame', () => {
 
     fireEvent.change(screen.getByPlaceholderText(/enter your guess/i), { target: { value: 'Moses' } })
     fireEvent.click(screen.getByRole('button', { name: /^guess$/i }))
+    await flushCardLoad()
 
     expect(screen.getByText(/correct!/i)).toBeInTheDocument()
     expect(screen.getByText('Moshe')).toBeInTheDocument()
@@ -441,6 +465,7 @@ describe('SoloGame', () => {
 
     fireEvent.change(screen.getByPlaceholderText(/enter your guess/i), { target: { value: 'Moses' } })
     fireEvent.click(screen.getByRole('button', { name: /^guess$/i }))
+    await flushCardLoad()
     fireEvent.click(screen.getByRole('button', { name: /next round/i }))
 
     await act(async () => {

@@ -142,6 +142,38 @@ function inPersonMockResolver(
   }
 }
 
+describe('POST /cards/score', () => {
+  it('returns the canonical knowledge score breakdown', async () => {
+    const response = await request(makeApp()).post('/cards/score').send({
+      correct: true,
+      elapsedMs: 12_900,
+      revealedClueCount: 2,
+      incorrectGuessCount: 1
+    })
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({
+      score: 630,
+      basePoints: 1000,
+      cluePenalty: 150,
+      timePenalty: 120,
+      incorrectGuessPenalty: 100,
+      bonusPoints: 0
+    })
+  })
+
+  it('rejects malformed score inputs', async () => {
+    const response = await request(makeApp()).post('/cards/score').send({
+      correct: true,
+      elapsedMs: 'fast',
+      revealedClueCount: 1,
+      incorrectGuessCount: 0
+    })
+
+    expect(response.status).toBe(400)
+  })
+})
+
 describe('GET /cards/random', () => {
   beforeEach(() => {
     vi.clearAllMocks()

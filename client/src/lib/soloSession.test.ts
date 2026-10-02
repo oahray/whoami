@@ -127,6 +127,41 @@ describe('soloSession', () => {
     expect(isBetterRecord({ correctCount: 8, activeElapsedMs: 1100 }, { correctCount: 8, activeElapsedMs: 1000 })).toBe(false)
   })
 
+  it('prefers scored records while keeping legacy records readable', () => {
+    expect(
+      isBetterRecord(
+        { correctCount: 6, activeElapsedMs: 50_000, score: 4200 },
+        { correctCount: 10, activeElapsedMs: 20_000 }
+      )
+    ).toBe(true)
+    expect(
+      isBetterRecord(
+        { correctCount: 10, activeElapsedMs: 20_000 },
+        { correctCount: 6, activeElapsedMs: 50_000, score: 4200 }
+      )
+    ).toBe(false)
+  })
+
+  it('hydrates pre-scoring sessions with safe scoring defaults', () => {
+    sessionStorage.setItem(
+      'whoami-solo-session',
+      JSON.stringify({
+        ...config,
+        entityIds: ['a'],
+        index: 0,
+        correctCount: 0,
+        activeElapsedMs: 0
+      })
+    )
+
+    expect(loadSoloSession()).toMatchObject({
+      score: 0,
+      rounds: [],
+      currentIncorrectGuessCount: 0,
+      settledRoundPerformance: null
+    })
+  })
+
   it('keeps every attempt in the top list, including try-again scores', () => {
     const first = { ...config, correctCount: 7, activeElapsedMs: 40_000, achievedAt: '2026-01-01T00:00:00.000Z' }
     const retry = { ...first, correctCount: 4, activeElapsedMs: 35_000, achievedAt: '2026-01-02T00:00:00.000Z' }

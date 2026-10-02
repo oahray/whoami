@@ -9,6 +9,7 @@ import {
   InPersonPlayError
 } from '../game/inPersonPlay.js'
 import { getMaintenanceBlock } from '../db/maintenance.js'
+import { calculateKnowledgeScore } from '../game/scoring.js'
 import { logger } from '../utils/logger.js'
 
 const router = Router()
@@ -58,6 +59,35 @@ router.get('/cards/eligibility', async (req, res) => {
   } catch (error) {
     return handleInPersonError(error, res, 'Failed to fetch eligibility')
   }
+})
+
+router.post('/cards/score', (req, res) => {
+  const { correct, elapsedMs, revealedClueCount, incorrectGuessCount } =
+    req.body ?? {}
+  const valid =
+    typeof correct === 'boolean' &&
+    typeof elapsedMs === 'number' &&
+    Number.isFinite(elapsedMs) &&
+    elapsedMs >= 0 &&
+    typeof revealedClueCount === 'number' &&
+    Number.isInteger(revealedClueCount) &&
+    revealedClueCount >= 0 &&
+    typeof incorrectGuessCount === 'number' &&
+    Number.isInteger(incorrectGuessCount) &&
+    incorrectGuessCount >= 0
+
+  if (!valid) {
+    return res.status(400).json({ error: 'Invalid score inputs' })
+  }
+
+  return res.json(
+    calculateKnowledgeScore({
+      correct,
+      elapsedMs,
+      revealedClueCount,
+      incorrectGuessCount
+    })
+  )
 })
 
 router.get('/cards/deck', async (req, res) => {

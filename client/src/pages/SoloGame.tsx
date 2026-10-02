@@ -23,6 +23,7 @@ import {
   clearSoloSession,
   continueEndurancePool,
   createSoloSession,
+  formatSoloScore,
   formatSoloTime,
   listSoloRecords,
   loadSoloSession,
@@ -30,14 +31,53 @@ import {
   saveSoloSession,
   saveSoloSetupPreferences,
   shouldPrefetchNextSoloCard,
+  soloRecordAverageClues,
+  soloRecordFirstClueCorrectCount,
+  soloSessionScore,
   type SoloRecord,
+  type SoloRoundPerformance,
+  type SoloScoreBreakdown,
   type SoloSession
 } from '../lib/soloSession'
+import { scoreSoloRound } from '../lib/soloScoring'
 import { playSound } from '../lib/sounds'
 import { API_BASE_URL } from '../lib/apiBase'
 import type { InPersonCard } from '../types'
 
 type RoundStatus = 'active' | 'correct' | 'timeout' | 'finished'
+
+const ZERO_SCORE_BREAKDOWN: SoloScoreBreakdown = {
+  score: 0,
+  basePoints: 1000,
+  cluePenalty: 0,
+  timePenalty: 0,
+  incorrectGuessPenalty: 0,
+  bonusPoints: 0
+}
+
+function revealedCluesAt(
+  session: Pick<SoloSession, 'roundDurationMs' | 'clueRevealIntervalMs'>,
+  card: InPersonCard,
+  elapsedMs: number
+): number {
+  return Math.min(
+    card.clues.length,
+    Math.max(1, 1 + Math.floor(elapsedMs / session.clueRevealIntervalMs))
+  )
+}
+
+function scoreBreakdownLabel(breakdown: SoloScoreBreakdown): string {
+  const penalties = [
+    breakdown.cluePenalty > 0 ? `${formatSoloScore(breakdown.cluePenalty)} clues` : null,
+    breakdown.timePenalty > 0 ? `${formatSoloScore(breakdown.timePenalty)} time` : null,
+    breakdown.incorrectGuessPenalty > 0
+      ? `${formatSoloScore(breakdown.incorrectGuessPenalty)} guesses`
+      : null
+  ].filter(Boolean)
+  return penalties.length > 0
+    ? `${formatSoloScore(breakdown.basePoints)} base − ${penalties.join(' − ')}`
+    : `${formatSoloScore(breakdown.basePoints)} base`
+}
 
 function SoloGame() {
   const navigate = useNavigate()
@@ -47,6 +87,7 @@ function SoloGame() {
   const [remainingMs, setRemainingMs] = useState(0)
   const [guess, setGuess] = useState('')
   const [feedback, setFeedback] = useState<string | null>(null)
+  const [scoreWarning, setScoreWarning] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<{
@@ -55,6 +96,7 @@ function SoloGame() {
     endedByMaintenance?: boolean
   } | null>(null)
   const [restarting, setRestarting] = useState(false)
+  const [scoring, setScoring] = useState(false)
   const { status: maintenanceStatus } = useMaintenanceStatus({ poll: true })
   const maintenanceBlocking = isMaintenanceBlockingNewGames(maintenanceStatus)
   const roundStartedAt = useRef(0)
@@ -95,6 +137,8 @@ function SoloGame() {
     setCard(null)
     setGuess('')
     setFeedback(null)
+    setScoreWarning(null)
+    setScoring(false)
     lastClueCountRef.current = 0
     try {
       const storedCard = cardForCurrentSoloRound(nextSession)
@@ -141,7 +185,13 @@ function SoloGame() {
             ? restoredStatus
             : remaining === 0 && !freshRound
               ? 'timeout'
-              : 'active'
+              : 'active',
+        currentIncorrectGuessCount: freshRound
+          ? 0
+          : (nextSession.currentIncorrectGuessCount ?? 0),
+        settledRoundPerformance: freshRound
+          ? null
+          : (nextSession.settledRoundPerformance ?? null)
       }
       activeSession.current = withRound
       setSession(withRound)
@@ -176,6 +226,8 @@ function SoloGame() {
       clueRevealIntervalMs: completed.clueRevealIntervalMs,
       correctCount: completed.correctCount,
       activeElapsedMs: completed.activeElapsedMs,
+      score: soloSessionScore(completed),
+      rounds: completed.rounds ?? [],
       achievedAt: new Date().toISOString()
     }
     const saved = saveSoloRecord(record)
@@ -192,13 +244,32 @@ function SoloGame() {
 
   const advance = useCallback(async (correct: boolean) => {
     const current = activeSession.current
-    if (!current || status === 'finished') return
-    const elapsed = Math.min(current.roundDurationMs, Math.max(0, Date.now() - roundStartedAt.current))
+    if (!current || status === 'finished' || scoring) return
+    const elapsed = Math.min(
+      current.roundDurationMs,
+      Math.max(0, Date.now() - roundStartedAt.current)
+    )
+    const performance: SoloRoundPerformance =
+      current.settledRoundPerformance ?? {
+        entityId: current.entityIds[current.index] ?? '',
+        correct,
+        revealedClueCount: current.currentCard
+          ? revealedCluesAt(current, current.currentCard, elapsed)
+          : 1,
+        incorrectGuessCount: current.currentIncorrectGuessCount ?? 0,
+        elapsedMs: elapsed,
+        score: 0,
+        breakdown: ZERO_SCORE_BREAKDOWN
+      }
     let updated: SoloSession = {
       ...current,
       index: current.index + 1,
       correctCount: current.correctCount + (correct ? 1 : 0),
-      activeElapsedMs: current.activeElapsedMs + elapsed
+      activeElapsedMs: current.activeElapsedMs + performance.elapsedMs,
+      score: soloSessionScore(current) + performance.score,
+      rounds: [...(current.rounds ?? []), performance],
+      currentIncorrectGuessCount: 0,
+      settledRoundPerformance: null
     }
 
     if (updated.variation === 'endurance' && !correct) {
@@ -227,7 +298,9 @@ function SoloGame() {
       currentCard: null,
       roundStartedAt: null,
       roundRemainingMs: null,
-      roundStatus: null
+      roundStatus: null,
+      currentIncorrectGuessCount: 0,
+      settledRoundPerformance: null
     })
     playSound('card-flip')
     const loadError = await loadCard(
@@ -236,14 +309,16 @@ function SoloGame() {
         currentCard: null,
         roundStartedAt: null,
         roundRemainingMs: null,
-        roundStatus: null
+        roundStatus: null,
+        currentIncorrectGuessCount: 0,
+        settledRoundPerformance: null
       },
       { freshRound: true }
     )
     if (loadError && isLostCardError(loadError)) {
       finishRun(updated, { endedByMaintenance: true })
     }
-  }, [finishRun, loadCard, status])
+  }, [finishRun, loadCard, scoring, status])
 
   const nextPrefetchId =
     session && shouldPrefetchNextSoloCard(session, status)
@@ -269,7 +344,25 @@ function SoloGame() {
       playSound('uh-oh')
       const current = activeSession.current
       if (current) {
-        const settled = { ...current, roundStatus: 'timeout' as const, roundRemainingMs: 0 }
+        const performance: SoloRoundPerformance = {
+          entityId: card.entity.id,
+          correct: false,
+          revealedClueCount: revealedCluesAt(
+            current,
+            card,
+            current.roundDurationMs
+          ),
+          incorrectGuessCount: current.currentIncorrectGuessCount ?? 0,
+          elapsedMs: current.roundDurationMs,
+          score: 0,
+          breakdown: ZERO_SCORE_BREAKDOWN
+        }
+        const settled = {
+          ...current,
+          roundStatus: 'timeout' as const,
+          roundRemainingMs: 0,
+          settledRoundPerformance: performance
+        }
         activeSession.current = settled
         setSession(settled)
         saveSoloSession(settled)
@@ -300,6 +393,7 @@ function SoloGame() {
 
   useEffect(() => {
     if (status !== 'correct' && status !== 'timeout') return
+    if (scoring) return
 
     // Focus the CTA so Enter activates it natively; also handle Enter if focus
     // landed elsewhere (e.g. body after the guess field unmounted).
@@ -332,7 +426,7 @@ function SoloGame() {
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [status, card?.entity.id, advance])
+  }, [status, card?.entity.id, advance, scoring])
 
   useEffect(() => {
     resetStick()
@@ -389,11 +483,22 @@ function SoloGame() {
     }
   }
 
-  const submitGuess = () => {
-    if (!card || status !== 'active' || !guess.trim()) return
+  const submitGuess = async () => {
+    if (!card || status !== 'active' || !guess.trim() || scoring) return
     if (!validateGuess(guess, card.entity.name, card.entity.aliases)) {
       setFeedback('Not quite. Keep trying.')
       setGuess('')
+      const current = activeSession.current
+      if (current) {
+        const updated = {
+          ...current,
+          currentIncorrectGuessCount:
+            (current.currentIncorrectGuessCount ?? 0) + 1
+        }
+        activeSession.current = updated
+        setSession(updated)
+        saveSoloSession(updated)
+      }
       // Keep focus so the mobile keyboard stays open for the next try.
       guessInputRef.current?.focus({ preventScroll: true })
       return
@@ -404,24 +509,59 @@ function SoloGame() {
     playSound('correct')
     const current = activeSession.current
     if (current) {
+      const elapsedMs = Math.min(
+        current.roundDurationMs,
+        Math.max(0, Date.now() - roundStartedAt.current)
+      )
       const frozenRemainingMs = Math.max(
         0,
-        current.roundDurationMs - (Date.now() - roundStartedAt.current)
+        current.roundDurationMs - elapsedMs
       )
       setRemainingMs(frozenRemainingMs)
-      const settled = {
+      const pending = {
         ...current,
         roundStatus: 'correct' as const,
         roundRemainingMs: frozenRemainingMs
       }
+      activeSession.current = pending
+      setSession(pending)
+      saveSoloSession(pending)
+
+      setScoring(true)
+      let breakdown: SoloScoreBreakdown
+      try {
+        breakdown = await scoreSoloRound({
+          correct: true,
+          elapsedMs,
+          revealedClueCount: revealedCluesAt(current, card, elapsedMs),
+          incorrectGuessCount: current.currentIncorrectGuessCount ?? 0
+        })
+      } catch {
+        breakdown = ZERO_SCORE_BREAKDOWN
+        setScoreWarning('Your answer was saved, but points could not be calculated.')
+      }
+
+      const performance: SoloRoundPerformance = {
+        entityId: card.entity.id,
+        correct: true,
+        revealedClueCount: revealedCluesAt(current, card, elapsedMs),
+        incorrectGuessCount: current.currentIncorrectGuessCount ?? 0,
+        elapsedMs,
+        score: breakdown.score,
+        breakdown
+      }
+      const settled = { ...pending, settledRoundPerformance: performance }
       activeSession.current = settled
       setSession(settled)
       saveSoloSession(settled)
+      setScoring(false)
     }
   }
 
   if (result && session) {
     const heading = session.variation === 'challenge' ? 'Challenge complete!' : 'Endurance complete!'
+    const averageClues = soloRecordAverageClues(result.record)
+    const firstClueCorrect = soloRecordFirstClueCorrectCount(result.record)
     return (
       <div className="min-h-screen bg-app-bg font-display text-foreground flex items-center justify-center p-4">
         <main className="setup-shell space-y-5 rounded-xl border border-edge bg-surface p-6 text-center shadow-sm md:p-8">
@@ -431,10 +571,31 @@ function SoloGame() {
             <h1 className="text-2xl font-black">{heading}</h1>
             <p className="mt-1 text-foreground-muted">{session.variation === 'challenge' ? 'Your 10-round result' : 'Your final streak'}</p>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-lg bg-primary/10 p-4"><p className="text-3xl font-black text-primary">{result.record.correctCount}</p><p className="text-xs font-bold uppercase tracking-wider text-foreground-muted">Correct</p></div>
-            <div className="rounded-lg bg-surface-muted p-4"><p className="text-3xl font-black">{formatSoloTime(result.record.activeElapsedMs)}</p><p className="text-xs font-bold uppercase tracking-wider text-foreground-muted">Active time</p></div>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <div className="rounded-lg bg-primary/10 p-4">
+              <p className="text-3xl font-black text-primary">
+                {formatSoloScore(result.record.score ?? 0)}
+              </p>
+              <p className="text-xs font-bold uppercase tracking-wider text-foreground-muted">Score</p>
+            </div>
+            <div className="rounded-lg bg-surface-muted p-4">
+              <p className="text-3xl font-black">{result.record.correctCount}</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-foreground-muted">Correct</p>
+            </div>
+            <div className="rounded-lg bg-surface-muted p-4">
+              <p className="text-3xl font-black">
+                {averageClues == null ? '—' : averageClues.toFixed(1)}
+              </p>
+              <p className="text-xs font-bold uppercase tracking-wider text-foreground-muted">Avg clues</p>
+            </div>
+            <div className="rounded-lg bg-surface-muted p-4">
+              <p className="text-3xl font-black">{firstClueCorrect}</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-foreground-muted">First clue</p>
+            </div>
           </div>
+          <p className="text-xs text-foreground-muted">
+            Active time: {formatSoloTime(result.record.activeElapsedMs)}
+          </p>
           {result.isPersonalBest && (
             <p role="status" className="banner-success font-semibold">
               New personal best on this device!
@@ -442,7 +603,11 @@ function SoloGame() {
           )}
           {!result.isPersonalBest && (
             <p className="text-sm text-foreground-muted">
-              Personal best: {listSoloRecords(session.variation, session.datasetId)[0]?.correctCount ?? 0} correct.
+              Personal best:{' '}
+              {formatSoloScore(
+                listSoloRecords(session.variation, session.datasetId)[0]?.score ?? 0
+              )}{' '}
+              points.
             </p>
           )}
           {result.endedByMaintenance && (
@@ -480,6 +645,9 @@ function SoloGame() {
     ? Math.min(card.clues.length, 1 + Math.floor((session.roundDurationMs - remainingMs) / session.clueRevealIntervalMs))
     : 0
   const visibleClues = card?.clues.slice(0, revealedCount) ?? []
+  const settledPerformance = session.settledRoundPerformance ?? null
+  const displayedScore =
+    soloSessionScore(session) + (settledPerformance?.score ?? 0)
 
   return (
     <div
@@ -491,7 +659,15 @@ function SoloGame() {
           <Link to="/solo" aria-label="Back to solo setup" className="flex size-10 items-center justify-center rounded-full text-foreground-muted hover:bg-surface-elevated"><span className="material-symbols-outlined">arrow_back</span></Link>
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-bold uppercase tracking-widest text-primary">{session.variation === 'challenge' ? 'Solo challenge' : 'Endurance'}</p>
-            <p className="text-sm font-bold">{session.variation === 'challenge' ? `Round ${Math.min(session.index + 1, 10)} of 10` : `${session.correctCount} correct`}</p>
+            <p className="text-sm font-bold">
+              {session.variation === 'challenge'
+                ? `Round ${Math.min(session.index + 1, 10)} of 10`
+                : `${session.correctCount} correct`}
+              <span className="text-foreground-muted">
+                {' · '}
+                {formatSoloScore(displayedScore)} pts
+              </span>
+            </p>
           </div>
           <div className="rounded-lg bg-primary/10 px-3 py-1 text-right"><p className="text-[10px] font-bold uppercase text-primary">Time</p><p className="font-black">{Math.ceil(remainingMs / 1000)}s</p></div>
           <SoundToggle />
@@ -537,13 +713,36 @@ function SoloGame() {
                     {card.entity.aliases.join(', ')}
                   </p>
                 )}
+                {scoring && (
+                  <p className="mt-3 text-sm font-semibold text-green-800 dark:text-green-200">
+                    Calculating score…
+                  </p>
+                )}
+                {settledPerformance && (
+                  <div className="mt-3 rounded-lg bg-white/60 p-3 dark:bg-black/15">
+                    <p className="text-sm text-green-900 dark:text-green-100">
+                      Answered after {settledPerformance.revealedClueCount}{' '}
+                      {settledPerformance.revealedClueCount === 1 ? 'clue' : 'clues'}
+                    </p>
+                    <p className="mt-1 text-2xl font-black text-primary">
+                      +{formatSoloScore(settledPerformance.score)} points
+                    </p>
+                    <p className="mt-1 text-xs text-foreground-muted">
+                      {scoreBreakdownLabel(settledPerformance.breakdown)}
+                    </p>
+                  </div>
+                )}
+                {scoreWarning && (
+                  <p className="banner-warning mt-3">{scoreWarning}</p>
+                )}
                 <button
                   ref={advanceButtonRef}
                   type="button"
                   onClick={() => void advance(true)}
+                  disabled={scoring}
                   className="mt-4 w-full rounded-lg bg-primary py-3 font-bold text-white"
                 >
-                  {settleAdvanceLabel}
+                  {scoring ? 'Calculating…' : settleAdvanceLabel}
                 </button>
               </section>
             )}
@@ -560,6 +759,10 @@ function SoloGame() {
                     {card.entity.aliases.join(', ')}
                   </p>
                 )}
+                <div className="mt-3 rounded-lg bg-white/60 p-3 dark:bg-black/15">
+                  <p className="text-2xl font-black text-primary">+0 points</p>
+                  <p className="mt-1 text-xs text-foreground-muted">Round timed out</p>
+                </div>
                 <button
                   ref={advanceButtonRef}
                   type="button"
@@ -588,7 +791,7 @@ function SoloGame() {
               className="flex gap-2"
               onSubmit={(event) => {
                 event.preventDefault()
-                submitGuess()
+                void submitGuess()
               }}
             >
               <input
@@ -607,7 +810,7 @@ function SoloGame() {
               />
               <button
                 type="submit"
-                disabled={!guess.trim()}
+                disabled={!guess.trim() || scoring}
                 className="rounded-lg bg-primary px-4 font-bold text-white hover:bg-primary/90 disabled:opacity-50"
               >
                 Guess

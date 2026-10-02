@@ -25,6 +25,25 @@ export type SoloConfig = {
   clueRevealIntervalMs: number
 }
 
+export type SoloScoreBreakdown = {
+  score: number
+  basePoints: number
+  cluePenalty: number
+  timePenalty: number
+  incorrectGuessPenalty: number
+  bonusPoints: number
+}
+
+export type SoloRoundPerformance = {
+  entityId: string
+  correct: boolean
+  revealedClueCount: number
+  incorrectGuessCount: number
+  elapsedMs: number
+  score: number
+  breakdown: SoloScoreBreakdown
+}
+
 export type SoloSession = SoloConfig & {
   entityIds: string[]
   index: number
@@ -38,12 +57,21 @@ export type SoloSession = SoloConfig & {
   roundStatus?: 'active' | 'correct' | 'timeout' | null
   /** Frozen card for `entityIds[index]`; survives refresh without reshuffling clues. */
   currentCard?: InPersonCard | null
+  /** Cumulative score. Optional while migrating sessions created before scoring. */
+  score?: number
+  rounds?: SoloRoundPerformance[]
+  currentIncorrectGuessCount?: number
+  /** Frozen outcome waiting for the player to advance. */
+  settledRoundPerformance?: SoloRoundPerformance | null
 }
 
 export type SoloRecord = SoloConfig & {
   correctCount: number
   activeElapsedMs: number
   achievedAt: string
+  /** Missing on records created before scored Solo launched. */
+  score?: number
+  rounds?: SoloRoundPerformance[]
 }
 
 export type SoloSetupPreferences = {
@@ -69,7 +97,11 @@ export function createSoloSession(config: SoloConfig, entityIds: string[]): Solo
     roundStartedAt: null,
     roundRemainingMs: null,
     roundStatus: null,
-    currentCard: null
+    currentCard: null,
+    score: 0,
+    rounds: [],
+    currentIncorrectGuessCount: 0,
+    settledRoundPerformance: null
   }
 }
 
@@ -120,7 +152,17 @@ export function loadSoloSession(): SoloSession | null {
     if (session.currentCard != null && !isInPersonCard(session.currentCard)) {
       session.currentCard = null
     }
-    return session
+    const rounds = Array.isArray(session.rounds) ? session.rounds : []
+    return {
+      ...session,
+      rounds,
+      score:
+        typeof session.score === 'number'
+          ? session.score
+          : rounds.reduce((sum, round) => sum + round.score, 0),
+      currentIncorrectGuessCount: session.currentIncorrectGuessCount ?? 0,
+      settledRoundPerformance: session.settledRoundPerformance ?? null
+    }
   } catch {
     return null
   }
@@ -170,9 +212,14 @@ function sameRecordBucket(a: Pick<SoloRecord, 'datasetId' | 'variation'>, b: Pic
 }
 
 export function isBetterRecord(
-  candidate: Pick<SoloRecord, 'correctCount' | 'activeElapsedMs'>,
-  current: Pick<SoloRecord, 'correctCount' | 'activeElapsedMs'>
+  candidate: Pick<SoloRecord, 'correctCount' | 'activeElapsedMs' | 'score'>,
+  current: Pick<SoloRecord, 'correctCount' | 'activeElapsedMs' | 'score'>
 ): boolean {
+  if (candidate.score != null || current.score != null) {
+    if (candidate.score == null) return false
+    if (current.score == null) return true
+    if (candidate.score !== current.score) return candidate.score > current.score
+  }
   return (
     candidate.correctCount > current.correctCount ||
     (candidate.correctCount === current.correctCount &&
@@ -181,6 +228,11 @@ export function isBetterRecord(
 }
 
 function compareRecords(a: SoloRecord, b: SoloRecord): number {
+  if (a.score != null || b.score != null) {
+    if (a.score == null) return 1
+    if (b.score == null) return -1
+    if (b.score !== a.score) return b.score - a.score
+  }
   if (b.correctCount !== a.correctCount) return b.correctCount - a.correctCount
   if (a.activeElapsedMs !== b.activeElapsedMs) return a.activeElapsedMs - b.activeElapsedMs
   return b.achievedAt.localeCompare(a.achievedAt)
@@ -288,6 +340,32 @@ export function formatSoloTime(milliseconds: number): string {
   const totalSeconds = Math.max(0, Math.round(milliseconds / 1000))
   const minutes = Math.floor(totalSeconds / 60)
   return `${minutes}:${String(totalSeconds % 60).padStart(2, '0')}`
+}
+
+export function formatSoloScore(score: number): string {
+  return new Intl.NumberFormat().format(Math.max(0, Math.floor(score)))
+}
+
+export function soloSessionScore(session: Pick<SoloSession, 'score' | 'rounds'>): number {
+  if (typeof session.score === 'number') return session.score
+  return (session.rounds ?? []).reduce((sum, round) => sum + round.score, 0)
+}
+
+export function soloRecordAverageClues(record: Pick<SoloRecord, 'rounds'>): number | null {
+  const correctRounds = (record.rounds ?? []).filter((round) => round.correct)
+  if (correctRounds.length === 0) return null
+  return (
+    correctRounds.reduce((sum, round) => sum + round.revealedClueCount, 0) /
+    correctRounds.length
+  )
+}
+
+export function soloRecordFirstClueCorrectCount(
+  record: Pick<SoloRecord, 'rounds'>
+): number {
+  return (record.rounds ?? []).filter(
+    (round) => round.correct && round.revealedClueCount === 1
+  ).length
 }
 
 /** Relative or short absolute date for when a personal best was set. */

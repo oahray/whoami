@@ -1,5 +1,69 @@
 import { describe, it, expect } from 'vitest'
-import { calculateScore } from './scoring.js'
+import { calculateKnowledgeScore, calculateScore } from './scoring.js'
+
+describe('calculateKnowledgeScore', () => {
+  it('returns an explainable score breakdown', () => {
+    expect(
+      calculateKnowledgeScore({
+        correct: true,
+        elapsedMs: 12_900,
+        revealedClueCount: 2,
+        incorrectGuessCount: 1
+      })
+    ).toEqual({
+      score: 630,
+      basePoints: 1000,
+      cluePenalty: 150,
+      timePenalty: 120,
+      incorrectGuessPenalty: 100,
+      bonusPoints: 0
+    })
+  })
+
+  it('awards zero for an incorrect or timed-out round', () => {
+    expect(
+      calculateKnowledgeScore({
+        correct: false,
+        elapsedMs: 30_000,
+        revealedClueCount: 5,
+        incorrectGuessCount: 3
+      }).score
+    ).toBe(0)
+  })
+
+  it('floors correct scores and sanitizes invalid counters', () => {
+    const result = calculateKnowledgeScore({
+      correct: true,
+      elapsedMs: Number.POSITIVE_INFINITY,
+      revealedClueCount: -5,
+      incorrectGuessCount: 99
+    })
+    expect(result.score).toBe(100)
+    expect(result.cluePenalty).toBe(0)
+    expect(result.timePenalty).toBe(0)
+  })
+
+  it('supports mode-specific rules and bonuses', () => {
+    const result = calculateKnowledgeScore(
+      {
+        correct: true,
+        elapsedMs: 1_000,
+        revealedClueCount: 1,
+        incorrectGuessCount: 0,
+        bonusPoints: 100
+      },
+      {
+        basePoints: 500,
+        additionalCluePenalty: 50,
+        elapsedSecondPenalty: 5,
+        incorrectGuessPenalty: 25,
+        minimumCorrectScore: 50
+      }
+    )
+    expect(result.score).toBe(595)
+    expect(result.bonusPoints).toBe(100)
+  })
+})
 
 describe('calculateScore', () => {
   const ROUND_DURATION = 30000

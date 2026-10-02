@@ -10,6 +10,92 @@ const FLOOR_POINTS = 50
 const CLUE_MULTIPLIERS = [1.5, 1.0, 0.8, 0.7, 0.6]
 const CLUE_MULTIPLIER_FLOOR = 0.6
 
+export type KnowledgeScoreRules = {
+  basePoints: number
+  additionalCluePenalty: number
+  elapsedSecondPenalty: number
+  incorrectGuessPenalty: number
+  minimumCorrectScore: number
+}
+
+export type KnowledgeScoreInput = {
+  correct: boolean
+  elapsedMs: number
+  revealedClueCount: number
+  incorrectGuessCount: number
+  bonusPoints?: number
+}
+
+export type KnowledgeScoreBreakdown = {
+  score: number
+  basePoints: number
+  cluePenalty: number
+  timePenalty: number
+  incorrectGuessPenalty: number
+  bonusPoints: number
+}
+
+export const DEFAULT_KNOWLEDGE_SCORE_RULES: Readonly<KnowledgeScoreRules> = {
+  basePoints: 1000,
+  additionalCluePenalty: 150,
+  elapsedSecondPenalty: 10,
+  incorrectGuessPenalty: 100,
+  minimumCorrectScore: 100
+}
+
+function nonNegativeInteger(value: number): number {
+  if (!Number.isFinite(value)) return 0
+  return Math.max(0, Math.floor(value))
+}
+
+/**
+ * Product-agnostic recall scoring for Solo, Daily, and future modes.
+ * Mode-specific rewards, such as a multiplayer placement bonus, can be passed
+ * through `bonusPoints`.
+ */
+export function calculateKnowledgeScore(
+  input: KnowledgeScoreInput,
+  rules: KnowledgeScoreRules = DEFAULT_KNOWLEDGE_SCORE_RULES
+): KnowledgeScoreBreakdown {
+  const basePoints = nonNegativeInteger(rules.basePoints)
+  const bonusPoints = nonNegativeInteger(input.bonusPoints ?? 0)
+
+  if (!input.correct) {
+    return {
+      score: 0,
+      basePoints,
+      cluePenalty: 0,
+      timePenalty: 0,
+      incorrectGuessPenalty: 0,
+      bonusPoints: 0
+    }
+  }
+
+  const revealedClueCount = Math.max(1, nonNegativeInteger(input.revealedClueCount))
+  const elapsedSeconds = Math.floor(nonNegativeInteger(input.elapsedMs) / 1000)
+  const cluePenalty =
+    Math.max(0, revealedClueCount - 1) *
+    nonNegativeInteger(rules.additionalCluePenalty)
+  const timePenalty =
+    elapsedSeconds * nonNegativeInteger(rules.elapsedSecondPenalty)
+  const incorrectGuessPenalty =
+    nonNegativeInteger(input.incorrectGuessCount) *
+    nonNegativeInteger(rules.incorrectGuessPenalty)
+  const score = Math.max(
+    nonNegativeInteger(rules.minimumCorrectScore),
+    basePoints + bonusPoints - cluePenalty - timePenalty - incorrectGuessPenalty
+  )
+
+  return {
+    score,
+    basePoints,
+    cluePenalty,
+    timePenalty,
+    incorrectGuessPenalty,
+    bonusPoints
+  }
+}
+
 interface ScoreParams {
   timeElapsedMs: number
   roundDuration: number
