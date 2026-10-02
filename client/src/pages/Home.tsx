@@ -293,7 +293,7 @@ function Home() {
             <button
               type="submit"
               disabled={loading || !nickname.trim() || joinCode.length !== ROOM_CODE_LENGTH || !connected}
-              className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-5 rounded-lg shadow-lg shadow-primary/30 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-5 font-bold text-white shadow-lg shadow-primary/30 transition-all hover:bg-primary/90 active:scale-[0.98] motion-reduce:active:scale-100 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
             >
               {loading ? (
                 <LoadingState label="Joining" layout="inline" className="text-white" />
@@ -436,7 +436,10 @@ function Home() {
       )}
 
       {error && (
-        <div className="fixed bottom-4 left-4 right-4 max-w-md mx-auto p-3 bg-red-100 dark:bg-red-950/60 border border-red-400 dark:border-red-800 text-red-700 dark:text-red-200 rounded-lg text-sm z-50 flex items-start gap-2">
+        <div
+          role="alert"
+          className="banner-danger fixed bottom-4 left-4 right-4 z-50 mx-auto flex max-w-md items-start gap-2"
+        >
           <p className="min-w-0 flex-1">{error}</p>
           <button
             type="button"
@@ -444,7 +447,9 @@ function Home() {
             aria-label="Dismiss"
             className="shrink-0 rounded-md p-0.5 text-red-700/80 hover:bg-red-200/60 hover:text-red-900 dark:text-red-200/80 dark:hover:bg-red-900/40"
           >
-            <span className="material-symbols-outlined text-base leading-none">close</span>
+            <span className="material-symbols-outlined text-base leading-none" aria-hidden>
+              close
+            </span>
           </button>
         </div>
       )}

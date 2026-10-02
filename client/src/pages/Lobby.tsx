@@ -279,9 +279,12 @@ function Lobby() {
         <button
           type="button"
           onClick={handleLeaveRoom}
+          aria-label="Leave room"
           className="text-foreground-muted flex size-10 shrink-0 items-center justify-center rounded-full hover:bg-surface-elevated md:size-auto md:px-0 md:py-0"
         >
-          <span className="material-symbols-outlined">arrow_back</span>
+          <span className="material-symbols-outlined" aria-hidden>
+            arrow_back
+          </span>
         </button>
         <h1 className="text-foreground text-lg font-bold leading-tight tracking-tight flex-1 text-center">Room Lobby <span className="text-sm text-foreground-muted">({roomCode})</span></h1>
         <div className="flex items-center gap-1 shrink-0">
@@ -308,17 +311,22 @@ function Lobby() {
               <button
                 type="button"
                 onClick={handleCopyCode}
+                aria-label={copiedCode ? 'Room code copied' : 'Copy room code'}
                 title="Copy code"
                 className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors md:size-auto md:px-4 md:py-2 md:rounded-lg md:bg-surface-elevated md:font-semibold md:flex md:items-center md:gap-2"
               >
                 {copiedCode ? (
                   <>
-                    <span className="material-symbols-outlined text-xl md:text-lg">check</span>
+                    <span className="material-symbols-outlined text-xl md:text-lg" aria-hidden>
+                      check
+                    </span>
                     <span className="hidden md:inline text-sm">Copied!</span>
                   </>
                 ) : (
                   <>
-                    <span className="material-symbols-outlined text-xl md:text-lg">content_copy</span>
+                    <span className="material-symbols-outlined text-xl md:text-lg" aria-hidden>
+                      content_copy
+                    </span>
                     <span className="hidden md:inline text-sm">Copy Code</span>
                   </>
                 )}
@@ -326,19 +334,30 @@ function Lobby() {
               <button
                 type="button"
                 onClick={handleShareInvite}
+                aria-label={
+                  shareFeedback === 'shared'
+                    ? 'Invite shared'
+                    : shareFeedback === 'copied'
+                      ? 'Invite link copied'
+                      : 'Share invite'
+                }
                 title="Share invite"
                 className="flex size-10 items-center justify-center rounded-full bg-primary text-white hover:bg-primary/90 transition-colors md:size-auto md:px-4 md:py-2 md:rounded-lg md:bg-surface-elevated md:text-primary md:font-semibold md:flex md:items-center md:gap-2 md:hover:bg-surface-elevated"
               >
                 {shareFeedback ? (
                   <>
-                    <span className="material-symbols-outlined text-xl md:text-lg">check</span>
+                    <span className="material-symbols-outlined text-xl md:text-lg" aria-hidden>
+                      check
+                    </span>
                     <span className="hidden md:inline text-sm">
                       {shareFeedback === 'shared' ? 'Shared!' : 'Copied!'}
                     </span>
                   </>
                 ) : (
                   <>
-                    <span className="material-symbols-outlined text-xl md:text-lg">share</span>
+                    <span className="material-symbols-outlined text-xl md:text-lg" aria-hidden>
+                      share
+                    </span>
                     <span className="hidden md:inline text-sm">Share</span>
                   </>
                 )}
@@ -352,7 +371,7 @@ function Lobby() {
         </section>
 
         {error && (
-          <div className="p-3 bg-red-100 dark:bg-red-950/60 border border-red-400 dark:border-red-800 text-red-700 dark:text-red-200 rounded-lg text-sm flex items-start gap-2">
+          <div role="alert" className="banner-danger flex items-start gap-2">
             <p className="min-w-0 flex-1">{error}</p>
             <button
               type="button"
@@ -360,7 +379,9 @@ function Lobby() {
               aria-label="Dismiss"
               className="shrink-0 rounded-md p-0.5 hover:bg-red-200/60 dark:hover:bg-red-900/40"
             >
-              <span className="material-symbols-outlined text-base leading-none">close</span>
+              <span className="material-symbols-outlined text-base leading-none" aria-hidden>
+                close
+              </span>
             </button>
           </div>
         )}
@@ -387,13 +408,18 @@ function Lobby() {
                       nickname={player.nickname}
                       sizeClassName="size-12"
                     />
-                    <div className="absolute bottom-0 right-0 size-3 rounded-full bg-green-500 border-2 border-surface" title="Connected" />
+                    <div
+                      className="absolute bottom-0 right-0 size-3 rounded-full border-2 border-surface bg-green-500"
+                      title="Connected"
+                      role="img"
+                      aria-label="Connected"
+                    />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-foreground font-bold truncate">{player.nickname}</p>
                       {player.isHost && (
-                        <span className="bg-amber-100 text-amber-700 text-[10px] font-black px-1.5 py-0.5 rounded border border-amber-200 uppercase shrink-0">
+                        <span className="shrink-0 rounded border border-amber-200 bg-amber-100 px-1.5 py-0.5 text-[10px] font-black uppercase text-amber-700 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-200">
                           Host
                         </span>
                       )}
@@ -731,7 +757,7 @@ function Lobby() {
                 type="button"
                 onClick={handleStartGame}
                 disabled={connectedCount < 2 || maintenanceBlocking}
-                className="order-1 sm:order-3 w-full md:w-auto md:min-w-[200px] bg-green-600 hover:bg-green-700 text-white font-bold py-4 md:py-3 px-6 rounded-lg shadow-lg shadow-green-500/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+                className="order-1 flex w-full items-center justify-center gap-2 rounded-lg bg-green-600 px-6 py-4 font-bold text-white shadow-lg shadow-green-500/20 transition-all hover:bg-green-700 active:scale-[0.98] motion-reduce:active:scale-100 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 sm:order-3 md:w-auto md:min-w-[200px] md:py-3"
               >
                 <span className="material-symbols-outlined">play_circle</span>
                 START GAME ({connectedCount} PLAYERS)

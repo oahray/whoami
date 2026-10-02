@@ -60,6 +60,7 @@ function SoloGame() {
   const roundStartedAt = useRef(0)
   const activeSession = useRef<SoloSession | null>(null)
   const guessInputRef = useRef<HTMLInputElement | null>(null)
+  const advanceButtonRef = useRef<HTMLButtonElement | null>(null)
   const lastClueCountRef = useRef(0)
   const settledOnceRef = useRef(false)
   const viewportStyle = useVisualViewportLock()
@@ -298,6 +299,42 @@ function SoloGame() {
   }, [status, loading, card?.entity.id])
 
   useEffect(() => {
+    if (status !== 'correct' && status !== 'timeout') return
+
+    // Focus the CTA so Enter activates it natively; also handle Enter if focus
+    // landed elsewhere (e.g. body after the guess field unmounted).
+    advanceButtonRef.current?.focus({ preventScroll: true })
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Enter' || event.defaultPrevented || event.isComposing || event.repeat) {
+        return
+      }
+      const target = event.target
+      if (target instanceof HTMLTextAreaElement) return
+      if (
+        target instanceof HTMLInputElement &&
+        target.type !== 'button' &&
+        target.type !== 'submit' &&
+        target.type !== 'reset'
+      ) {
+        return
+      }
+      if (
+        target === advanceButtonRef.current ||
+        document.activeElement === advanceButtonRef.current
+      ) {
+        // Let the focused button's native Enter → click path run alone.
+        return
+      }
+      event.preventDefault()
+      void advance(status === 'correct')
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [status, card?.entity.id, advance])
+
+  useEffect(() => {
     resetStick()
   }, [card?.entity.id, resetStick])
 
@@ -357,6 +394,8 @@ function SoloGame() {
     if (!validateGuess(guess, card.entity.name, card.entity.aliases)) {
       setFeedback('Not quite. Keep trying.')
       setGuess('')
+      // Keep focus so the mobile keyboard stays open for the next try.
+      guessInputRef.current?.focus({ preventScroll: true })
       return
     }
     setStatus('correct')
@@ -385,7 +424,7 @@ function SoloGame() {
     const heading = session.variation === 'challenge' ? 'Challenge complete!' : 'Endurance complete!'
     return (
       <div className="min-h-screen bg-app-bg font-display text-foreground flex items-center justify-center p-4">
-        <main className="w-full max-w-lg rounded-xl border border-edge bg-surface p-6 text-center shadow-sm space-y-5">
+        <main className="setup-shell space-y-5 rounded-xl border border-edge bg-surface p-6 text-center shadow-sm md:p-8">
           <MaintenanceBanner status={maintenanceStatus} />
           <span className="material-symbols-outlined text-5xl text-primary">emoji_events</span>
           <div>
@@ -396,19 +435,23 @@ function SoloGame() {
             <div className="rounded-lg bg-primary/10 p-4"><p className="text-3xl font-black text-primary">{result.record.correctCount}</p><p className="text-xs font-bold uppercase tracking-wider text-foreground-muted">Correct</p></div>
             <div className="rounded-lg bg-surface-muted p-4"><p className="text-3xl font-black">{formatSoloTime(result.record.activeElapsedMs)}</p><p className="text-xs font-bold uppercase tracking-wider text-foreground-muted">Active time</p></div>
           </div>
-          {result.isPersonalBest && <p className="rounded-lg bg-green-50 p-3 text-sm font-semibold text-green-800">New personal best on this device!</p>}
+          {result.isPersonalBest && (
+            <p role="status" className="banner-success font-semibold">
+              New personal best on this device!
+            </p>
+          )}
           {!result.isPersonalBest && (
             <p className="text-sm text-foreground-muted">
               Personal best: {listSoloRecords(session.variation, session.datasetId)[0]?.correctCount ?? 0} correct.
             </p>
           )}
           {result.endedByMaintenance && (
-            <p className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+            <p role="status" className="banner-warning">
               {MAINTENANCE_SOLO_ENDED_COPY}
             </p>
           )}
           {error && (
-            <p className="rounded-lg border border-red-400 bg-red-100 p-3 text-sm text-red-700">{error}</p>
+            <p role="alert" className="banner-danger">{error}</p>
           )}
           <div className="grid grid-cols-2 gap-3">
             <Link to="/solo" className="rounded-lg border-2 border-edge py-3 font-semibold">
@@ -444,7 +487,7 @@ function SoloGame() {
       style={viewportStyle}
     >
       <header className="shrink-0 border-b border-edge bg-surface px-3 py-2">
-        <div className="max-w-lg mx-auto flex items-center gap-3">
+        <div className="setup-shell flex items-center gap-3">
           <Link to="/solo" aria-label="Back to solo setup" className="flex size-10 items-center justify-center rounded-full text-foreground-muted hover:bg-surface-elevated"><span className="material-symbols-outlined">arrow_back</span></Link>
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-bold uppercase tracking-widest text-primary">{session.variation === 'challenge' ? 'Solo challenge' : 'Endurance'}</p>
@@ -457,11 +500,18 @@ function SoloGame() {
       <main
         ref={cluesScrollRef}
         onScroll={onCluesScroll}
-        className="flex-1 min-h-0 max-w-lg w-full mx-auto overflow-y-auto px-3 py-4 space-y-3"
+        className="setup-shell min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-4 md:px-4 md:py-5"
       >
         <MaintenanceBanner status={maintenanceStatus} />
         {loading && <LoadingState label="Loading card" layout="page" />}
-        {error && <div className="space-y-3"><p className="rounded-lg border border-red-400 bg-red-100 p-3 text-sm text-red-700">{error}</p><button type="button" onClick={() => void loadCard(session)} className="w-full rounded-lg border-2 border-edge py-3 font-semibold">Try again</button></div>}
+        {error && (
+          <div className="space-y-3">
+            <p role="alert" className="banner-danger">{error}</p>
+            <button type="button" onClick={() => void loadCard(session)} className="w-full rounded-lg border-2 border-edge py-3 font-semibold">
+              Try again
+            </button>
+          </div>
+        )}
         {card && !loading && (
           <>
             <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-foreground-muted"><span>Clues</span><span>{visibleClues.length} revealed</span></div>
@@ -475,15 +525,20 @@ function SoloGame() {
               </article>
             ))}
             {status === 'correct' && (
-              <section className="rounded-lg border border-green-300 bg-green-50 p-4 text-center">
-                <p className="text-sm text-green-800">Correct!</p>
-                <p className="mt-1 text-2xl font-black text-green-950">{card.entity.name}</p>
+              <section
+                role="status"
+                aria-live="polite"
+                className="banner-success-emphasis p-4 text-center"
+              >
+                <p className="text-sm font-semibold text-green-800 dark:text-green-200">Correct!</p>
+                <p className="mt-1 text-2xl font-black text-green-950 dark:text-green-50">{card.entity.name}</p>
                 {card.entity.aliases.length > 0 && (
-                  <p className="mt-0.5 text-sm font-semibold text-green-900/80">
+                  <p className="mt-0.5 text-sm font-semibold text-green-900/80 dark:text-green-100/80">
                     {card.entity.aliases.join(', ')}
                   </p>
                 )}
                 <button
+                  ref={advanceButtonRef}
                   type="button"
                   onClick={() => void advance(true)}
                   className="mt-4 w-full rounded-lg bg-primary py-3 font-bold text-white"
@@ -493,15 +548,20 @@ function SoloGame() {
               </section>
             )}
             {status === 'timeout' && (
-              <section className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-center">
-                <p className="text-sm text-amber-900">Time&apos;s up. The answer was</p>
-                <p className="mt-1 text-2xl font-black text-amber-950">{card.entity.name}</p>
+              <section
+                role="status"
+                aria-live="polite"
+                className="banner-warning border-amber-300 p-4 text-center dark:border-amber-700"
+              >
+                <p className="text-sm text-amber-900 dark:text-amber-100">Time&apos;s up. The answer was</p>
+                <p className="mt-1 text-2xl font-black text-amber-950 dark:text-amber-50">{card.entity.name}</p>
                 {card.entity.aliases.length > 0 && (
-                  <p className="mt-0.5 text-sm font-semibold text-amber-900/80">
+                  <p className="mt-0.5 text-sm font-semibold text-amber-900/80 dark:text-amber-100/80">
                     {card.entity.aliases.join(', ')}
                   </p>
                 )}
                 <button
+                  ref={advanceButtonRef}
                   type="button"
                   onClick={() => void advance(false)}
                   className="mt-4 w-full rounded-lg bg-primary py-3 font-bold text-white"
@@ -518,28 +578,41 @@ function SoloGame() {
           className="shrink-0 border-t border-edge bg-surface px-3 pt-3"
           style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))' }}
         >
-          <div className="max-w-lg mx-auto space-y-2">
+          <div className="setup-shell space-y-2">
             {feedback && (
-              <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-center text-sm font-semibold text-amber-900">
+              <p role="status" aria-live="polite" className="banner-warning px-3 py-2 text-center font-semibold">
                 {feedback}
               </p>
             )}
-            <div className="flex gap-2">
+            <form
+              className="flex gap-2"
+              onSubmit={(event) => {
+                event.preventDefault()
+                submitGuess()
+              }}
+            >
               <input
                 ref={guessInputRef}
+                id="solo-guess"
                 type="text"
                 value={guess}
                 onChange={(event) => setGuess(event.target.value)}
-                onKeyDown={(event) => event.key === 'Enter' && submitGuess()}
+                aria-label="Your guess"
                 placeholder="Enter your guess…"
                 enterKeyHint="go"
                 autoComplete="off"
                 autoCorrect="off"
                 spellCheck={false}
-                className="min-w-0 flex-1 rounded-lg bg-surface-muted px-3 py-3 text-base font-medium"
+                className="min-w-0 flex-1 rounded-lg border border-edge bg-surface-muted px-3 py-3 text-base font-medium text-foreground placeholder:text-foreground-muted transition-all focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
-              <button type="button" onClick={submitGuess} disabled={!guess.trim()} className="rounded-lg bg-primary px-4 font-bold text-white disabled:opacity-50">Guess</button>
-            </div>
+              <button
+                type="submit"
+                disabled={!guess.trim()}
+                className="rounded-lg bg-primary px-4 font-bold text-white hover:bg-primary/90 disabled:opacity-50"
+              >
+                Guess
+              </button>
+            </form>
           </div>
         </footer>
       )}

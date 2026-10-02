@@ -225,7 +225,7 @@ function PlaySetup() {
   return (
     <div className="min-h-screen bg-app-bg font-display text-foreground antialiased">
       <header className="sticky top-0 z-10 border-b border-edge bg-surface/95 backdrop-blur-sm">
-        <div className="max-w-lg mx-auto flex items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3">
+        <div className="setup-shell flex items-center gap-2 px-3 py-2 md:gap-3 md:px-4 md:py-3">
           <Link
             to="/"
             className="flex size-9 md:size-10 shrink-0 items-center justify-center rounded-full text-foreground-muted hover:bg-surface-elevated"
@@ -246,11 +246,13 @@ function PlaySetup() {
         </div>
       </header>
 
-      <main className="max-w-lg mx-auto px-3 py-4 pb-8 md:px-4 md:py-6 md:pb-10 space-y-3 md:space-y-4">
+      <main className="setup-shell space-y-3 px-3 py-4 pb-8 md:space-y-4 md:px-4 md:py-6 md:pb-10">
         <MaintenanceBanner status={maintenanceStatus} />
         {offline && (
-          <div className="p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-lg text-sm flex gap-2">
-            <span className="material-symbols-outlined text-lg shrink-0">wifi_off</span>
+          <div role="status" className="banner-warning flex gap-2">
+            <span className="material-symbols-outlined text-lg shrink-0" aria-hidden>
+              wifi_off
+            </span>
             <p>Internet required to load cards. Reconnect to start.</p>
           </div>
         )}
@@ -260,7 +262,7 @@ function PlaySetup() {
         )}
 
         {error && (
-          <div className="p-3 bg-red-100 dark:bg-red-950/60 border border-red-400 dark:border-red-800 text-red-700 dark:text-red-200 rounded-lg text-sm">
+          <div role="alert" className="banner-danger">
             {error}
           </div>
         )}
@@ -365,7 +367,7 @@ function PlaySetup() {
                 </p>
               )}
               {!eligibilityLoading && eligibility && !noPlayableModes && !selectionPlayable && (
-                <p className="text-xs text-amber-700 mt-1">
+                <p role="status" className="mt-1 text-xs text-amber-700 dark:text-amber-300">
                   Not enough clues for this difficulty mix. Choose another.
                 </p>
               )}
