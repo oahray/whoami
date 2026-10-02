@@ -86,8 +86,9 @@ router.delete('/datasets/:id/content', async (req: AuthRequest, res: Response) =
   try {
     const selectedDatasetId =
       typeof req.query.selectedDatasetId === 'string' ? req.query.selectedDatasetId : null
+    const mode = typeof req.query.mode === 'string' ? req.query.mode : undefined
 
-    const result = await purgeDatasetContent(req.params.id, { selectedDatasetId })
+    const result = await purgeDatasetContent(req.params.id, { selectedDatasetId, mode })
     res.json(result)
   } catch (error) {
     if (error instanceof DatasetContentError) {
