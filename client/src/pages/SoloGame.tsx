@@ -357,6 +357,8 @@ function SoloGame() {
     if (!validateGuess(guess, card.entity.name, card.entity.aliases)) {
       setFeedback('Not quite. Keep trying.')
       setGuess('')
+      // Keep focus so the mobile keyboard stays open for the next try.
+      guessInputRef.current?.focus({ preventScroll: true })
       return
     }
     setStatus('correct')
@@ -524,13 +526,18 @@ function SoloGame() {
                 {feedback}
               </p>
             )}
-            <div className="flex gap-2">
+            <form
+              className="flex gap-2"
+              onSubmit={(event) => {
+                event.preventDefault()
+                submitGuess()
+              }}
+            >
               <input
                 ref={guessInputRef}
                 type="text"
                 value={guess}
                 onChange={(event) => setGuess(event.target.value)}
-                onKeyDown={(event) => event.key === 'Enter' && submitGuess()}
                 placeholder="Enter your guess…"
                 enterKeyHint="go"
                 autoComplete="off"
@@ -538,8 +545,14 @@ function SoloGame() {
                 spellCheck={false}
                 className="min-w-0 flex-1 rounded-lg bg-surface-muted px-3 py-3 text-base font-medium"
               />
-              <button type="button" onClick={submitGuess} disabled={!guess.trim()} className="rounded-lg bg-primary px-4 font-bold text-white disabled:opacity-50">Guess</button>
-            </div>
+              <button
+                type="submit"
+                disabled={!guess.trim()}
+                className="rounded-lg bg-primary px-4 font-bold text-white disabled:opacity-50"
+              >
+                Guess
+              </button>
+            </form>
           </div>
         </footer>
       )}

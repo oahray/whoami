@@ -92,6 +92,32 @@ describe('SoloGame', () => {
     expect(screen.getByRole('heading', { name: /endurance complete/i })).toBeInTheDocument()
   })
 
+  it('keeps guess input focused after an incorrect guess', async () => {
+    saveSoloSession({
+      datasetId: 'ds-1',
+      difficulty: [],
+      entityType: 'character',
+      variation: 'challenge',
+      roundDurationMs: 30_000,
+      clueRevealIntervalMs: 5_000,
+      entityIds: ['ent-1'],
+      index: 0,
+      correctCount: 0,
+      activeElapsedMs: 0
+    })
+
+    renderSoloPlay()
+    await flushCardLoad()
+
+    const input = screen.getByPlaceholderText(/enter your guess/i)
+    fireEvent.change(input, { target: { value: 'Aaron' } })
+    fireEvent.click(screen.getByRole('button', { name: /^guess$/i }))
+
+    expect(screen.getByText(/not quite/i)).toBeInTheDocument()
+    expect(input).toHaveFocus()
+    expect(input).toHaveValue('')
+  })
+
   it('does not auto-advance Endurance after correct; waits for Next round', async () => {
     saveSoloSession({
       datasetId: 'ds-1',

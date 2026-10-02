@@ -228,6 +228,8 @@ function Game() {
     if (!guess.trim() || !gameState || gameState.isLocked) return
     emit('SUBMIT_GUESS', { guess: guess.trim() })
     setGuess('')
+    // Keep focus so the mobile keyboard stays open for the next try.
+    guessInputRef.current?.focus({ preventScroll: true })
   }
 
   if (!gameState) {
@@ -725,14 +727,19 @@ function Game() {
             className="shrink-0 bg-surface border-t border-edge px-3 py-2 lg:px-8 lg:py-4"
             style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom, 0px))' }}
           >
-            <div className="flex gap-2 lg:gap-3 max-w-7xl mx-auto">
+            <form
+              className="flex gap-2 lg:gap-3 max-w-7xl mx-auto"
+              onSubmit={(event) => {
+                event.preventDefault()
+                handleSubmitGuess()
+              }}
+            >
               <div className="relative flex-1 min-w-0">
                 <input
                   ref={guessInputRef}
                   type="text"
                   value={guess}
                   onChange={(e) => setGuess(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSubmitGuess()}
                   placeholder="Enter your guess..."
                   enterKeyHint="send"
                   autoComplete="off"
@@ -742,15 +749,14 @@ function Game() {
                 />
               </div>
               <button
-                type="button"
-                onClick={handleSubmitGuess}
+                type="submit"
                 disabled={!guess.trim()}
                 className="bg-primary hover:bg-primary/90 text-white font-bold py-3 px-4 lg:px-6 rounded-lg shadow-md shadow-primary/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
               >
                 <span className="hidden sm:inline">Submit</span>
                 <span className="material-symbols-outlined text-xl">send</span>
               </button>
-            </div>
+            </form>
           </div>
         )}
       </div>
