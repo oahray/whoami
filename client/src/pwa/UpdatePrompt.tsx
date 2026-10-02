@@ -67,7 +67,7 @@ export default function UpdatePrompt() {
       <button
         type="button"
         onClick={handleUpdate}
-        className="bg-primary text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-primary/90 active:scale-[0.98] transition-all"
+        className="rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white transition-all hover:bg-primary/90 active:scale-[0.98] motion-reduce:active:scale-100"
       >
         Update
       </button>

@@ -403,7 +403,7 @@ function PlayCards() {
   return (
     <div className="h-dvh bg-app-bg font-display text-foreground flex flex-col overflow-hidden antialiased">
       <header className="shrink-0 border-b border-edge bg-surface/95 backdrop-blur-sm px-3 py-2 md:px-4 md:py-3">
-        <div className="max-w-lg mx-auto flex items-center justify-between gap-2 md:gap-3">
+        <div className="setup-shell flex items-center justify-between gap-2 md:gap-3">
           <Link
             to="/play"
             className="flex size-9 md:size-10 items-center justify-center rounded-full text-foreground-muted hover:bg-surface-elevated shrink-0"
@@ -437,7 +437,7 @@ function PlayCards() {
         </div>
       </header>
 
-      <main className="flex-1 max-w-lg w-full mx-auto px-3 py-2 md:px-4 md:py-4 flex flex-col gap-2 md:gap-4 min-h-0 overflow-hidden">
+      <main className="setup-shell flex min-h-0 flex-1 flex-col gap-2 overflow-hidden px-3 py-2 md:gap-4 md:px-4 md:py-4">
         <MaintenanceBanner status={maintenanceStatus} />
         {advanceNotice && (
           <div role="status" aria-live="polite" className="banner-warning">
@@ -572,7 +572,7 @@ function PlayCards() {
           className="shrink-0 border-t border-edge bg-surface px-3 pt-2 pb-2 md:p-3"
           style={{ paddingBottom: 'max(env(safe-area-inset-bottom, 0px), 0.5rem)' }}
         >
-          <div className="max-w-lg mx-auto w-full flex flex-col gap-1.5 md:gap-2">
+          <div className="setup-shell flex w-full flex-col gap-1.5 md:gap-2">
             {!deckComplete && canRevealMore && (
               <button
                 type="button"

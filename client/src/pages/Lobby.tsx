@@ -757,7 +757,7 @@ function Lobby() {
                 type="button"
                 onClick={handleStartGame}
                 disabled={connectedCount < 2 || maintenanceBlocking}
-                className="order-1 sm:order-3 w-full md:w-auto md:min-w-[200px] bg-green-600 hover:bg-green-700 text-white font-bold py-4 md:py-3 px-6 rounded-lg shadow-lg shadow-green-500/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
+                className="order-1 flex w-full items-center justify-center gap-2 rounded-lg bg-green-600 px-6 py-4 font-bold text-white shadow-lg shadow-green-500/20 transition-all hover:bg-green-700 active:scale-[0.98] motion-reduce:active:scale-100 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100 sm:order-3 md:w-auto md:min-w-[200px] md:py-3"
               >
                 <span className="material-symbols-outlined">play_circle</span>
                 START GAME ({connectedCount} PLAYERS)

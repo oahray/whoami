@@ -424,7 +424,7 @@ function SoloGame() {
     const heading = session.variation === 'challenge' ? 'Challenge complete!' : 'Endurance complete!'
     return (
       <div className="min-h-screen bg-app-bg font-display text-foreground flex items-center justify-center p-4">
-        <main className="w-full max-w-lg rounded-xl border border-edge bg-surface p-6 text-center shadow-sm space-y-5">
+        <main className="setup-shell space-y-5 rounded-xl border border-edge bg-surface p-6 text-center shadow-sm md:p-8">
           <MaintenanceBanner status={maintenanceStatus} />
           <span className="material-symbols-outlined text-5xl text-primary">emoji_events</span>
           <div>
@@ -487,7 +487,7 @@ function SoloGame() {
       style={viewportStyle}
     >
       <header className="shrink-0 border-b border-edge bg-surface px-3 py-2">
-        <div className="max-w-lg mx-auto flex items-center gap-3">
+        <div className="setup-shell flex items-center gap-3">
           <Link to="/solo" aria-label="Back to solo setup" className="flex size-10 items-center justify-center rounded-full text-foreground-muted hover:bg-surface-elevated"><span className="material-symbols-outlined">arrow_back</span></Link>
           <div className="min-w-0 flex-1">
             <p className="text-[10px] font-bold uppercase tracking-widest text-primary">{session.variation === 'challenge' ? 'Solo challenge' : 'Endurance'}</p>
@@ -500,7 +500,7 @@ function SoloGame() {
       <main
         ref={cluesScrollRef}
         onScroll={onCluesScroll}
-        className="flex-1 min-h-0 max-w-lg w-full mx-auto overflow-y-auto px-3 py-4 space-y-3"
+        className="setup-shell min-h-0 flex-1 space-y-3 overflow-y-auto px-3 py-4 md:px-4 md:py-5"
       >
         <MaintenanceBanner status={maintenanceStatus} />
         {loading && <LoadingState label="Loading card" layout="page" />}
@@ -578,7 +578,7 @@ function SoloGame() {
           className="shrink-0 border-t border-edge bg-surface px-3 pt-3"
           style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))' }}
         >
-          <div className="max-w-lg mx-auto space-y-2">
+          <div className="setup-shell space-y-2">
             {feedback && (
               <p role="status" aria-live="polite" className="banner-warning px-3 py-2 text-center font-semibold">
                 {feedback}
@@ -603,12 +603,12 @@ function SoloGame() {
                 autoComplete="off"
                 autoCorrect="off"
                 spellCheck={false}
-                className="min-w-0 flex-1 rounded-lg bg-surface-muted px-3 py-3 text-base font-medium"
+                className="min-w-0 flex-1 rounded-lg border border-edge bg-surface-muted px-3 py-3 text-base font-medium text-foreground placeholder:text-foreground-muted transition-all focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
               <button
                 type="submit"
                 disabled={!guess.trim()}
-                className="rounded-lg bg-primary px-4 font-bold text-white disabled:opacity-50"
+                className="rounded-lg bg-primary px-4 font-bold text-white hover:bg-primary/90 disabled:opacity-50"
               >
                 Guess
               </button>

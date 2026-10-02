@@ -225,7 +225,7 @@ function PlaySetup() {
   return (
     <div className="min-h-screen bg-app-bg font-display text-foreground antialiased">
       <header className="sticky top-0 z-10 border-b border-edge bg-surface/95 backdrop-blur-sm">
-        <div className="max-w-lg mx-auto flex items-center gap-2 md:gap-3 px-3 py-2 md:px-4 md:py-3">
+        <div className="setup-shell flex items-center gap-2 px-3 py-2 md:gap-3 md:px-4 md:py-3">
           <Link
             to="/"
             className="flex size-9 md:size-10 shrink-0 items-center justify-center rounded-full text-foreground-muted hover:bg-surface-elevated"
@@ -246,7 +246,7 @@ function PlaySetup() {
         </div>
       </header>
 
-      <main className="max-w-lg mx-auto px-3 py-4 pb-8 md:px-4 md:py-6 md:pb-10 space-y-3 md:space-y-4">
+      <main className="setup-shell space-y-3 px-3 py-4 pb-8 md:space-y-4 md:px-4 md:py-6 md:pb-10">
         <MaintenanceBanner status={maintenanceStatus} />
         {offline && (
           <div role="status" className="banner-warning flex gap-2">
