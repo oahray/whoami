@@ -7,6 +7,14 @@ export type GameHistoryScoreEntry = {
   score: number
 }
 
+/** Spoiler-free room efficiency rollups (optional; absent on legacy history). */
+export type GameHistoryEfficiency = {
+  roundsPlayed: number
+  roundsSolved: number
+  firstClueSolves: number
+  avgCluesWhenSolved: number | null
+}
+
 export type GameHistoryEntry = {
   id: string
   gameNumber: number
@@ -18,6 +26,25 @@ export type GameHistoryEntry = {
   roomCode?: string
   viewerPlayerId?: string
   scoreboard: GameHistoryScoreEntry[]
+  /** Collective “how we did” stats; omitted on older archived games. */
+  efficiency?: GameHistoryEfficiency
+}
+
+export function hasGameEfficiency(
+  entry: Pick<GameHistoryEntry, 'efficiency'>
+): entry is GameHistoryEntry & { efficiency: GameHistoryEfficiency } {
+  const e = entry.efficiency
+  return (
+    !!e &&
+    typeof e.roundsPlayed === 'number' &&
+    typeof e.roundsSolved === 'number' &&
+    typeof e.firstClueSolves === 'number'
+  )
+}
+
+export function formatAvgCluesWhenSolved(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return '—'
+  return Number.isInteger(value) ? String(value) : value.toFixed(1)
 }
 
 export function formatGameEndedAtFull(endedAt: number): string {

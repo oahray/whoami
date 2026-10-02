@@ -9,6 +9,13 @@ export type HistoryArchiveScoreRow = {
   score: number
 }
 
+export type HistoryArchiveEfficiency = {
+  roundsPlayed: number
+  roundsSolved: number
+  firstClueSolves: number
+  avgCluesWhenSolved: number | null
+}
+
 export type HistoryArchivePayload = {
   v: number
   kid: string
@@ -22,6 +29,8 @@ export type HistoryArchivePayload = {
   roundDurationMs: number
   clueRevealTimeMs: number
   scoreboard: HistoryArchiveScoreRow[]
+  /** Optional; omitted on legacy archives so their signatures stay valid. */
+  efficiency?: HistoryArchiveEfficiency
 }
 
 export type SignedHistoryArchive = {
@@ -47,7 +56,17 @@ export function serializeHistoryArchivePayload(payload: HistoryArchivePayload): 
       nickname: row.nickname,
       avatarId: row.avatarId,
       score: row.score
-    }))
+    })),
+    ...(payload.efficiency
+      ? {
+          efficiency: {
+            roundsPlayed: payload.efficiency.roundsPlayed,
+            roundsSolved: payload.efficiency.roundsSolved,
+            firstClueSolves: payload.efficiency.firstClueSolves,
+            avgCluesWhenSolved: payload.efficiency.avgCluesWhenSolved
+          }
+        }
+      : {})
   })
 }
 

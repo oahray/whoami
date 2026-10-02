@@ -31,7 +31,8 @@ export async function listVerifiedDeviceArchives(): Promise<GameHistoryEntry[]> 
       clueRevealTimeMs: payload.clueRevealTimeMs,
       roomCode: payload.roomCode,
       viewerPlayerId: payload.viewerPlayerId,
-      scoreboard: payload.scoreboard
+      scoreboard: payload.scoreboard,
+      ...(payload.efficiency ? { efficiency: payload.efficiency } : {})
     })
   }
   return verified.sort((a, b) => a.endedAt - b.endedAt)

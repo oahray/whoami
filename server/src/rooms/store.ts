@@ -1,7 +1,13 @@
 import type { Entity } from '../db/entities.js'
 import { coerceAvatarId, type AvatarId } from '../game/avatars.js'
+import {
+  computeGameEfficiency,
+  type GameHistoryEfficiency
+} from '../game/gameEfficiency.js'
 import { createDefaultMultiplayerRoomSettings, GAME_HISTORY_MAX } from '../game/multiplayerDefaults.js'
 import { persistRoom, removePersistedRoom } from './persist.js'
+
+export type { GameHistoryEfficiency }
 
 type Difficulty = 'easy' | 'medium' | 'hard' | 'nightmare'
 /** Encoded selection: `any` or comma-separated tiers (`hard,nightmare`). */
@@ -100,6 +106,8 @@ export interface GameHistoryEntry {
   roundDurationMs: number
   clueRevealTimeMs: number
   scoreboard: GameHistoryScoreEntry[]
+  /** Collective “how we did” stats; omitted on older room history. */
+  efficiency?: GameHistoryEfficiency
 }
 
 export interface RoomState {
@@ -203,6 +211,7 @@ export function loadHydratedRooms(next: RoomState[]): void {
 export function recordFinishedGame(room: RoomState): GameHistoryEntry {
   const gameNumber = (room.gameHistory[room.gameHistory.length - 1]?.gameNumber ?? 0) + 1
   const endedAt = Date.now()
+  const efficiency = computeGameEfficiency(room.roundHistory)
   const entry: GameHistoryEntry = {
     id: `${room.code}-${endedAt}-${gameNumber}`,
     gameNumber,
@@ -219,7 +228,8 @@ export function recordFinishedGame(room: RoomState): GameHistoryEntry {
         avatarId: player?.avatarId ?? coerceAvatarId(undefined),
         score: row.score
       }
-    })
+    }),
+    ...(efficiency ? { efficiency } : {})
   }
   room.gameHistory = [...room.gameHistory, entry].slice(-GAME_HISTORY_MAX)
   persistRoom(room)

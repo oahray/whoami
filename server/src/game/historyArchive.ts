@@ -139,7 +139,8 @@ export function buildHistoryArchivePayload(
       nickname: row.nickname,
       avatarId: row.avatarId,
       score: row.score
-    }))
+    })),
+    ...(entry.efficiency ? { efficiency: entry.efficiency } : {})
   }
 }
 
