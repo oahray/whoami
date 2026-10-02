@@ -25,7 +25,7 @@ interface Options {
 
 function parseArgs(argv: string[]): Options {
   const opts: Options = {
-    name: 'Bible - characters & places (NWT)',
+    name: 'Bible - characters & places',
     source: 'New World Translation',
     description:
       'Default dataset of biblical characters and places, scripture-grounded clues from the New World Translation.',

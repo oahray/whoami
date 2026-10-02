@@ -341,6 +341,12 @@ describe('GET /cards/deck', () => {
     expect(response.status).toBe(200)
     expect(response.body.entityIds).toHaveLength(2)
     expect(response.body.entityIds).toEqual(expect.arrayContaining(['ent-a', 'ent-b']))
+    expect(response.body.entities).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'ent-a' }),
+        expect.objectContaining({ id: 'ent-b' })
+      ])
+    )
     expect(response.body.scoringVersion).toBe(1)
     expect(response.body.scoringRules).toMatchObject({
       basePoints: 1000,

@@ -11,6 +11,10 @@ import {
   loadDailyProgress,
   type DailyChallenge
 } from '../lib/dailySolo'
+import {
+  downloadSoloDailyPng,
+  shareSoloDailyPng
+} from '../lib/exportSoloDailyPng'
 import { fetchOkJson } from '../lib/fetchOkJson'
 import {
   logSetupLoadError,
@@ -38,7 +42,8 @@ import { isMaintenanceBlockingNewGames } from '../lib/maintenance'
 import {
   clearMasteryForDataset,
   getMasterySummary,
-  getNeedsReviewEntityIds
+  getNeedsReviewEntityIds,
+  rekeyMasteryToCatalog
 } from '../lib/soloMastery'
 import {
   createSoloSession,
@@ -95,6 +100,9 @@ function SoloSetup() {
   const [dailyLoading, setDailyLoading] = useState(true)
   const [dailyError, setDailyError] = useState<string | null>(null)
   const [dailyProgress] = useState(loadDailyProgress)
+  const [dailyShareState, setDailyShareState] = useState<
+    'idle' | 'working' | 'shared' | 'downloaded' | 'error'
+  >('idle')
   const [masteryTick, setMasteryTick] = useState(0)
   const [clearProgressOpen, setClearProgressOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -413,7 +421,6 @@ function SoloSetup() {
     fadeOutMenuMusic()
     playSound('go')
     try {
-      const reviewIds = getNeedsReviewEntityIds(datasetId)
       // Ignore Custom game filters so missed cards stay reachable.
       const query = new URLSearchParams({
         datasetId,
@@ -422,15 +429,27 @@ function SoloSetup() {
       })
       const response = await fetch(`${API_BASE_URL}/cards/deck?${query}`)
       if (!response.ok) throw new Error(SETUP_START_ERROR)
-      const { entityIds, scoringVersion, scoringRules } = (await response.json()) as {
+      const { entityIds, entities, scoringVersion, scoringRules } = (await response.json()) as {
         entityIds: string[]
+        entities?: Array<{ id: string; name: string }>
         scoringVersion?: number
         scoringRules?: KnowledgeScoreRules
       }
+      // Reimports mint new ids; remap Progress by name onto the live catalog.
+      const catalog =
+        entities ??
+        entityIds.map((id) => ({ id, name: id }))
+      const { remapped, removed } = rekeyMasteryToCatalog(datasetId, catalog)
+      if (remapped > 0 || removed > 0) setMasteryTick((tick) => tick + 1)
+
       const eligibleIds = new Set(entityIds)
-      const reviewDeck = reviewIds.filter((id) => eligibleIds.has(id))
+      const reviewDeck = getNeedsReviewEntityIds(datasetId).filter((id) => eligibleIds.has(id))
       if (reviewDeck.length === 0) {
-        throw new Error('Those review cards are no longer available. Try again after the next update.')
+        throw new Error(
+          removed > 0 || remapped > 0
+            ? 'Those review cards no longer match the current content. Miss a few again to rebuild Review.'
+            : 'Those review cards are no longer available. Try again after the next update.'
+        )
       }
       const session = createSoloSession(
         {
@@ -510,8 +529,93 @@ function SoloSetup() {
               </div>
             </div>
             {todayResult ? (
-              <div className="banner-success mt-4 text-center font-semibold">
-                Completed today · {formatSoloScore(todayResult.record.score ?? 0)} points
+              <div className="mt-4 space-y-2">
+                <div className="banner-success flex items-center gap-2 py-2.5">
+                  <p className="min-w-0 flex-1 text-left font-semibold">
+                    Completed today · {formatSoloScore(todayResult.record.score ?? 0)} points
+                  </p>
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    {typeof navigator !== 'undefined' && typeof navigator.share === 'function' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDailyShareState('working')
+                          void shareSoloDailyPng({
+                            dateKey: dailyChallenge.dateKey,
+                            datasetName: dailyChallenge.datasetName,
+                            record: todayResult.record,
+                            currentStreak: dailyProgress.currentStreak,
+                            bestStreak: dailyProgress.bestStreak
+                          })
+                            .then(() => {
+                              setDailyShareState('shared')
+                              window.setTimeout(() => setDailyShareState('idle'), 2200)
+                            })
+                            .catch((err) => {
+                              if (err instanceof Error && err.name === 'AbortError') {
+                                setDailyShareState('idle')
+                                return
+                              }
+                              console.warn('Solo daily share failed:', err)
+                              setDailyShareState('error')
+                              window.setTimeout(() => setDailyShareState('idle'), 2200)
+                            })
+                        }}
+                        disabled={dailyShareState === 'working'}
+                        aria-label="Share daily result image"
+                        className="flex size-9 items-center justify-center rounded-lg bg-primary text-white hover:bg-primary/90 disabled:opacity-60"
+                      >
+                        <span className="material-symbols-outlined text-lg" aria-hidden>
+                          {dailyShareState === 'working'
+                            ? 'hourglass_top'
+                            : dailyShareState === 'shared'
+                              ? 'check'
+                              : dailyShareState === 'error'
+                                ? 'error'
+                                : 'share'}
+                        </span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDailyShareState('working')
+                        void downloadSoloDailyPng({
+                          dateKey: dailyChallenge.dateKey,
+                          datasetName: dailyChallenge.datasetName,
+                          record: todayResult.record,
+                          currentStreak: dailyProgress.currentStreak,
+                          bestStreak: dailyProgress.bestStreak
+                        })
+                          .then(() => {
+                            setDailyShareState('downloaded')
+                            window.setTimeout(() => setDailyShareState('idle'), 2200)
+                          })
+                          .catch((err) => {
+                            console.warn('Solo daily download failed:', err)
+                            setDailyShareState('error')
+                            window.setTimeout(() => setDailyShareState('idle'), 2200)
+                          })
+                      }}
+                      disabled={dailyShareState === 'working'}
+                      aria-label="Download daily result image"
+                      className="flex size-9 items-center justify-center rounded-lg border border-edge bg-surface text-foreground hover:bg-surface-muted disabled:opacity-60"
+                    >
+                      <span className="material-symbols-outlined text-lg" aria-hidden>
+                        {dailyShareState === 'working'
+                          ? 'hourglass_top'
+                          : dailyShareState === 'downloaded'
+                            ? 'check'
+                            : dailyShareState === 'error'
+                              ? 'error'
+                              : 'download'}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+                <p className="text-center text-xs text-foreground-muted">
+                  Save or share the image if you want to keep today&apos;s result.
+                </p>
               </div>
             ) : (
               <button
@@ -630,7 +734,7 @@ function SoloSetup() {
               </button>
             ) : (
               <p className="rounded-lg border border-dashed border-edge px-3 py-3 text-center text-sm text-foreground-muted">
-                Miss or time out a card in Daily, Challenge, or Endurance.{' '}
+                Miss or time out a card in Daily, Classic, or Endurance.{' '}
                 <span className="font-semibold text-foreground">Review</span> will show up here.
               </p>
             )}
@@ -715,7 +819,7 @@ function SoloSetup() {
               <div className="mt-2 grid grid-cols-2 gap-2">
                 {(
                   [
-                    { value: 'challenge', label: 'Solo challenge', hint: '10 rounds' },
+                    { value: 'challenge', label: 'Classic', hint: '10 rounds' },
                     { value: 'endurance', label: 'Endurance', hint: 'Keep your streak alive' }
                   ] as const
                 ).map((option) => (
@@ -795,7 +899,7 @@ function SoloSetup() {
               {starting
                 ? 'Starting…'
                 : variation === 'challenge'
-                  ? 'Start 10-round challenge'
+                  ? 'Start Classic'
                   : 'Start Endurance'}
             </button>
           </section>
@@ -861,7 +965,7 @@ function SoloSetup() {
               <p className="text-sm text-foreground-muted">No records yet. Finish a run to set one.</p>
             ) : (
               <div className="space-y-2">
-                {renderRecordMode('Solo challenge', challengeRecords)}
+                {renderRecordMode('Classic', challengeRecords)}
                 {renderRecordMode('Endurance', enduranceRecords)}
               </div>
             )}
