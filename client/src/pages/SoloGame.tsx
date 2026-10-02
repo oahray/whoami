@@ -435,19 +435,23 @@ function SoloGame() {
             <div className="rounded-lg bg-primary/10 p-4"><p className="text-3xl font-black text-primary">{result.record.correctCount}</p><p className="text-xs font-bold uppercase tracking-wider text-foreground-muted">Correct</p></div>
             <div className="rounded-lg bg-surface-muted p-4"><p className="text-3xl font-black">{formatSoloTime(result.record.activeElapsedMs)}</p><p className="text-xs font-bold uppercase tracking-wider text-foreground-muted">Active time</p></div>
           </div>
-          {result.isPersonalBest && <p className="rounded-lg bg-green-50 p-3 text-sm font-semibold text-green-800">New personal best on this device!</p>}
+          {result.isPersonalBest && (
+            <p role="status" className="banner-success font-semibold">
+              New personal best on this device!
+            </p>
+          )}
           {!result.isPersonalBest && (
             <p className="text-sm text-foreground-muted">
               Personal best: {listSoloRecords(session.variation, session.datasetId)[0]?.correctCount ?? 0} correct.
             </p>
           )}
           {result.endedByMaintenance && (
-            <p className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+            <p role="status" className="banner-warning">
               {MAINTENANCE_SOLO_ENDED_COPY}
             </p>
           )}
           {error && (
-            <p className="rounded-lg border border-red-400 bg-red-100 p-3 text-sm text-red-700">{error}</p>
+            <p role="alert" className="banner-danger">{error}</p>
           )}
           <div className="grid grid-cols-2 gap-3">
             <Link to="/solo" className="rounded-lg border-2 border-edge py-3 font-semibold">
@@ -500,7 +504,14 @@ function SoloGame() {
       >
         <MaintenanceBanner status={maintenanceStatus} />
         {loading && <LoadingState label="Loading card" layout="page" />}
-        {error && <div className="space-y-3"><p className="rounded-lg border border-red-400 bg-red-100 p-3 text-sm text-red-700">{error}</p><button type="button" onClick={() => void loadCard(session)} className="w-full rounded-lg border-2 border-edge py-3 font-semibold">Try again</button></div>}
+        {error && (
+          <div className="space-y-3">
+            <p role="alert" className="banner-danger">{error}</p>
+            <button type="button" onClick={() => void loadCard(session)} className="w-full rounded-lg border-2 border-edge py-3 font-semibold">
+              Try again
+            </button>
+          </div>
+        )}
         {card && !loading && (
           <>
             <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-foreground-muted"><span>Clues</span><span>{visibleClues.length} revealed</span></div>
@@ -514,11 +525,15 @@ function SoloGame() {
               </article>
             ))}
             {status === 'correct' && (
-              <section className="rounded-lg border border-green-300 bg-green-50 p-4 text-center">
-                <p className="text-sm text-green-800">Correct!</p>
-                <p className="mt-1 text-2xl font-black text-green-950">{card.entity.name}</p>
+              <section
+                role="status"
+                aria-live="polite"
+                className="banner-success-emphasis p-4 text-center"
+              >
+                <p className="text-sm font-semibold text-green-800 dark:text-green-200">Correct!</p>
+                <p className="mt-1 text-2xl font-black text-green-950 dark:text-green-50">{card.entity.name}</p>
                 {card.entity.aliases.length > 0 && (
-                  <p className="mt-0.5 text-sm font-semibold text-green-900/80">
+                  <p className="mt-0.5 text-sm font-semibold text-green-900/80 dark:text-green-100/80">
                     {card.entity.aliases.join(', ')}
                   </p>
                 )}
@@ -533,11 +548,15 @@ function SoloGame() {
               </section>
             )}
             {status === 'timeout' && (
-              <section className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-center">
-                <p className="text-sm text-amber-900">Time&apos;s up. The answer was</p>
-                <p className="mt-1 text-2xl font-black text-amber-950">{card.entity.name}</p>
+              <section
+                role="status"
+                aria-live="polite"
+                className="banner-warning border-amber-300 p-4 text-center dark:border-amber-700"
+              >
+                <p className="text-sm text-amber-900 dark:text-amber-100">Time&apos;s up. The answer was</p>
+                <p className="mt-1 text-2xl font-black text-amber-950 dark:text-amber-50">{card.entity.name}</p>
                 {card.entity.aliases.length > 0 && (
-                  <p className="mt-0.5 text-sm font-semibold text-amber-900/80">
+                  <p className="mt-0.5 text-sm font-semibold text-amber-900/80 dark:text-amber-100/80">
                     {card.entity.aliases.join(', ')}
                   </p>
                 )}
@@ -561,7 +580,7 @@ function SoloGame() {
         >
           <div className="max-w-lg mx-auto space-y-2">
             {feedback && (
-              <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-center text-sm font-semibold text-amber-900">
+              <p role="status" aria-live="polite" className="banner-warning px-3 py-2 text-center font-semibold">
                 {feedback}
               </p>
             )}
@@ -574,9 +593,11 @@ function SoloGame() {
             >
               <input
                 ref={guessInputRef}
+                id="solo-guess"
                 type="text"
                 value={guess}
                 onChange={(event) => setGuess(event.target.value)}
+                aria-label="Your guess"
                 placeholder="Enter your guess…"
                 enterKeyHint="go"
                 autoComplete="off"

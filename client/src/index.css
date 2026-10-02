@@ -135,6 +135,25 @@ body {
   }
 }
 
+/* Status banners — light + dark (prefer these over ad-hoc red/amber/green utilities) */
+@layer components {
+  .banner-danger {
+    @apply rounded-lg border border-red-400 bg-red-100 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/60 dark:text-red-200;
+  }
+
+  .banner-warning {
+    @apply rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100;
+  }
+
+  .banner-success {
+    @apply rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-900 dark:border-green-800 dark:bg-green-950/40 dark:text-green-100;
+  }
+
+  .banner-success-emphasis {
+    @apply rounded-lg border-2 border-green-400 bg-green-50 dark:border-green-600 dark:bg-green-950/40;
+  }
+}
+
 /* Home hero: faded abstract shapes on solid primary (no full-page gradient) */
 .home-hero-pattern {
   background-image:

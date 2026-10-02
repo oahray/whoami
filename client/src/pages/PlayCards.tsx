@@ -440,18 +440,18 @@ function PlayCards() {
       <main className="flex-1 max-w-lg w-full mx-auto px-3 py-2 md:px-4 md:py-4 flex flex-col gap-2 md:gap-4 min-h-0 overflow-hidden">
         <MaintenanceBanner status={maintenanceStatus} />
         {advanceNotice && (
-          <div className="p-3 bg-amber-50 border border-amber-200 text-amber-950 rounded-lg text-sm">
+          <div role="status" aria-live="polite" className="banner-warning">
             {advanceNotice}
           </div>
         )}
         {offline && (
-          <div className="p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-lg text-sm">
+          <div role="status" className="banner-warning">
             You are offline. Cards need internet to load.
           </div>
         )}
 
         {deckComplete && !loading && !sessionComplete && deckSession && (
-          <div className="p-3 bg-green-50 border border-green-200 text-green-900 rounded-lg text-sm text-center">
+          <div role="status" className="banner-success text-center">
             All cards in this deck have been played.
             {remainingEntityCount(deckSession) > 0 && (
               <span className="block mt-1">
@@ -462,7 +462,7 @@ function PlayCards() {
         )}
 
         {sessionComplete && !loading && (
-          <div className="p-3 bg-green-50 border border-green-200 text-green-900 rounded-lg text-sm text-center">
+          <div role="status" className="banner-success text-center">
             You&apos;ve played every character in this session.
           </div>
         )}
@@ -477,7 +477,7 @@ function PlayCards() {
 
         {error && !loading && (
           <div className="space-y-3">
-            <div className="p-3 bg-red-100 dark:bg-red-950/60 border border-red-400 dark:border-red-800 text-red-700 dark:text-red-200 rounded-lg text-sm">
+            <div role="alert" className="banner-danger">
               {error}
             </div>
             <button

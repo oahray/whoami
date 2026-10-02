@@ -169,11 +169,12 @@ describe('SoloGame', () => {
     renderSoloPlay()
     await flushCardLoad()
 
-    const input = screen.getByPlaceholderText(/enter your guess/i)
+    const input = screen.getByRole('textbox', { name: /your guess/i })
     fireEvent.change(input, { target: { value: 'Aaron' } })
     fireEvent.click(screen.getByRole('button', { name: /^guess$/i }))
 
-    expect(screen.getByText(/not quite/i)).toBeInTheDocument()
+    const feedback = screen.getByRole('status')
+    expect(feedback).toHaveTextContent(/not quite/i)
     expect(input).toHaveFocus()
     expect(input).toHaveValue('')
   })

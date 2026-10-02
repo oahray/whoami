@@ -325,13 +325,13 @@ function SoloSetup() {
       <main className="max-w-lg mx-auto px-3 py-4 space-y-4">
         <MaintenanceBanner status={maintenanceStatus} />
         {offline && (
-          <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          <p role="status" className="banner-warning">
             Internet required to load cards. Reconnect to start.
           </p>
         )}
         {loading && <LoadingState label="Loading content" layout="page" />}
         {error && (
-          <p className="rounded-lg border border-red-400 bg-red-100 p-3 text-sm text-red-700">{error}</p>
+          <p role="alert" className="banner-danger">{error}</p>
         )}
         {!loading && datasets.length > 0 && (
           <section className="space-y-4 rounded-lg border border-edge bg-surface p-4 shadow-sm">
@@ -388,7 +388,7 @@ function SoloSetup() {
               }}
             />
             {!eligibilityLoading && eligibility && !selectionPlayable && (
-              <p className="text-xs font-normal text-amber-700 dark:text-amber-300">
+              <p role="status" className="text-xs font-normal text-amber-700 dark:text-amber-300">
                 Not enough clues for this difficulty mix. Choose another.
               </p>
             )}

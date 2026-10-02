@@ -519,14 +519,22 @@ function Game() {
               )}
 
               {gameState.isLocked && (
-                <div className="shrink-0 p-3 lg:p-4 bg-green-50 border-2 border-green-400 rounded-lg text-center">
-                  <div className="text-green-800 font-semibold text-sm lg:text-base">✓ You guessed correctly!</div>
-                  <div className="text-xs lg:text-sm text-green-600 mt-1">Waiting for other players...</div>
+                <div
+                  role="status"
+                  aria-live="polite"
+                  className="banner-success-emphasis shrink-0 p-3 lg:p-4 text-center"
+                >
+                  <div className="text-sm font-semibold text-green-800 dark:text-green-200 lg:text-base">
+                    ✓ You guessed correctly!
+                  </div>
+                  <div className="mt-1 text-xs text-green-700 dark:text-green-300 lg:text-sm">
+                    Waiting for other players...
+                  </div>
                 </div>
               )}
 
               {error && (
-                <div className="shrink-0 p-3 bg-red-100 dark:bg-red-950/60 border border-red-400 dark:border-red-800 text-red-700 dark:text-red-200 rounded-lg text-sm flex items-start gap-2">
+                <div role="alert" className="banner-danger shrink-0 flex items-start gap-2">
                   <p className="min-w-0 flex-1">{error}</p>
                   <button
                     type="button"
@@ -737,9 +745,11 @@ function Game() {
               <div className="relative flex-1 min-w-0">
                 <input
                   ref={guessInputRef}
+                  id="multiplayer-guess"
                   type="text"
                   value={guess}
                   onChange={(e) => setGuess(e.target.value)}
+                  aria-label="Your guess"
                   placeholder="Enter your guess..."
                   enterKeyHint="send"
                   autoComplete="off"
@@ -751,10 +761,13 @@ function Game() {
               <button
                 type="submit"
                 disabled={!guess.trim()}
+                aria-label="Submit guess"
                 className="bg-primary hover:bg-primary/90 text-white font-bold py-3 px-4 lg:px-6 rounded-lg shadow-md shadow-primary/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
               >
                 <span className="hidden sm:inline">Submit</span>
-                <span className="material-symbols-outlined text-xl">send</span>
+                <span className="material-symbols-outlined text-xl" aria-hidden>
+                  send
+                </span>
               </button>
             </form>
           </div>
