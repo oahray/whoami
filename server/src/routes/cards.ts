@@ -3,6 +3,7 @@ import { parseEntityTypeFilter } from '../game/entityTypeFilter.js'
 import { parseDifficultySelection } from '../game/difficultySelection.js'
 import {
   buildInPersonCardForEntity,
+  dailyCardSeed,
   getEligibleEntityIds,
   getInPersonDeck,
   getInPersonEligibility,
@@ -36,6 +37,12 @@ function parseDifficultyQuery(raw: unknown) {
 
 function parseEntityTypeQuery(raw: unknown) {
   return parseEntityTypeFilter(raw)
+}
+
+function parseOptionalTrimmed(raw: unknown): string | undefined {
+  if (typeof raw !== 'string') return undefined
+  const value = raw.trim()
+  return value.length > 0 ? value : undefined
 }
 
 function dailyDateKey(now = new Date()): string {
@@ -164,10 +171,12 @@ router.get('/cards/entity/:entityId', async (req, res) => {
     if (!entityId) {
       return res.status(400).json({ error: 'entityId is required' })
     }
+    const dailyChallengeId = parseOptionalTrimmed(req.query.dailyChallengeId)
     const card = await buildInPersonCardForEntity({
       datasetId,
       entityId,
-      difficultySelection
+      difficultySelection,
+      ...(dailyChallengeId ? { seed: dailyCardSeed(dailyChallengeId, entityId) } : {})
     })
     res.json(card)
   } catch (error) {

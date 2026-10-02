@@ -412,4 +412,43 @@ describe('GET /cards/entity/:entityId', () => {
     expect(response.body.entity.id).toBe('ent-a')
     expect(response.body.clues.length).toBeGreaterThanOrEqual(3)
   })
+
+  it('returns the same clue order for the same dailyChallengeId', async () => {
+    installMocks([ENTITY_A], makeClues('ent-a', 12))
+
+    const query = {
+      datasetId: 'ds-1',
+      difficulty: 'any',
+      dailyChallengeId: '2026-10-02-v3'
+    }
+    const first = await request(makeApp()).get('/cards/entity/ent-a').query(query)
+    const second = await request(makeApp()).get('/cards/entity/ent-a').query(query)
+
+    expect(first.status).toBe(200)
+    expect(second.status).toBe(200)
+    expect(first.body.clues.map((c: { text: string }) => c.text)).toEqual(
+      second.body.clues.map((c: { text: string }) => c.text)
+    )
+  })
+
+  it('returns different clue orders for different dailyChallengeIds', async () => {
+    installMocks([ENTITY_A], makeClues('ent-a', 12))
+
+    const first = await request(makeApp()).get('/cards/entity/ent-a').query({
+      datasetId: 'ds-1',
+      difficulty: 'any',
+      dailyChallengeId: '2026-10-02-v3'
+    })
+    const second = await request(makeApp()).get('/cards/entity/ent-a').query({
+      datasetId: 'ds-1',
+      difficulty: 'any',
+      dailyChallengeId: '2026-10-03-v3'
+    })
+
+    expect(first.status).toBe(200)
+    expect(second.status).toBe(200)
+    expect(first.body.clues.map((c: { text: string }) => c.text)).not.toEqual(
+      second.body.clues.map((c: { text: string }) => c.text)
+    )
+  })
 })

@@ -18,7 +18,7 @@ import {
   entityMatchesTypeFilter,
   type EntityTypeFilter
 } from './entityTypeFilter.js'
-import { shuffle } from './shuffle.js'
+import { shuffle, seededShuffle } from './shuffle.js'
 
 export type InPersonCardPayload = {
   entity: {
@@ -42,6 +42,11 @@ function coerceSelection(
   if (value == null) return []
   if (typeof value === 'string') return parseDifficultySelection(value) ?? []
   return value
+}
+
+/** Seed for Daily clue selection: challenge id + entity id (server-owned format). */
+export function dailyCardSeed(challengeId: string, entityId: string): string {
+  return `${challengeId}:${entityId}`
 }
 
 export class InPersonPlayError extends Error {
@@ -225,8 +230,13 @@ export async function buildInPersonCardForEntity(params: {
   difficultySelection?: DifficultySelection | GameDifficultyMode
   /** @deprecated prefer difficultySelection */
   difficultyMode?: GameDifficultyMode
+  /**
+   * When set (Daily), clue selection/order is deterministic for this seed.
+   * Classic / Endurance / in-person omit this and keep a random shuffle.
+   */
+  seed?: string
 }): Promise<InPersonCardPayload> {
-  const { datasetId, entityId } = params
+  const { datasetId, entityId, seed } = params
   const difficultySelection = coerceSelection(params.difficultySelection ?? params.difficultyMode)
   await assertPlayableDataset(datasetId)
 
@@ -253,7 +263,7 @@ export async function buildInPersonCardForEntity(params: {
     )
   }
 
-  const shuffled = shuffle(clues).slice(0, IN_PERSON_CLUES_MAX)
+  const selected = selectCluesForCard(clues, seed)
 
   return {
     entity: {
@@ -262,12 +272,22 @@ export async function buildInPersonCardForEntity(params: {
       type: entity.type,
       aliases: entity.aliases ?? []
     },
-    clues: shuffled.map((c, index) => ({
+    clues: selected.map((c, index) => ({
       order: index + 1,
       text: c.text,
       citations: c.citations
     }))
   }
+}
+
+/** Pick up to IN_PERSON_CLUES_MAX clues; seeded path sorts by id first for stability. */
+function selectCluesForCard<T extends { id: string }>(clues: T[], seed?: string): T[] {
+  const limit = Math.min(IN_PERSON_CLUES_MAX, clues.length)
+  if (seed) {
+    const stable = [...clues].sort((a, b) => a.id.localeCompare(b.id))
+    return seededShuffle(stable, seed).slice(0, limit)
+  }
+  return shuffle(clues).slice(0, limit)
 }
 
 export async function getRandomInPersonCard(params: {
