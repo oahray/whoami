@@ -92,6 +92,66 @@ describe('SoloGame', () => {
     expect(screen.getByRole('heading', { name: /endurance complete/i })).toBeInTheDocument()
   })
 
+  it('focuses Next round after a correct guess so Enter can advance', async () => {
+    saveSoloSession({
+      datasetId: 'ds-1',
+      difficulty: [],
+      entityType: 'character',
+      variation: 'challenge',
+      roundDurationMs: 30_000,
+      clueRevealIntervalMs: 5_000,
+      entityIds: ['ent-1', 'ent-2'],
+      index: 0,
+      correctCount: 0,
+      activeElapsedMs: 0
+    })
+
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const url = String(input)
+      if (url.includes('/maintenance/status')) {
+        return {
+          ok: true,
+          json: async () => ({ phase: 'none', endsAt: null, startsAt: null })
+        } as Response
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          entity: {
+            id: url.includes('ent-2') ? 'ent-2' : 'ent-1',
+            name: url.includes('ent-2') ? 'Aaron' : 'Moses',
+            type: 'character',
+            aliases: []
+          },
+          clues: [
+            {
+              order: 1,
+              text: url.includes('ent-2') ? 'New clue' : 'A clue',
+              citations: url.includes('ent-2') ? null : 'Exodus 2:1'
+            }
+          ]
+        })
+      } as Response
+    })
+
+    renderSoloPlay()
+    await flushCardLoad()
+
+    fireEvent.change(screen.getByPlaceholderText(/enter your guess/i), { target: { value: 'Moses' } })
+    fireEvent.submit(screen.getByPlaceholderText(/enter your guess/i).closest('form')!)
+
+    const next = screen.getByRole('button', { name: /next round/i })
+    expect(next).toHaveFocus()
+    expect(screen.getByText('Exodus 2:1')).toBeInTheDocument()
+
+    // jsdom does not synthesize button activation from Enter; blur then use the
+    // settled-window Enter fallback (same path when focus is not on the CTA).
+    next.blur()
+    fireEvent.keyDown(window, { key: 'Enter' })
+    await flushCardLoad()
+    expect(screen.getByText('New clue')).toBeInTheDocument()
+  })
+
   it('keeps guess input focused after an incorrect guess', async () => {
     saveSoloSession({
       datasetId: 'ds-1',

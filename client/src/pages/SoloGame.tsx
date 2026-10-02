@@ -60,6 +60,7 @@ function SoloGame() {
   const roundStartedAt = useRef(0)
   const activeSession = useRef<SoloSession | null>(null)
   const guessInputRef = useRef<HTMLInputElement | null>(null)
+  const advanceButtonRef = useRef<HTMLButtonElement | null>(null)
   const lastClueCountRef = useRef(0)
   const settledOnceRef = useRef(false)
   const viewportStyle = useVisualViewportLock()
@@ -298,6 +299,42 @@ function SoloGame() {
   }, [status, loading, card?.entity.id])
 
   useEffect(() => {
+    if (status !== 'correct' && status !== 'timeout') return
+
+    // Focus the CTA so Enter activates it natively; also handle Enter if focus
+    // landed elsewhere (e.g. body after the guess field unmounted).
+    advanceButtonRef.current?.focus({ preventScroll: true })
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Enter' || event.defaultPrevented || event.isComposing || event.repeat) {
+        return
+      }
+      const target = event.target
+      if (target instanceof HTMLTextAreaElement) return
+      if (
+        target instanceof HTMLInputElement &&
+        target.type !== 'button' &&
+        target.type !== 'submit' &&
+        target.type !== 'reset'
+      ) {
+        return
+      }
+      if (
+        target === advanceButtonRef.current ||
+        document.activeElement === advanceButtonRef.current
+      ) {
+        // Let the focused button's native Enter → click path run alone.
+        return
+      }
+      event.preventDefault()
+      void advance(status === 'correct')
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [status, card?.entity.id, advance])
+
+  useEffect(() => {
     resetStick()
   }, [card?.entity.id, resetStick])
 
@@ -486,6 +523,7 @@ function SoloGame() {
                   </p>
                 )}
                 <button
+                  ref={advanceButtonRef}
                   type="button"
                   onClick={() => void advance(true)}
                   className="mt-4 w-full rounded-lg bg-primary py-3 font-bold text-white"
@@ -504,6 +542,7 @@ function SoloGame() {
                   </p>
                 )}
                 <button
+                  ref={advanceButtonRef}
                   type="button"
                   onClick={() => void advance(false)}
                   className="mt-4 w-full rounded-lg bg-primary py-3 font-bold text-white"
