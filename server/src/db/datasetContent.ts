@@ -1,6 +1,7 @@
 import { supabase } from './supabase.js'
 import { getDataset } from './entities.js'
 import { canPurgeDataset } from './maintenance.js'
+import { fetchAllPages } from './fetchAllPages.js'
 
 export interface BulkExportEntity {
   name: string
@@ -18,14 +19,36 @@ export interface DatasetExportPayload {
   entities: BulkExportEntity[]
 }
 
+export type PurgeMode = 'clues' | 'all'
+
+export type PurgeDatasetResult =
+  | { mode: 'clues'; cluesDeleted: number; entitiesUnpublished: number }
+  | { mode: 'all'; entitiesDeleted: number }
+
 export class DatasetContentError extends Error {
   constructor(
-    public readonly code: 'NOT_FOUND' | 'MAINTENANCE_REQUIRED' | 'DATASET_MISMATCH',
+    public readonly code: 'NOT_FOUND' | 'MAINTENANCE_REQUIRED' | 'DATASET_MISMATCH' | 'INVALID_MODE',
     message: string
   ) {
     super(message)
     this.name = 'DatasetContentError'
   }
+}
+
+const ENTITY_ID_CHUNK = 100
+
+function chunkIds(ids: string[], size: number): string[][] {
+  const chunks: string[][] = []
+  for (let i = 0; i < ids.length; i += size) {
+    chunks.push(ids.slice(i, i + size))
+  }
+  return chunks
+}
+
+export function parsePurgeMode(raw: unknown): PurgeMode {
+  if (raw == null || raw === '') return 'clues'
+  if (raw === 'clues' || raw === 'all') return raw
+  throw new DatasetContentError('INVALID_MODE', 'Purge mode must be "clues" or "all"')
 }
 
 export async function exportDatasetContent(datasetId: string): Promise<DatasetExportPayload> {
@@ -62,10 +85,10 @@ export async function exportDatasetContent(datasetId: string): Promise<DatasetEx
   return { entities }
 }
 
-export async function purgeDatasetContent(
+async function assertPurgeAllowed(
   datasetId: string,
   options?: { selectedDatasetId?: string | null }
-): Promise<{ entitiesDeleted: number }> {
+) {
   const dataset = await getDataset(datasetId)
   if (!dataset) {
     throw new DatasetContentError('NOT_FOUND', `Dataset ${datasetId} not found`)
@@ -85,7 +108,58 @@ export async function purgeDatasetContent(
       'Dataset content can only be purged during an active maintenance window'
     )
   }
+}
 
+async function purgeCluesOnly(datasetId: string): Promise<Extract<PurgeDatasetResult, { mode: 'clues' }>> {
+  const entityRows = await fetchAllPages<{ id: string }>((from, to) =>
+    supabase
+      .from('entities')
+      .select('id')
+      .eq('dataset_id', datasetId)
+      .order('id')
+      .range(from, to)
+  )
+  const entityIds = entityRows.map((row) => row.id)
+  if (entityIds.length === 0) {
+    return { mode: 'clues', cluesDeleted: 0, entitiesUnpublished: 0 }
+  }
+
+  let cluesDeleted = 0
+  for (const chunk of chunkIds(entityIds, ENTITY_ID_CHUNK)) {
+    const { count, error: countError } = await supabase
+      .from('clues')
+      .select('id', { count: 'exact', head: true })
+      .in('entity_id', chunk)
+    if (countError) {
+      throw new Error(`Failed to count clues for purge: ${countError.message}`)
+    }
+    cluesDeleted += count ?? 0
+
+    const { error: deleteError } = await supabase.from('clues').delete().in('entity_id', chunk)
+    if (deleteError) {
+      throw new Error(`Failed to purge clues for dataset ${datasetId}: ${deleteError.message}`)
+    }
+  }
+
+  const { data: unpublishedRows, error: unpublishError } = await supabase
+    .from('entities')
+    .update({ is_published: false })
+    .eq('dataset_id', datasetId)
+    .eq('is_published', true)
+    .select('id')
+
+  if (unpublishError) {
+    throw new Error(`Failed to unpublish entities after clues purge: ${unpublishError.message}`)
+  }
+
+  return {
+    mode: 'clues',
+    cluesDeleted,
+    entitiesUnpublished: unpublishedRows?.length ?? 0
+  }
+}
+
+async function purgeAllContent(datasetId: string): Promise<Extract<PurgeDatasetResult, { mode: 'all' }>> {
   const { count, error: countError } = await supabase
     .from('entities')
     .select('id', { count: 'exact', head: true })
@@ -101,5 +175,23 @@ export async function purgeDatasetContent(
     throw new Error(`Failed to purge dataset ${datasetId}: ${deleteError.message}`)
   }
 
-  return { entitiesDeleted: count ?? 0 }
+  return { mode: 'all', entitiesDeleted: count ?? 0 }
+}
+
+/**
+ * Purge dataset content during an active maintenance window.
+ * - `clues` (default): delete all clues, keep entity rows (stable ids), unpublish.
+ * - `all`: delete every entity (+ cascaded clues); nuclear wipe.
+ */
+export async function purgeDatasetContent(
+  datasetId: string,
+  options?: { selectedDatasetId?: string | null; mode?: PurgeMode | unknown }
+): Promise<PurgeDatasetResult> {
+  const mode = parsePurgeMode(options?.mode)
+  await assertPurgeAllowed(datasetId, options)
+
+  if (mode === 'clues') {
+    return purgeCluesOnly(datasetId)
+  }
+  return purgeAllContent(datasetId)
 }
