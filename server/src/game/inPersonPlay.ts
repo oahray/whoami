@@ -224,6 +224,128 @@ export async function getInPersonDeck(
   }
 }
 
+export type ResolveEntityRequest = {
+  id: string
+  name?: string
+}
+
+export type ResolvedEntity = {
+  id: string
+  name: string
+  /** Client-provided id before remapping (may equal `id`). */
+  previousId: string
+}
+
+const MAX_RESOLVE_ENTITIES = 50
+
+function normalizeEntityName(name: string): string {
+  return name.trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
+async function fetchPublishedEntitiesByIds(
+  datasetId: string,
+  ids: string[]
+): Promise<Entity[]> {
+  if (ids.length === 0) return []
+  const { data, error } = await supabase
+    .from('entities')
+    .select('*')
+    .eq('is_published', true)
+    .eq('dataset_id', datasetId)
+    .in('id', ids)
+  if (error) {
+    throw new Error(`Failed to resolve entities by id: ${error.message}`)
+  }
+  return (data as Entity[] | null) ?? []
+}
+
+/** Light id+name catalog used only when some requested ids are missing. */
+async function fetchPublishedNameCatalog(
+  datasetId: string
+): Promise<Array<{ id: string; name: string }>> {
+  try {
+    return await fetchAllPages((from, to) =>
+      supabase
+        .from('entities')
+        .select('id, name')
+        .eq('is_published', true)
+        .eq('dataset_id', datasetId)
+        .order('id')
+        .range(from, to)
+    )
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'unknown error'
+    throw new Error(`Failed to fetch entity name catalog: ${message}`)
+  }
+}
+
+/**
+ * Resolve a small set of client-known entity ids for Review.
+ * Matches by id first, then by normalized name when ids changed after a reimport.
+ * Only returns entities that still have enough clues for any-difficulty play.
+ */
+export async function resolvePublishedEntities(
+  datasetId: string,
+  requests: ResolveEntityRequest[]
+): Promise<ResolvedEntity[]> {
+  await assertPlayableDataset(datasetId)
+
+  const seen = new Set<string>()
+  const unique: Array<{ id: string; name?: string }> = []
+  for (const request of requests) {
+    const id = typeof request.id === 'string' ? request.id.trim() : ''
+    if (!id || seen.has(id)) continue
+    seen.add(id)
+    const name =
+      typeof request.name === 'string' && request.name.trim().length > 0
+        ? request.name.trim()
+        : undefined
+    unique.push(name ? { id, name } : { id })
+    if (unique.length >= MAX_RESOLVE_ENTITIES) break
+  }
+  if (unique.length === 0) return []
+
+  const byIdRows = await fetchPublishedEntitiesByIds(
+    datasetId,
+    unique.map((entry) => entry.id)
+  )
+  const byId = new Map(byIdRows.map((entity) => [entity.id, entity]))
+
+  const unresolved = unique.filter((entry) => !byId.has(entry.id) && entry.name)
+  const byName = new Map<string, { id: string; name: string }>()
+  if (unresolved.length > 0) {
+    const catalog = await fetchPublishedNameCatalog(datasetId)
+    for (const entity of catalog) {
+      const normalized = normalizeEntityName(entity.name)
+      if (normalized && !byName.has(normalized)) byName.set(normalized, entity)
+    }
+  }
+
+  const candidates: Array<{ id: string; name: string; previousId: string }> = []
+  const resolvedIds = new Set<string>()
+  for (const entry of unique) {
+    const direct = byId.get(entry.id)
+    if (direct) {
+      if (!resolvedIds.has(direct.id)) {
+        resolvedIds.add(direct.id)
+        candidates.push({ id: direct.id, name: direct.name, previousId: entry.id })
+      }
+      continue
+    }
+    if (!entry.name) continue
+    const match = byName.get(normalizeEntityName(entry.name))
+    if (!match || resolvedIds.has(match.id)) continue
+    resolvedIds.add(match.id)
+    candidates.push({ id: match.id, name: match.name, previousId: entry.id })
+  }
+
+  const countsByEntity = await fetchClueCountsByEntity(candidates.map((c) => c.id))
+  return candidates.filter((candidate) => {
+    const counts = countsByEntity.get(candidate.id) ?? emptyClueCounts()
+    return isEligibleForSelection(counts, [])
+  })
+}
+
 export async function buildInPersonCardForEntity(params: {
   datasetId: string
   entityId: string

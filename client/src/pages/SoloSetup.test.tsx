@@ -78,6 +78,23 @@ describe('SoloSetup', () => {
           })
         } as Response
       }
+      if (url.includes('/cards/resolve')) {
+        return {
+          ok: true,
+          json: async () => ({
+            entities: [{ id: 'ent-3', name: 'Moses', previousId: 'ent-3' }],
+            entityIds: ['ent-3'],
+            scoringVersion: 1,
+            scoringRules: {
+              basePoints: 1000,
+              additionalCluePenalty: 150,
+              elapsedSecondPenalty: 10,
+              incorrectGuessPenalty: 100,
+              minimumCorrectScore: 100
+            }
+          })
+        } as Response
+      }
       throw new Error(`Unexpected fetch: ${url}`)
     }))
   })
@@ -196,9 +213,19 @@ describe('SoloSetup', () => {
         entityIds: ['ent-3']
       })
     )
-    const deckCall = vi.mocked(fetch).mock.calls.find((call) => String(call[0]).includes('/cards/deck'))
-    expect(String(deckCall?.[0])).toContain('difficulty=any')
-    expect(String(deckCall?.[0])).toContain('entityType=all')
+    const resolveCall = vi.mocked(fetch).mock.calls.find((call) =>
+      String(call[0]).includes('/cards/resolve')
+    )
+    expect(resolveCall).toBeTruthy()
+    expect(resolveCall?.[1]).toMatchObject({ method: 'POST' })
+    const body = JSON.parse(String(resolveCall?.[1]?.body))
+    expect(body).toMatchObject({
+      datasetId: 'ds-1',
+      entities: expect.arrayContaining([
+        { id: 'ent-3', name: 'Moses' },
+        { id: 'not-in-current-deck', name: 'Noah' }
+      ])
+    })
   })
 
   it('explains how to unlock Review when nothing needs review yet', async () => {

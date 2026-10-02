@@ -277,3 +277,83 @@ export function rekeyMasteryToCatalog(
   }
   return { remapped, removed }
 }
+
+/**
+ * Apply Review resolve results: remap stale ids onto current catalog ids,
+ * and drop requested ids that the server could not resolve.
+ */
+export function applyResolveRemaps(
+  datasetId: string,
+  resolved: Array<{ id: string; name: string; previousId: string }>,
+  requestedIds: string[]
+): { remapped: number; removed: number } {
+  const store = loadStore()
+  const nextEntities: Record<string, EntityMastery> = { ...store.entities }
+  const retiredIds = new Set<string>()
+  let remapped = 0
+  let removed = 0
+
+  const resolvedPrevious = new Set(resolved.map((entry) => entry.previousId))
+  for (const previousId of requestedIds) {
+    if (resolvedPrevious.has(previousId)) continue
+    const entityKey = key(datasetId, previousId)
+    if (nextEntities[entityKey]) {
+      delete nextEntities[entityKey]
+      retiredIds.add(previousId)
+      removed += 1
+    }
+  }
+
+  for (const entry of resolved) {
+    if (entry.previousId === entry.id) {
+      const entityKey = key(datasetId, entry.id)
+      const entity = nextEntities[entityKey]
+      if (entity && entity.entityName !== entry.name) {
+        nextEntities[entityKey] = { ...entity, entityName: entry.name }
+      }
+      continue
+    }
+
+    const fromKey = key(datasetId, entry.previousId)
+    const entity = nextEntities[fromKey]
+    if (!entity) continue
+
+    const toKey = key(datasetId, entry.id)
+    const candidate: EntityMastery = {
+      ...entity,
+      entityId: entry.id,
+      entityName: entry.name
+    }
+    const existing = nextEntities[toKey]
+    if (
+      !existing ||
+      candidate.encounters > existing.encounters ||
+      (candidate.encounters === existing.encounters &&
+        candidate.correctCount >= existing.correctCount)
+    ) {
+      nextEntities[toKey] = candidate
+    }
+    delete nextEntities[fromKey]
+    retiredIds.add(entry.previousId)
+    remapped += 1
+  }
+
+  if (remapped === 0 && removed === 0) {
+    return { remapped: 0, removed: 0 }
+  }
+
+  const nextEvents: Record<string, true> = {}
+  for (const [eventId, value] of Object.entries(store.appliedEvents)) {
+    if (!eventId.startsWith(`${datasetId}:`)) {
+      nextEvents[eventId] = value
+      continue
+    }
+    const rest = eventId.slice(datasetId.length + 1)
+    const entityId = rest.split(':')[0] ?? ''
+    if (retiredIds.has(entityId)) continue
+    nextEvents[eventId] = value
+  }
+
+  saveStore({ version: 1, entities: nextEntities, appliedEvents: nextEvents })
+  return { remapped, removed }
+}

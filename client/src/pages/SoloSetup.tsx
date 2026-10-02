@@ -48,8 +48,8 @@ import { isMaintenanceBlockingNewGames } from '../lib/maintenance'
 import {
   clearMasteryForDataset,
   getMasterySummary,
-  getNeedsReviewEntityIds,
-  rekeyMasteryToCatalog
+  listEntityMastery,
+  applyResolveRemaps
 } from '../lib/soloMastery'
 import {
   createSoloSession,
@@ -544,29 +544,28 @@ function SoloSetup() {
     fadeOutMenuMusic()
     playSound('go')
     try {
-      // Ignore Custom game filters so missed cards stay reachable.
-      const query = new URLSearchParams({
-        datasetId,
-        difficulty: 'any',
-        entityType: 'all'
+      const candidates = listEntityMastery(datasetId)
+        .filter((entity) => entity.state === 'needs_review')
+        .map((entity) => ({ id: entity.entityId, name: entity.entityName }))
+      const response = await fetch(`${API_BASE_URL}/cards/resolve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ datasetId, entities: candidates })
       })
-      const response = await fetch(`${API_BASE_URL}/cards/deck?${query}`)
       if (!response.ok) throw new Error(SETUP_START_ERROR)
-      const { entityIds, entities, scoringVersion, scoringRules } = (await response.json()) as {
-        entityIds: string[]
-        entities?: Array<{ id: string; name: string }>
+      const { entities, scoringVersion, scoringRules } = (await response.json()) as {
+        entities: Array<{ id: string; name: string; previousId: string }>
         scoringVersion?: number
         scoringRules?: KnowledgeScoreRules
       }
-      // Reimports mint new ids; remap Progress by name onto the live catalog.
-      const catalog =
-        entities ??
-        entityIds.map((id) => ({ id, name: id }))
-      const { remapped, removed } = rekeyMasteryToCatalog(datasetId, catalog)
+      const { remapped, removed } = applyResolveRemaps(
+        datasetId,
+        entities,
+        candidates.map((candidate) => candidate.id)
+      )
       if (remapped > 0 || removed > 0) setMasteryTick((tick) => tick + 1)
 
-      const eligibleIds = new Set(entityIds)
-      const reviewDeck = getNeedsReviewEntityIds(datasetId).filter((id) => eligibleIds.has(id))
+      const reviewDeck = entities.map((entity) => entity.id)
       if (reviewDeck.length === 0) {
         throw new Error(
           removed > 0 || remapped > 0

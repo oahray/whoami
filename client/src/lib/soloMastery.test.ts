@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
   applyMasteryOutcome,
+  applyResolveRemaps,
   clearMasteryForDataset,
   getMasterySummary,
   getNeedsReviewEntityIds,
@@ -157,6 +158,46 @@ describe('soloMastery', () => {
 
     expect(getMasterySummary('bible').encountered).toBe(0)
     expect(getMasterySummary('history').encountered).toBe(1)
+  })
+
+  it('applies resolve remaps and drops unresolved review ids', () => {
+    applyMasteryOutcome({
+      eventId: 'run-1:0',
+      datasetId: 'bible',
+      entityId: 'old-moses',
+      entityName: 'Moses',
+      correct: false,
+      revealedClueCount: 4
+    })
+    applyMasteryOutcome({
+      eventId: 'run-1:1',
+      datasetId: 'bible',
+      entityId: 'gone-id',
+      entityName: 'Deleted Person',
+      correct: false,
+      revealedClueCount: 3
+    })
+    applyMasteryOutcome({
+      eventId: 'run-1:2',
+      datasetId: 'bible',
+      entityId: 'aaron',
+      entityName: 'Aaron',
+      correct: true,
+      revealedClueCount: 1
+    })
+
+    const result = applyResolveRemaps(
+      'bible',
+      [{ id: 'new-moses-id', name: 'Moses', previousId: 'old-moses' }],
+      ['old-moses', 'gone-id']
+    )
+
+    expect(result).toEqual({ remapped: 1, removed: 1 })
+    expect(getNeedsReviewEntityIds('bible')).toEqual(['new-moses-id'])
+    expect(listEntityMastery('bible').map((entity) => entity.entityId).sort()).toEqual([
+      'aaron',
+      'new-moses-id'
+    ])
   })
 
   it('scopes progress by dataset', () => {

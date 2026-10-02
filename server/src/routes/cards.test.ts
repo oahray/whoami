@@ -13,7 +13,7 @@ vi.mock('../db/maintenance.js', () => ({
 }))
 
 import { supabase } from '../db/supabase.js'
-import cardsRouter from './cards.js'
+import cardsRouter, { DAILY_CHALLENGE_VERSION } from './cards.js'
 import {
   createQueryBuilder,
   hasEq,
@@ -101,6 +101,13 @@ function cluesResolver(allClues: ReturnType<typeof makeClues>) {
       }
       return { data: rows, error: null }
     }
+    const entityIn = state.operations.find(
+      (op) => op.method === 'in' && op.args[0] === 'entity_id'
+    )
+    if (entityIn) {
+      const ids = new Set(entityIn.args[1] as string[])
+      return { data: allClues.filter((c) => ids.has(c.entity_id)), error: null }
+    }
     return { data: allClues, error: null }
   }
 }
@@ -130,10 +137,16 @@ function inPersonMockResolver(
         const entity = entities.find((e) => e.id === id) ?? null
         return { data: entity, error: null }
       }
-      if (hasEq(state, 'dataset_id', 'ds-1')) {
-        return { data: entities, error: null }
+      let rows = entities
+      if (hasEq(state, 'is_published', true)) {
+        rows = rows.filter((e) => e.is_published)
       }
-      return { data: entities, error: null }
+      const idIn = state.operations.find((op) => op.method === 'in' && op.args[0] === 'id')
+      if (idIn) {
+        const ids = new Set(idIn.args[1] as string[])
+        rows = rows.filter((e) => ids.has(e.id))
+      }
+      return { data: rows, error: null }
     }
     if (table === 'clues') {
       return cluesResolver(allClues)(state)
@@ -308,8 +321,10 @@ describe('GET /cards/daily-challenge', () => {
 
     expect(first.status).toBe(200)
     expect(first.body).toEqual(second.body)
-    expect(first.body.challengeId).toMatch(/^\d{4}-\d{2}-\d{2}-v3$/)
-    expect(first.body.challengeVersion).toBe(3)
+    expect(first.body.challengeId).toMatch(
+      new RegExp(`^\\d{4}-\\d{2}-\\d{2}-v${DAILY_CHALLENGE_VERSION}$`)
+    )
+    expect(first.body.challengeVersion).toBe(DAILY_CHALLENGE_VERSION)
     expect(first.body.entityIds).toHaveLength(3)
     expect(first.body).toMatchObject({
       datasetId: 'ds-1',
@@ -450,5 +465,65 @@ describe('GET /cards/entity/:entityId', () => {
     expect(first.body.clues.map((c: { text: string }) => c.text)).not.toEqual(
       second.body.clues.map((c: { text: string }) => c.text)
     )
+  })
+})
+
+describe('POST /cards/resolve', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('resolves entities by id and omits ones without enough clues', async () => {
+    const entityGone = {
+      id: 'ent-gone',
+      name: 'Gone',
+      type: 'character' as const,
+      is_published: true,
+      dataset_id: 'ds-1'
+    }
+    installMocks(
+      [ENTITY_A, ENTITY_FEW, entityGone],
+      [...makeClues('ent-a', 6), ...makeClues('ent-few', 2)]
+    )
+
+    const response = await request(makeApp())
+      .post('/cards/resolve')
+      .send({
+        datasetId: 'ds-1',
+        entities: [
+          { id: 'ent-a', name: 'Moses' },
+          { id: 'ent-few', name: 'Sparse' },
+          { id: 'ent-gone', name: 'Gone' }
+        ]
+      })
+
+    expect(response.status).toBe(200)
+    expect(response.body.entities).toEqual([
+      { id: 'ent-a', name: 'Moses', previousId: 'ent-a' }
+    ])
+    expect(response.body.entityIds).toEqual(['ent-a'])
+    expect(response.body.scoringVersion).toBeDefined()
+    expect(response.body.scoringRules).toBeDefined()
+  })
+
+  it('remaps stale ids onto current entities by name', async () => {
+    installMocks([ENTITY_A], makeClues('ent-a', 6))
+
+    const response = await request(makeApp())
+      .post('/cards/resolve')
+      .send({
+        datasetId: 'ds-1',
+        entities: [{ id: 'stale-moses', name: 'Moses' }]
+      })
+
+    expect(response.status).toBe(200)
+    expect(response.body.entities).toEqual([
+      { id: 'ent-a', name: 'Moses', previousId: 'stale-moses' }
+    ])
+  })
+
+  it('returns 400 when entities is missing', async () => {
+    const response = await request(makeApp()).post('/cards/resolve').send({ datasetId: 'ds-1' })
+    expect(response.status).toBe(400)
   })
 })
