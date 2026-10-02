@@ -399,7 +399,7 @@ describe('SoloGame', () => {
     expect(screen.getByRole('button', { name: /see results/i })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /see results/i }))
 
-    expect(screen.getByRole('heading', { name: /challenge complete/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /classic complete/i })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /new setup/i })).toHaveAttribute('href', '/solo')
 
     await act(async () => {
@@ -506,7 +506,7 @@ describe('SoloGame', () => {
       await Promise.resolve()
     })
 
-    expect(screen.getByRole('heading', { name: /challenge complete/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /classic complete/i })).toBeInTheDocument()
     expect(screen.getByText(/score so far is saved/i)).toBeInTheDocument()
   })
 
