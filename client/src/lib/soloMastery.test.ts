@@ -4,7 +4,8 @@ import {
   clearMasteryForDataset,
   getMasterySummary,
   getNeedsReviewEntityIds,
-  listEntityMastery
+  listEntityMastery,
+  masterySettleCue
 } from './soloMastery'
 
 describe('soloMastery', () => {
@@ -77,6 +78,32 @@ describe('soloMastery', () => {
       needsReview: 0,
       firstClueAccuracy: 1 / 3
     })
+  })
+
+  it('only shows a settle cue when mastery state changes', () => {
+    const first = applyMasteryOutcome({
+      eventId: 'run-1:0',
+      datasetId: 'bible',
+      entityId: 'joseph',
+      entityName: 'Joseph',
+      correct: true,
+      revealedClueCount: 2
+    })
+    expect(masterySettleCue(first)).toMatchObject({
+      label: 'Learning',
+      icon: 'menu_book'
+    })
+
+    const second = applyMasteryOutcome({
+      eventId: 'run-2:0',
+      datasetId: 'bible',
+      entityId: 'joseph',
+      entityName: 'Joseph',
+      correct: true,
+      revealedClueCount: 2
+    })
+    expect(second.changed).toBe(false)
+    expect(masterySettleCue(second)).toBeNull()
   })
 
   it('clears progress for one dataset only', () => {

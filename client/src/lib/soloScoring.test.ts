@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { scoreSoloRound } from './soloScoring'
+import { estimateLegacySoloScore, scoreSoloRound } from './soloScoring'
 
 describe('scoreSoloRound', () => {
   it('calculates a score locally from the supplied server rules', () => {
@@ -36,5 +36,29 @@ describe('scoreSoloRound', () => {
         }
       ).score
     ).toBe(420)
+  })
+})
+
+describe('estimateLegacySoloScore', () => {
+  it('returns 0 when nothing was correct', () => {
+    expect(
+      estimateLegacySoloScore({
+        correctCount: 0,
+        activeElapsedMs: 40_000,
+        clueRevealIntervalMs: 10_000
+      })
+    ).toBe(0)
+  })
+
+  it('estimates from average time per correct and zero wrong guesses', () => {
+    // 2 correct over 20s → 10s each → 1 + floor(10000/10000) = 2 clues
+    // score = 1000 - 150 - 100 = 750 per correct → 1500 total
+    expect(
+      estimateLegacySoloScore({
+        correctCount: 2,
+        activeElapsedMs: 20_000,
+        clueRevealIntervalMs: 10_000
+      })
+    ).toBe(1500)
   })
 })

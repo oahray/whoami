@@ -540,8 +540,9 @@ function SoloSetup() {
               <div>
                 <h2 className="text-base font-bold">Progress</h2>
                 <p className="text-xs text-foreground-muted">
-                  Cards you meet are tracked on this device
-                  {selectedDatasetName ? ` · ${selectedDatasetName}` : ''}.
+                  {selectedDatasetName
+                    ? `Saved on this device for ${selectedDatasetName}.`
+                    : 'Saved on this device.'}
                 </p>
               </div>
             </div>
@@ -551,49 +552,72 @@ function SoloSetup() {
               </summary>
               <ul className="mt-2 list-disc space-y-1.5 pl-4 text-xs text-foreground-muted">
                 <li>
-                  <span className="font-semibold text-foreground">Needs review</span> — you missed
-                  or timed out. Tap <span className="font-semibold text-foreground">Review</span>{' '}
-                  here to practice those cards.
+                  <span className="font-semibold text-foreground">Needs review:</span> you missed or
+                  ran out of time. Tap{' '}
+                  <span className="font-semibold text-foreground">Review</span> below to try those
+                  again.
                 </li>
                 <li>
-                  <span className="font-semibold text-foreground">Learning</span> — you got it right
-                  at least once and are still building confidence.
+                  <span className="font-semibold text-foreground">Learning:</span> you got it right
+                  at least once.
                 </li>
                 <li>
-                  <span className="font-semibold text-foreground">Mastered</span> — correct several
-                  times, including at least once from the first clue.
+                  <span className="font-semibold text-foreground">Mastered:</span> several right
+                  answers, including one from the first clue.
                 </li>
               </ul>
             </details>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <div className="rounded-lg bg-surface-muted p-3">
-                <p className="text-xl font-black">{masterySummary.encountered}</p>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted">
-                  Encountered
-                </p>
-              </div>
-              <div className="rounded-lg bg-surface-muted p-3">
-                <p className="text-xl font-black">{masterySummary.mastered}</p>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted">
-                  Mastered
-                </p>
-              </div>
-              <div className="rounded-lg bg-surface-muted p-3">
-                <p className="text-xl font-black">{masterySummary.needsReview}</p>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted">
-                  Needs review
-                </p>
-              </div>
-              <div className="rounded-lg bg-surface-muted p-3">
-                <p className="text-xl font-black">
-                  {masterySummary.firstClueAccuracy == null
-                    ? '—'
-                    : `${Math.round(masterySummary.firstClueAccuracy * 100)}%`}
-                </p>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-foreground-muted">
-                  First clue
-                </p>
-              </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {(
+                [
+                  {
+                    icon: 'visibility',
+                    value: String(masterySummary.encountered),
+                    label: 'Encountered',
+                    iconClass: 'bg-primary/10 text-primary'
+                  },
+                  {
+                    icon: 'verified',
+                    value: String(masterySummary.mastered),
+                    label: 'Mastered',
+                    iconClass: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
+                  },
+                  {
+                    icon: 'replay',
+                    value: String(masterySummary.needsReview),
+                    label: 'Needs review',
+                    iconClass: 'bg-amber-500/15 text-amber-800 dark:text-amber-300'
+                  },
+                  {
+                    icon: 'bolt',
+                    value:
+                      masterySummary.firstClueAccuracy == null
+                        ? '—'
+                        : `${Math.round(masterySummary.firstClueAccuracy * 100)}%`,
+                    label: 'First clue',
+                    iconClass: 'bg-primary/10 text-primary'
+                  }
+                ] as const
+              ).map((stat) => (
+                <div
+                  key={stat.label}
+                  className="flex min-w-0 flex-col gap-1 rounded-md border border-edge bg-surface p-3 shadow-sm"
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    <div
+                      className={`flex size-8 shrink-0 items-center justify-center rounded-md ${stat.iconClass}`}
+                    >
+                      <span className="material-symbols-outlined text-lg" aria-hidden>
+                        {stat.icon}
+                      </span>
+                    </div>
+                    <p className="min-w-0 text-xs font-medium leading-tight text-foreground sm:text-sm">
+                      {stat.label}
+                    </p>
+                  </div>
+                  <p className="pl-10 text-xl font-bold tabular-nums text-foreground">{stat.value}</p>
+                </div>
+              ))}
             </div>
             {masterySummary.needsReview > 0 ? (
               <button
@@ -606,8 +630,8 @@ function SoloSetup() {
               </button>
             ) : (
               <p className="rounded-lg border border-dashed border-edge px-3 py-3 text-center text-sm text-foreground-muted">
-                Miss or time out a card in Daily, Challenge, or Endurance — then{' '}
-                <span className="font-semibold text-foreground">Review</span> shows up here.
+                Miss or time out a card in Daily, Challenge, or Endurance.{' '}
+                <span className="font-semibold text-foreground">Review</span> will show up here.
               </p>
             )}
             {masterySummary.encountered > 0 && (
@@ -794,9 +818,9 @@ function SoloSetup() {
                 Clear learning progress?
               </h3>
               <p className="mt-2 text-sm text-foreground-muted">
-                This removes encountered, mastered, and needs-review data
-                {selectedDatasetName ? ` for ${selectedDatasetName}` : ''} on this
-                device. Personal bests and daily streak are kept.
+                This clears which cards you&apos;ve met, mastered, or need to review
+                {selectedDatasetName ? ` for ${selectedDatasetName}` : ''}. Personal bests and your
+                daily streak stay put.
               </p>
               <div className="mt-6 grid grid-cols-2 gap-3">
                 <button
@@ -829,8 +853,9 @@ function SoloSetup() {
               <h2 className="text-base font-bold">Personal bests</h2>
             </div>
             <p className="text-xs text-foreground-muted">
-              Top 5 per mode on this device
-              {selectedDatasetName ? ` · ${selectedDatasetName}` : ''}.
+              {selectedDatasetName
+                ? `Top 10 per mode on this device for ${selectedDatasetName}.`
+                : 'Top 10 per mode on this device.'}
             </p>
             {!hasAnyRecords ? (
               <p className="text-sm text-foreground-muted">No records yet. Finish a run to set one.</p>

@@ -79,20 +79,19 @@ function About() {
             <h2 className="text-lg font-bold text-foreground">Solo mode</h2>
           </div>
           <p className="text-foreground text-sm leading-relaxed">
-            Play on your own and keep personal bests on this device. Choose a{' '}
-            <strong>10-round Solo challenge</strong> for accuracy and time,{' '}
-            <strong>Endurance</strong> for streak length, or the fixed{' '}
-            <strong>Daily challenge</strong>. Pick difficulty tiers, card type, and timers before
-            you start. Citations appear after a correct guess; timed-out answers stay hidden
-            so Review stays useful.
+            Play on your own and keep personal bests on this device. Try a{' '}
+            <strong>10-round Solo challenge</strong>, stretch your streak in{' '}
+            <strong>Endurance</strong>, or take the fixed <strong>Daily challenge</strong>. You can
+            set difficulty, card type, and timers before you start. Get a card right and you&apos;ll
+            see citations; if time runs out, we keep the answer hidden so you can learn it later.
           </p>
           <p className="text-foreground text-sm leading-relaxed">
-            Solo also tracks <strong>learning progress</strong> for each card on this device:{' '}
-            <strong>Needs review</strong> if you miss or time out, <strong>Learning</strong> after
-            a correct answer, and <strong>Mastered</strong> after several correct answers including
-            one from the first clue.             When you have missed cards, Solo setup shows a{' '}
-            <strong>Review</strong> button in the Progress section (above Custom game). Progress
-            stays on this device until you clear it.
+            Solo also remembers how you&apos;re doing with each card on this device.{' '}
+            <strong>Needs review</strong> means you missed or timed out, <strong>Learning</strong>{' '}
+            means you got it right at least once, and <strong>Mastered</strong> means you&apos;ve
+            gotten it right a few times, including once from the first clue. Missed cards unlock a{' '}
+            <strong>Review</strong> button in Progress (above Custom game). Everything stays on this
+            device until you clear it.
           </p>
           <p className="text-foreground-muted text-xs">
             <Link to="/solo" className="text-primary font-semibold hover:text-primary/80">

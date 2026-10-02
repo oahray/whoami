@@ -38,6 +38,30 @@ export type MasteryChange = {
   entityName: string
 }
 
+export type MasterySettleCue = {
+  state: MasteryState
+  label: string
+  icon: string
+}
+
+const MASTERY_STATUS_UI: Record<MasteryState, { label: string; icon: string }> = {
+  learning: { label: 'Learning', icon: 'menu_book' },
+  needs_review: { label: 'Needs review', icon: 'replay' },
+  mastered: { label: 'Mastered', icon: 'verified' }
+}
+
+/** Icon + short status for Progress tiles and settle cues. */
+export function masteryStatusUi(state: MasteryState): { label: string; icon: string } {
+  return MASTERY_STATUS_UI[state]
+}
+
+/** Settle cue only when mastery state changes this round. */
+export function masterySettleCue(change: MasteryChange): MasterySettleCue | null {
+  if (!change.changed) return null
+  const ui = masteryStatusUi(change.state)
+  return { state: change.state, label: ui.label, icon: ui.icon }
+}
+
 export type MasterySummary = {
   encountered: number
   mastered: number
