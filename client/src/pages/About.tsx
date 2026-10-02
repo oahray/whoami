@@ -83,7 +83,8 @@ function About() {
             <strong>10-round Solo challenge</strong> for accuracy and time,{' '}
             <strong>Endurance</strong> for streak length, or the fixed{' '}
             <strong>Daily challenge</strong>. Pick difficulty tiers, card type, and timers before
-            you start. After each round you can review citations for the clues you saw.
+            you start. Citations appear after a correct guess; timed-out answers stay hidden
+            so Review stays useful.
           </p>
           <p className="text-foreground text-sm leading-relaxed">
             Solo also tracks <strong>learning progress</strong> for each card on this device:{' '}

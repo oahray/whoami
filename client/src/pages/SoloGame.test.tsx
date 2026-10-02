@@ -56,7 +56,7 @@ describe('SoloGame', () => {
     vi.useRealTimers()
   })
 
-  it('shows the answer and citations after Endurance timeout, then the results', async () => {
+  it('hides the answer and citations after Endurance timeout, then shows results', async () => {
     saveSoloSession({
       datasetId: 'ds-1',
       difficulty: [],
@@ -81,9 +81,10 @@ describe('SoloGame', () => {
     })
 
     expect(screen.getByText(/time's up/i)).toBeInTheDocument()
-    expect(screen.getByText('Moses')).toBeInTheDocument()
-    expect(screen.getByText('Moshe')).toBeInTheDocument()
-    expect(screen.getByText('Exodus 2:1')).toBeInTheDocument()
+    expect(screen.getByText(/answer hidden/i)).toBeInTheDocument()
+    expect(screen.queryByText('Moses')).not.toBeInTheDocument()
+    expect(screen.queryByText('Moshe')).not.toBeInTheDocument()
+    expect(screen.queryByText('Exodus 2:1')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /see results/i })).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: /endurance complete/i })).not.toBeInTheDocument()
 
@@ -267,7 +268,8 @@ describe('SoloGame', () => {
       await vi.advanceTimersByTimeAsync(200)
     })
     expect(screen.getByText(/time's up/i)).toBeInTheDocument()
-    expect(screen.getByText('Exodus 2:1')).toBeInTheDocument()
+    expect(screen.queryByText('Exodus 2:1')).not.toBeInTheDocument()
+    expect(screen.queryByText('Moses')).not.toBeInTheDocument()
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(15_000)

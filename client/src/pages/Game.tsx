@@ -423,10 +423,10 @@ function Game() {
         className="w-full max-w-[430px] lg:max-w-7xl mx-auto flex-1 min-h-0 flex flex-col bg-surface lg:bg-transparent lg:shadow-none overflow-hidden"
       >
         <header
-          className="shrink-0 border-b border-primary/10 bg-surface/95 backdrop-blur-sm lg:rounded-b-2xl lg:border lg:border-edge lg:shadow-sm px-4 lg:px-8 pb-2 lg:pb-4"
+          className="shrink-0 border-b border-primary/10 bg-surface/95 backdrop-blur-sm lg:rounded-b-2xl lg:border lg:border-edge lg:shadow-sm px-4 lg:px-8 pb-2 lg:pb-3"
           style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 0.75rem)' }}
         >
-          <div className="flex items-center justify-between gap-3 pt-1 lg:pt-10">
+          <div className="flex items-center justify-between gap-3 pt-1 lg:pt-2">
             <div className="flex min-w-0 items-center gap-2">
               <button
                 type="button"
@@ -439,7 +439,7 @@ function Game() {
                 </span>
               </button>
               <div className="min-w-0">
-                <h2 className="truncate text-base font-bold leading-none lg:text-xl">
+                <h2 className="truncate text-base font-bold leading-none lg:text-lg">
                   {isFinalScoresView
                     ? 'Final Scores'
                     : `Round ${gameState.roundNumber} of ${settings?.totalRounds ?? 0}`}

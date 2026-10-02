@@ -107,6 +107,7 @@ function SoloGame() {
   const activeSession = useRef<SoloSession | null>(null)
   const guessInputRef = useRef<HTMLInputElement | null>(null)
   const advanceButtonRef = useRef<HTMLButtonElement | null>(null)
+  const settlePanelRef = useRef<HTMLSectionElement | null>(null)
   const lastClueCountRef = useRef(0)
   const settledOnceRef = useRef(false)
   const viewportStyle = useVisualViewportLock()
@@ -459,6 +460,7 @@ function SoloGame() {
     // Focus the CTA so Enter activates it natively; also handle Enter if focus
     // landed elsewhere (e.g. body after the guess field unmounted).
     advanceButtonRef.current?.focus({ preventScroll: true })
+    settlePanelRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' })
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Enter' || event.defaultPrevented || event.isComposing || event.repeat) {
@@ -811,10 +813,10 @@ function SoloGame() {
     >
       <div className="mx-auto flex min-h-0 w-full max-w-[430px] flex-1 flex-col overflow-hidden bg-surface lg:max-w-7xl lg:bg-transparent lg:shadow-none">
         <header
-          className="shrink-0 border-b border-primary/10 bg-surface/95 px-4 pb-2 backdrop-blur-sm lg:rounded-b-2xl lg:border lg:border-edge lg:px-8 lg:pb-4 lg:shadow-sm"
+          className="shrink-0 border-b border-primary/10 bg-surface/95 px-4 pb-2 backdrop-blur-sm lg:rounded-b-2xl lg:border lg:border-edge lg:px-8 lg:pb-3 lg:shadow-sm"
           style={{ paddingTop: 'max(env(safe-area-inset-top, 0px), 0.75rem)' }}
         >
-          <div className="flex items-center justify-between gap-3 pt-1 lg:pt-10">
+          <div className="flex items-center justify-between gap-3 pt-1 lg:pt-2">
             <div className="flex min-w-0 items-center gap-2">
               <Link
                 to="/solo"
@@ -824,7 +826,7 @@ function SoloGame() {
                 <span className="material-symbols-outlined">arrow_back</span>
               </Link>
               <div className="min-w-0">
-                <h2 className="truncate text-base font-bold leading-none lg:text-xl">
+                <h2 className="truncate text-base font-bold leading-none lg:text-lg">
                   {roundLabel}
                 </h2>
                 <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary lg:text-xs">
@@ -900,7 +902,9 @@ function SoloGame() {
                   <div
                     ref={cluesScrollRef}
                     onScroll={onCluesScroll}
-                    className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 lg:max-h-[26rem] lg:flex-none lg:space-y-3"
+                    className={`min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 lg:flex-none lg:space-y-3 ${
+                      settled ? 'lg:max-h-[12rem]' : 'lg:max-h-[26rem]'
+                    }`}
                   >
                     {visibleClues.map((clue) => {
                       const isLatest = clue.order === latestClueOrder && !settled
@@ -937,7 +941,7 @@ function SoloGame() {
                                   Clue {clue.order}
                                   {isLatest ? ' · New' : ''}
                                 </span>
-                                {settled && (
+                                {status === 'correct' && (
                                   <span className="material-symbols-outlined shrink-0 text-sm text-green-500">
                                     check_circle
                                   </span>
@@ -952,7 +956,7 @@ function SoloGame() {
                               >
                                 {clue.text}
                               </p>
-                              {settled && clue.citations && (
+                              {status === 'correct' && clue.citations && (
                                 <p className="mt-1 text-xs font-medium text-foreground-muted">
                                   {clue.citations}
                                 </p>
@@ -968,17 +972,18 @@ function SoloGame() {
 
               {status === 'correct' && card && (
                 <section
+                  ref={settlePanelRef}
                   role="status"
                   aria-live="polite"
-                  className="banner-success-emphasis shrink-0 p-3 text-center lg:p-4"
+                  className="banner-success-emphasis shrink-0 p-3 text-center lg:p-3"
                 >
-                  <p className="text-sm font-semibold text-foreground lg:text-base">
+                  <p className="text-sm font-semibold text-foreground">
                     <span className="material-symbols-outlined mr-1 align-middle text-base text-green-500">
                       check_circle
                     </span>
                     Correct!
                   </p>
-                  <p className="mt-1 text-2xl font-black text-foreground">
+                  <p className="mt-1 text-xl font-black text-foreground lg:text-2xl">
                     {card.entity.name}
                   </p>
                   {card.entity.aliases.length > 0 && (
@@ -987,13 +992,14 @@ function SoloGame() {
                     </p>
                   )}
                   {settledPerformance && (
-                    <div className="mt-3 rounded-lg bg-surface-muted p-3">
+                    <div className="mt-2 rounded-lg bg-surface-muted px-3 py-2 lg:mt-3 lg:py-3">
                       <p className="text-sm text-foreground">
                         Answered after {settledPerformance.revealedClueCount}{' '}
                         {settledPerformance.revealedClueCount === 1 ? 'clue' : 'clues'}
-                      </p>
-                      <p className="mt-1 text-2xl font-black text-primary">
-                        +{formatSoloScore(settledPerformance.score)} points
+                        <span className="mx-1.5 text-foreground-muted">·</span>
+                        <span className="font-black text-primary">
+                          +{formatSoloScore(settledPerformance.score)} points
+                        </span>
                       </p>
                       <p className="mt-1 text-xs text-foreground-muted">
                         {scoreBreakdownLabel(settledPerformance.breakdown)}
@@ -1001,55 +1007,35 @@ function SoloGame() {
                     </div>
                   )}
                   {masteryChangeLabel && (
-                    <p className="mt-3 text-sm font-bold text-foreground">
+                    <p className="mt-2 text-sm font-bold text-foreground lg:mt-3">
                       {masteryChangeLabel}
                     </p>
                   )}
-                  <button
-                    ref={advanceButtonRef}
-                    type="button"
-                    onClick={() => void advance(true)}
-                    className="mt-4 w-full rounded-lg bg-primary py-3 font-bold text-white hover:bg-primary/90"
-                  >
-                    {settleAdvanceLabel}
-                  </button>
                 </section>
               )}
 
               {status === 'timeout' && card && (
                 <section
+                  ref={settlePanelRef}
                   role="status"
                   aria-live="polite"
-                  className="banner-warning shrink-0 border-amber-300 p-3 text-center dark:border-amber-700 lg:p-4"
+                  className="banner-warning shrink-0 border-amber-300 p-3 text-center dark:border-amber-700"
                 >
-                  <p className="text-sm text-amber-900 dark:text-amber-100">
-                    Time&apos;s up. The answer was
+                  <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
+                    Time&apos;s up
                   </p>
-                  <p className="mt-1 text-2xl font-black text-amber-950 dark:text-amber-50">
-                    {card.entity.name}
+                  <p className="mt-1 text-sm text-amber-900/90 dark:text-amber-100/90">
+                    Answer hidden so you can practice it later.
                   </p>
-                  {card.entity.aliases.length > 0 && (
-                    <p className="mt-0.5 text-sm font-semibold text-amber-900/80 dark:text-amber-100/80">
-                      {card.entity.aliases.join(', ')}
-                    </p>
-                  )}
-                  <div className="mt-3 rounded-lg bg-surface-muted/80 p-3 dark:bg-black/15">
-                    <p className="text-2xl font-black text-primary">+0 points</p>
-                    <p className="mt-1 text-xs text-foreground-muted">Round timed out</p>
+                  <div className="mt-2 rounded-lg bg-surface-muted/80 px-3 py-2 dark:bg-black/15 lg:mt-3 lg:py-3">
+                    <p className="text-lg font-black text-primary lg:text-2xl">+0 points</p>
+                    <p className="mt-0.5 text-xs text-foreground-muted">Round timed out</p>
                   </div>
                   {masteryChangeLabel && (
-                    <p className="mt-3 text-sm font-bold text-amber-950 dark:text-amber-50">
+                    <p className="mt-2 text-sm font-bold text-amber-950 dark:text-amber-50 lg:mt-3">
                       {masteryChangeLabel}
                     </p>
                   )}
-                  <button
-                    ref={advanceButtonRef}
-                    type="button"
-                    onClick={() => void advance(false)}
-                    className="mt-4 w-full rounded-lg bg-primary py-3 font-bold text-white hover:bg-primary/90"
-                  >
-                    {settleAdvanceLabel}
-                  </button>
                 </section>
               )}
             </div>
@@ -1096,7 +1082,7 @@ function SoloGame() {
 
         {card && status === 'active' && (
           <div
-            className="shrink-0 border-t border-edge bg-surface px-3 py-2 lg:px-8 lg:py-4"
+            className="shrink-0 border-t border-edge bg-surface px-3 py-2 lg:px-8 lg:py-3"
             style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom, 0px))' }}
           >
             {feedback && (
@@ -1140,6 +1126,22 @@ function SoloGame() {
                 </span>
               </button>
             </form>
+          </div>
+        )}
+
+        {card && settled && (
+          <div
+            className="shrink-0 border-t border-edge bg-surface px-3 py-2 lg:px-8 lg:py-3"
+            style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom, 0px))' }}
+          >
+            <button
+              ref={advanceButtonRef}
+              type="button"
+              onClick={() => void advance(status === 'correct')}
+              className="mx-auto block w-full max-w-7xl rounded-lg bg-primary py-3 font-bold text-white hover:bg-primary/90"
+            >
+              {settleAdvanceLabel}
+            </button>
           </div>
         )}
       </div>
