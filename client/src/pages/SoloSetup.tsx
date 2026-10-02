@@ -854,8 +854,8 @@ function SoloSetup() {
             </div>
             <p className="text-xs text-foreground-muted">
               {selectedDatasetName
-                ? `Top 5 per mode on this device for ${selectedDatasetName}.`
-                : 'Top 5 per mode on this device.'}
+                ? `Top 10 per mode on this device for ${selectedDatasetName}.`
+                : 'Top 10 per mode on this device.'}
             </p>
             {!hasAnyRecords ? (
               <p className="text-sm text-foreground-muted">No records yet. Finish a run to set one.</p>

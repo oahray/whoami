@@ -121,25 +121,67 @@ describe('soloSession', () => {
     })
   })
 
-  it('orders records by correct count then active time', () => {
-    expect(isBetterRecord({ correctCount: 8, activeElapsedMs: 1000 }, { correctCount: 7, activeElapsedMs: 1 })).toBe(true)
-    expect(isBetterRecord({ correctCount: 8, activeElapsedMs: 900 }, { correctCount: 8, activeElapsedMs: 1000 })).toBe(true)
-    expect(isBetterRecord({ correctCount: 8, activeElapsedMs: 1100 }, { correctCount: 8, activeElapsedMs: 1000 })).toBe(false)
-  })
-
-  it('prefers scored records while keeping legacy records readable', () => {
+  it('orders challenge records by score, then correct count, then active time', () => {
     expect(
       isBetterRecord(
-        { correctCount: 6, activeElapsedMs: 50_000, score: 4200 },
-        { correctCount: 10, activeElapsedMs: 20_000 }
+        { variation: 'challenge', correctCount: 6, activeElapsedMs: 50_000, score: 4200 },
+        { variation: 'challenge', correctCount: 10, activeElapsedMs: 20_000, score: 3000 }
       )
     ).toBe(true)
     expect(
       isBetterRecord(
-        { correctCount: 10, activeElapsedMs: 20_000 },
-        { correctCount: 6, activeElapsedMs: 50_000, score: 4200 }
+        { variation: 'challenge', correctCount: 8, activeElapsedMs: 900, score: 2000 },
+        { variation: 'challenge', correctCount: 8, activeElapsedMs: 1000, score: 2000 }
+      )
+    ).toBe(true)
+  })
+
+  it('orders endurance records by streak first, even when scores differ', () => {
+    expect(
+      isBetterRecord(
+        { variation: 'endurance', correctCount: 12, activeElapsedMs: 80_000, score: 1000 },
+        { variation: 'endurance', correctCount: 4, activeElapsedMs: 10_000, score: 9000 }
+      )
+    ).toBe(true)
+    expect(
+      isBetterRecord(
+        { variation: 'endurance', correctCount: 4, activeElapsedMs: 10_000, score: 9000 },
+        { variation: 'endurance', correctCount: 12, activeElapsedMs: 80_000, score: 1000 }
       )
     ).toBe(false)
+  })
+
+  it('migrates legacy challenge and endurance scores once into local storage', () => {
+    localStorage.setItem(
+      'whoami-solo-records',
+      JSON.stringify([
+        {
+          ...config,
+          correctCount: 2,
+          activeElapsedMs: 20_000,
+          achievedAt: '2026-01-01T00:00:00.000Z'
+        },
+        {
+          ...config,
+          variation: 'endurance',
+          correctCount: 3,
+          activeElapsedMs: 30_000,
+          achievedAt: '2026-01-02T00:00:00.000Z'
+        }
+      ])
+    )
+
+    const challenge = listSoloRecords('challenge', 'ds-1')[0]
+    const endurance = listSoloRecords('endurance', 'ds-1')[0]
+    expect(challenge).toMatchObject({ score: 1500, scoreSource: 'migrated' })
+    expect(endurance).toMatchObject({ score: 2250, scoreSource: 'migrated' })
+
+    const stored = JSON.parse(localStorage.getItem('whoami-solo-records') ?? '[]') as Array<{
+      scoreSource?: string
+      score?: number
+    }>
+    expect(stored.every((record) => record.scoreSource === 'migrated')).toBe(true)
+    expect(stored.map((record) => record.score)).toEqual([1500, 2250])
   })
 
   it('hydrates pre-scoring sessions with safe scoring defaults', () => {
@@ -171,7 +213,7 @@ describe('soloSession', () => {
     expect(listSoloRecords('challenge', 'ds-1').map((r) => r.correctCount)).toEqual([7, 4])
   })
 
-  it('caps each mode to the best five scores for a dataset', () => {
+  it('caps each mode to the best ten scores for a dataset', () => {
     for (let i = 0; i < SOLO_RECORDS_PER_MODE + 2; i += 1) {
       saveSoloRecord({
         ...config,
@@ -182,7 +224,7 @@ describe('soloSession', () => {
     }
     const challenge = listSoloRecords('challenge', 'ds-1')
     expect(challenge).toHaveLength(SOLO_RECORDS_PER_MODE)
-    expect(challenge.map((r) => r.correctCount)).toEqual([7, 6, 5, 4, 3])
+    expect(challenge.map((r) => r.correctCount)).toEqual([12, 11, 10, 9, 8, 7, 6, 5, 4, 3])
   })
 
   it('scopes personal bests to the selected dataset', () => {
@@ -230,7 +272,7 @@ describe('soloSession', () => {
     expect(getSoloRecord(config)?.correctCount).toBe(8)
   })
 
-  it('lists personal records ranked by correct then time', () => {
+  it('lists challenge by estimated score and endurance by streak', () => {
     saveSoloRecord({
       ...config,
       variation: 'endurance',
@@ -251,14 +293,11 @@ describe('soloSession', () => {
       activeElapsedMs: 40_000,
       achievedAt: '2026-01-03T00:00:00.000Z'
     })
-    const listed = listSoloRecords()
-    expect(listed.map((record) => [record.correctCount, record.activeElapsedMs])).toEqual([
-      [8, 40_000],
-      [8, 50_000],
-      [5, 20_000]
-    ])
-    expect(listSoloRecords('challenge')).toHaveLength(2)
-    expect(listSoloRecords('endurance')).toHaveLength(1)
+    const challenge = listSoloRecords('challenge', 'ds-1')
+    expect(challenge).toHaveLength(2)
+    expect(challenge[0]?.activeElapsedMs).toBe(40_000)
+    expect(challenge[0]?.score).toBeGreaterThan(challenge[1]?.score ?? 0)
+    expect(listSoloRecords('endurance', 'ds-1')[0]?.correctCount).toBe(5)
   })
 
   it('reshuffles endurance pools without repeating the last card first', () => {

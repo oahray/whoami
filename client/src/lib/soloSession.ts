@@ -7,9 +7,10 @@ import {
   formatDifficultySelection,
   type DifficultySelection
 } from './difficultySelection'
+import { estimateLegacySoloScore } from './soloScoring'
 
 export const SOLO_CHALLENGE_ROUNDS = 10
-export const SOLO_RECORDS_PER_MODE = 5
+export const SOLO_RECORDS_PER_MODE = 10
 const SESSION_KEY = 'whoami-solo-session'
 const RECORDS_KEY = 'whoami-solo-records'
 const SETUP_KEY = 'whoami-solo-setup'
@@ -80,12 +81,16 @@ export type SoloSession = SoloConfig & {
   scoringRules?: KnowledgeScoreRules
 }
 
+export type SoloScoreSource = 'live' | 'migrated'
+
 export type SoloRecord = SoloConfig & {
   correctCount: number
   activeElapsedMs: number
   achievedAt: string
   /** Missing on records created before scored Solo launched. */
   score?: number
+  /** How {@link score} was produced; `migrated` is a one-time estimate from legacy stats. */
+  scoreSource?: SoloScoreSource
   rounds?: SoloRoundPerformance[]
 }
 
@@ -237,23 +242,48 @@ function sameRecordBucket(a: Pick<SoloRecord, 'datasetId' | 'variation'>, b: Pic
   return a.datasetId === b.datasetId && a.variation === b.variation
 }
 
+function scoreValue(record: Pick<SoloRecord, 'score'>): number {
+  return typeof record.score === 'number' ? record.score : -1
+}
+
+/** True when candidate should rank above current for the same mode. */
 export function isBetterRecord(
-  candidate: Pick<SoloRecord, 'correctCount' | 'activeElapsedMs' | 'score'>,
-  current: Pick<SoloRecord, 'correctCount' | 'activeElapsedMs' | 'score'>
+  candidate: Pick<SoloRecord, 'correctCount' | 'activeElapsedMs' | 'score' | 'variation'>,
+  current: Pick<SoloRecord, 'correctCount' | 'activeElapsedMs' | 'score' | 'variation'>
 ): boolean {
-  if (candidate.score != null || current.score != null) {
-    if (candidate.score == null) return false
-    if (current.score == null) return true
-    if (candidate.score !== current.score) return candidate.score > current.score
-  }
   return (
-    candidate.correctCount > current.correctCount ||
-    (candidate.correctCount === current.correctCount &&
-      candidate.activeElapsedMs < current.activeElapsedMs)
+    compareRecords(
+      {
+        ...candidate,
+        datasetId: '',
+        difficulty: [],
+        entityType: 'character',
+        roundDurationMs: 0,
+        clueRevealIntervalMs: 0,
+        achievedAt: '1970-01-01T00:00:00.000Z'
+      },
+      {
+        ...current,
+        datasetId: '',
+        difficulty: [],
+        entityType: 'character',
+        roundDurationMs: 0,
+        clueRevealIntervalMs: 0,
+        achievedAt: '1970-01-01T00:00:00.000Z'
+      }
+    ) < 0
   )
 }
 
 function compareRecords(a: SoloRecord, b: SoloRecord): number {
+  // Endurance is streak-first; score is only a tiebreaker (and for display).
+  if (a.variation === 'endurance' && b.variation === 'endurance') {
+    if (b.correctCount !== a.correctCount) return b.correctCount - a.correctCount
+    if (a.activeElapsedMs !== b.activeElapsedMs) return a.activeElapsedMs - b.activeElapsedMs
+    if (scoreValue(b) !== scoreValue(a)) return scoreValue(b) - scoreValue(a)
+    return b.achievedAt.localeCompare(a.achievedAt)
+  }
+
   if (a.score != null || b.score != null) {
     if (a.score == null) return 1
     if (b.score == null) return -1
@@ -264,18 +294,22 @@ function compareRecords(a: SoloRecord, b: SoloRecord): number {
   return b.achievedAt.localeCompare(a.achievedAt)
 }
 
-function readSoloRecords(): SoloRecord[] {
-  try {
-    const raw = localStorage.getItem(RECORDS_KEY)
-    const records = raw ? (JSON.parse(raw) as SoloRecord[]) : []
-    return records.map((record) => normalizeConfigDifficulty(record))
-  } catch {
-    return []
-  }
+function canMigrateLegacyScore(record: SoloRecord): boolean {
+  if (typeof record.score === 'number') return false
+  return record.variation === 'challenge' || record.variation === 'endurance'
 }
 
-function writeSoloRecords(records: SoloRecord[]): void {
-  localStorage.setItem(RECORDS_KEY, JSON.stringify(records))
+function migrateLegacySoloRecord(record: SoloRecord): SoloRecord {
+  if (!canMigrateLegacyScore(record)) return record
+  return {
+    ...record,
+    score: estimateLegacySoloScore({
+      correctCount: record.correctCount,
+      activeElapsedMs: record.activeElapsedMs,
+      clueRevealIntervalMs: record.clueRevealIntervalMs
+    }),
+    scoreSource: 'migrated'
+  }
 }
 
 /** Trim each dataset+variation bucket to the top N (migrates older stores). */
@@ -292,6 +326,36 @@ function capRecords(records: SoloRecord[]): SoloRecord[] {
     next.push(...[...list].sort(compareRecords).slice(0, SOLO_RECORDS_PER_MODE))
   }
   return next
+}
+
+function prepareSoloRecords(records: SoloRecord[]): {
+  records: SoloRecord[]
+  migrated: boolean
+} {
+  let migrated = false
+  const next = records.map((record) => {
+    const normalized = normalizeConfigDifficulty(record)
+    if (!canMigrateLegacyScore(normalized)) return normalized
+    migrated = true
+    return migrateLegacySoloRecord(normalized)
+  })
+  return { records: capRecords(next), migrated }
+}
+
+function writeSoloRecords(records: SoloRecord[]): void {
+  localStorage.setItem(RECORDS_KEY, JSON.stringify(records))
+}
+
+function readSoloRecords(): SoloRecord[] {
+  try {
+    const raw = localStorage.getItem(RECORDS_KEY)
+    const parsed = raw ? (JSON.parse(raw) as SoloRecord[]) : []
+    const { records, migrated } = prepareSoloRecords(parsed)
+    if (migrated) writeSoloRecords(records)
+    return records
+  } catch {
+    return []
+  }
 }
 
 export function getSoloRecord(config: SoloConfig): SoloRecord | null {
@@ -343,20 +407,25 @@ export function shouldPrefetchNextSoloCard(
  */
 export function saveSoloRecord(record: SoloRecord): { record: SoloRecord; isPersonalBest: boolean } {
   try {
-    const records = readSoloRecords()
-    const withAttempt = [...records, record]
-    const capped = capRecords(withAttempt)
+    const stored = readSoloRecords()
+    const incoming =
+      typeof record.score === 'number'
+        ? { ...normalizeConfigDifficulty(record), scoreSource: record.scoreSource ?? ('live' as const) }
+        : migrateLegacySoloRecord(normalizeConfigDifficulty(record))
+    const { records: capped } = prepareSoloRecords([...stored, incoming])
     writeSoloRecords(capped)
 
     const bucket = capped
-      .filter((item) => sameRecordBucket(item, record))
+      .filter((item) => sameRecordBucket(item, incoming))
       .sort(compareRecords)
+    const best = bucket[0]
     const isPersonalBest =
-      bucket[0]?.achievedAt === record.achievedAt &&
-      bucket[0]?.correctCount === record.correctCount &&
-      bucket[0]?.activeElapsedMs === record.activeElapsedMs
+      best?.achievedAt === incoming.achievedAt &&
+      best?.correctCount === incoming.correctCount &&
+      best?.activeElapsedMs === incoming.activeElapsedMs &&
+      best?.score === incoming.score
 
-    return { record, isPersonalBest }
+    return { record: incoming, isPersonalBest }
   } catch {
     return { record, isPersonalBest: false }
   }
