@@ -90,7 +90,7 @@ describe('PlaySetup', () => {
 
     await waitFor(() => {
       expect(mockNavigate).toHaveBeenCalledWith(
-        '/play/cards?datasetId=ds-1&difficulty=any&entityType=character'
+        '/play/cards?datasetId=ds-1&difficulty=easy%2Cmedium&entityType=character'
       )
     })
 
@@ -152,9 +152,9 @@ describe('PlaySetup', () => {
     })
     expect(eligibilityCalls).toBe(1)
 
-    fireEvent.click(screen.getByRole('button', { name: /^medium$/i }))
+    fireEvent.click(screen.getByRole('button', { name: /^hard$/i }))
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /^medium$/i })).toHaveAttribute('aria-pressed', 'false')
+      expect(screen.getByRole('button', { name: /^hard$/i })).toHaveAttribute('aria-pressed', 'true')
     })
     expect(eligibilityCalls).toBe(1)
   })
@@ -284,7 +284,9 @@ describe('PlaySetup', () => {
 
     const datasetSelect = await screen.findByLabelText(/content/i)
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /^hard$/i })).toHaveAttribute('aria-pressed', 'true')
+      expect(screen.getByRole('button', { name: /^easy$/i })).toHaveAttribute('aria-pressed', 'true')
+      expect(screen.getByRole('button', { name: /^medium$/i })).toHaveAttribute('aria-pressed', 'true')
+      expect(screen.getByRole('button', { name: /^hard$/i })).toHaveAttribute('aria-pressed', 'false')
     })
 
     fireEvent.change(datasetSelect, { target: { value: 'ds-2' } })
@@ -300,7 +302,7 @@ describe('PlaySetup', () => {
       expect(screen.getByRole('button', { name: /^easy$/i })).toHaveAttribute('aria-pressed', 'false')
     })
     await waitFor(() => {
-      expect(localStorage.getItem('whoami-in-person-setup')).toContain('"difficulty":["medium","hard","nightmare"]')
+      expect(localStorage.getItem('whoami-in-person-setup')).toContain('"difficulty":["medium"]')
     })
 
     firstRender.unmount()

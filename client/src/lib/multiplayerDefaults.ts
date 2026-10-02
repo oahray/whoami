@@ -1,3 +1,5 @@
+import { encodeDifficultySelection, DEFAULT_DIFFICULTY_SELECTION } from './difficultySelection'
+
 export type MultiplayerTransparencyMode = 'full' | 'minimal'
 export type MultiplayerEntityType = 'character' | 'place' | 'all'
 
@@ -21,7 +23,7 @@ export const DEFAULT_MULTIPLAYER_SETTINGS = {
   roundDuration: 30_000,
   clueRevealTime: 5_000,
   totalRounds: 5,
-  difficultyMode: 'any',
+  difficultyMode: encodeDifficultySelection(DEFAULT_DIFFICULTY_SELECTION),
   strictMode: false,
   transparencyMode: 'full' as MultiplayerTransparencyMode,
   maxGuessesPerRound: 30,

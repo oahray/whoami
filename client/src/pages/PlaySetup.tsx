@@ -16,6 +16,7 @@ import {
 } from '../lib/setupLoadErrors'
 import {
   coerceDifficultySelection,
+  DEFAULT_DIFFICULTY_SELECTION,
   encodeDifficultySelection,
   type DifficultySelection
 } from '../lib/difficultySelection'
@@ -80,7 +81,9 @@ function PlaySetup() {
   const [entityType, setEntityType] = useState<EntityTypeFilter>(
     savedPrefs?.entityType ?? DEFAULT_ENTITY_TYPE_FILTER
   )
-  const [difficulty, setDifficulty] = useState<DifficultySelection>(savedPrefs?.difficulty ?? [])
+  const [difficulty, setDifficulty] = useState<DifficultySelection>(
+    savedPrefs ? coerceDifficultySelection(savedPrefs.difficulty) : DEFAULT_DIFFICULTY_SELECTION
+  )
   const [eligibility, setEligibility] = useState<InPersonEligibility | null>(null)
   const [loading, setLoading] = useState(true)
   const [eligibilityLoading, setEligibilityLoading] = useState(false)

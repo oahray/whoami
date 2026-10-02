@@ -26,6 +26,8 @@
 html {
   min-height: 100%;
   background-color: rgb(var(--color-app-bg));
+  /* Keep the game shell at 1× — no pinch / double-tap zoom. */
+  touch-action: manipulation;
 }
 
 body {

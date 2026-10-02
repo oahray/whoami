@@ -239,7 +239,7 @@ describe('roundState unit', () => {
     expect(room.gameHistory[0]).toMatchObject({
       gameNumber: 1,
       totalRounds: 1,
-      difficultyMode: 'any',
+      difficultyMode: 'easy,medium',
       roundDurationMs: DEFAULT_MULTIPLAYER_SETTINGS.roundDuration,
       clueRevealTimeMs: DEFAULT_MULTIPLAYER_SETTINGS.clueRevealTime,
       scoreboard: [

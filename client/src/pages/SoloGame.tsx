@@ -24,7 +24,8 @@ import {
   getInPersonCard,
   isLostCardError,
   prefetchInPersonCard,
-  rememberCard
+  rememberCard,
+  rememberDailyCard
 } from '../lib/inPersonCardFetch'
 import {
   isMaintenanceBlockingNewGames,
@@ -144,7 +145,10 @@ function SoloGame() {
   const cardQuery = useCallback((nextSession: SoloSession) => ({
     datasetId: nextSession.datasetId,
     difficulty: encodeDifficultySelection(nextSession.difficulty),
-    entityType: nextSession.entityType
+    entityType: nextSession.entityType,
+    ...(nextSession.variation === 'daily' && nextSession.dailyChallengeId
+      ? { dailyChallengeId: nextSession.dailyChallengeId }
+      : {})
   }), [])
 
   const loadCard = useCallback(async (nextSession: SoloSession, opts?: { freshRound?: boolean }) => {
@@ -158,9 +162,14 @@ function SoloGame() {
     setFeedback(null)
     lastClueCountRef.current = 0
     try {
+      const query = cardQuery(nextSession)
       const storedCard = cardForCurrentSoloRound(nextSession)
-      const loadedCard = storedCard ?? await getInPersonCard(entityId, cardQuery(nextSession))
-      rememberCard(nextSession.datasetId, entityId, loadedCard)
+      const loadedCard = storedCard ?? await getInPersonCard(entityId, query)
+      if (query.dailyChallengeId) {
+        rememberDailyCard(query.dailyChallengeId, entityId, loadedCard)
+      } else {
+        rememberCard(nextSession.datasetId, entityId, loadedCard)
+      }
       setCard(loadedCard)
 
       const startedAt = freshRound ? Date.now() : (nextSession.roundStartedAt as number)

@@ -3,11 +3,14 @@ import { parseEntityTypeFilter } from '../game/entityTypeFilter.js'
 import { parseDifficultySelection } from '../game/difficultySelection.js'
 import {
   buildInPersonCardForEntity,
+  dailyCardSeed,
   getEligibleEntityIds,
   getInPersonDeck,
   getInPersonEligibility,
   getRandomInPersonCard,
-  InPersonPlayError
+  resolvePublishedEntities,
+  InPersonPlayError,
+  type ResolveEntityRequest
 } from '../game/inPersonPlay.js'
 import { getMaintenanceBlock } from '../db/maintenance.js'
 import { getDefaultEnabledDataset } from '../db/entities.js'
@@ -19,7 +22,7 @@ import { pickSeededSample } from '../game/shuffle.js'
 import { logger } from '../utils/logger.js'
 
 const router = Router()
-const DAILY_CHALLENGE_VERSION = 3
+export const DAILY_CHALLENGE_VERSION = 1
 const DAILY_CHALLENGE_ROUNDS = 10
 let dailyChallengeCache: {
   cacheKey: string
@@ -36,6 +39,12 @@ function parseDifficultyQuery(raw: unknown) {
 
 function parseEntityTypeQuery(raw: unknown) {
   return parseEntityTypeFilter(raw)
+}
+
+function parseOptionalTrimmed(raw: unknown): string | undefined {
+  if (typeof raw !== 'string') return undefined
+  const value = raw.trim()
+  return value.length > 0 ? value : undefined
 }
 
 function dailyDateKey(now = new Date()): string {
@@ -150,6 +159,50 @@ router.get('/cards/deck', async (req, res) => {
   }
 })
 
+/**
+ * Resolve a small set of entity ids (Review) without fetching the full published pool.
+ * Body: { datasetId, entities: [{ id, name? }] }
+ */
+router.post('/cards/resolve', async (req, res) => {
+  try {
+    const maintenance = await getMaintenanceBlock()
+    if (maintenance) {
+      return res.status(503).json({
+        error: maintenance.message,
+        code: maintenance.code,
+        maintenanceEndsAt: maintenance.endsAt
+      })
+    }
+
+    const datasetId = parseDatasetId(req.body?.datasetId)
+    if (!datasetId) {
+      return res.status(400).json({ error: 'datasetId is required' })
+    }
+    const rawEntities = req.body?.entities
+    if (!Array.isArray(rawEntities)) {
+      return res.status(400).json({ error: 'entities must be an array' })
+    }
+    const requests: ResolveEntityRequest[] = rawEntities.map((entry: unknown) => {
+      if (!entry || typeof entry !== 'object') return { id: '' }
+      const record = entry as Record<string, unknown>
+      return {
+        id: typeof record.id === 'string' ? record.id : '',
+        ...(typeof record.name === 'string' ? { name: record.name } : {})
+      }
+    })
+
+    const entities = await resolvePublishedEntities(datasetId, requests)
+    res.json({
+      entities,
+      entityIds: entities.map((entity) => entity.id),
+      scoringVersion: KNOWLEDGE_SCORE_VERSION,
+      scoringRules: DEFAULT_KNOWLEDGE_SCORE_RULES
+    })
+  } catch (error) {
+    return handleInPersonError(error, res, 'Failed to resolve entities')
+  }
+})
+
 router.get('/cards/entity/:entityId', async (req, res) => {
   try {
     const datasetId = parseDatasetId(req.query.datasetId)
@@ -164,10 +217,12 @@ router.get('/cards/entity/:entityId', async (req, res) => {
     if (!entityId) {
       return res.status(400).json({ error: 'entityId is required' })
     }
+    const dailyChallengeId = parseOptionalTrimmed(req.query.dailyChallengeId)
     const card = await buildInPersonCardForEntity({
       datasetId,
       entityId,
-      difficultySelection
+      difficultySelection,
+      ...(dailyChallengeId ? { seed: dailyCardSeed(dailyChallengeId, entityId) } : {})
     })
     res.json(card)
   } catch (error) {
