@@ -246,7 +246,13 @@ describe('roundState unit', () => {
         expect.objectContaining({ playerId: 'player-1', nickname: 'Player1', score: 200 }),
         expect.objectContaining({ playerId: 'host-1', nickname: 'Host', score: 100 }),
         expect.objectContaining({ playerId: 'player-2', nickname: 'Player2', score: 50 })
-      ]
+      ],
+      efficiency: {
+        roundsPlayed: 1,
+        roundsSolved: 0,
+        firstClueSolves: 0,
+        avgCluesWhenSolved: null
+      }
     })
   })
 

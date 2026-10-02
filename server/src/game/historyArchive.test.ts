@@ -37,6 +37,24 @@ describe('historyArchive', () => {
     expect(first).toBe(second)
     expect(first).toContain('"roomCode":"ABC123"')
     expect(first).toContain('"viewerPlayerId":"p1"')
+    expect(first).not.toContain('"efficiency"')
+  })
+
+  it('includes efficiency in the signed payload when present', () => {
+    const withStats: GameHistoryEntry = {
+      ...sampleEntry,
+      efficiency: {
+        roundsPlayed: 5,
+        roundsSolved: 4,
+        firstClueSolves: 2,
+        avgCluesWhenSolved: 2.5
+      }
+    }
+    const payload = buildHistoryArchivePayload(withStats, 'ABC123', 'p1')
+    const serialized = serializeHistoryArchivePayload(payload)
+    expect(payload.efficiency).toEqual(withStats.efficiency)
+    expect(serialized).toContain('"firstClueSolves":2')
+    expect(serialized).toContain('"avgCluesWhenSolved":2.5')
   })
 
   it('signs and verifies a snapshot', () => {

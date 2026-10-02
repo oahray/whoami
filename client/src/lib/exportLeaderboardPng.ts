@@ -1,7 +1,9 @@
 import { avatarSrc, isAvatarId } from './avatars'
 import { paintNotarySeal, shareSealAnchor } from './exportShareSeal'
 import {
+  formatAvgCluesWhenSolved,
   formatGameHistorySettings,
+  hasGameEfficiency,
   type GameHistoryEntry,
   type GameHistoryScoreEntry
 } from './gameHistory'
@@ -10,6 +12,7 @@ const WIDTH = 1080
 const PAD = 72
 const ROW_H = 96
 const HEADER_H = 380
+const STATS_BAND_H = 132
 const FOOTER_H = 168
 
 type RankedRow = GameHistoryScoreEntry & { rank: number; tied: boolean }
@@ -127,7 +130,10 @@ export async function exportLeaderboardPng(options: {
   const appOrigin = resolveAppOrigin(options.appOrigin)
   const appUrlDisplay = formatAppUrlForDisplay(appOrigin)
   const ranked = rankScoreboard(entry.scoreboard)
-  const height = HEADER_H + ranked.length * ROW_H + FOOTER_H + PAD
+  const efficiency = hasGameEfficiency(entry) ? entry.efficiency : null
+  const statsBandH = efficiency ? STATS_BAND_H : 0
+  const boardTop = HEADER_H + statsBandH
+  const height = boardTop + ranked.length * ROW_H + FOOTER_H + PAD
 
   const canvas = document.createElement('canvas')
   canvas.width = WIDTH
@@ -221,6 +227,46 @@ export async function exportLeaderboardPng(options: {
   ctx.lineTo(WIDTH - PAD, HEADER_H - 36)
   ctx.stroke()
 
+  if (efficiency) {
+    const played = Math.max(1, efficiency.roundsPlayed)
+    const stats = [
+      {
+        label: 'AVG CLUES',
+        value: formatAvgCluesWhenSolved(efficiency.avgCluesWhenSolved),
+        accent: '#8fa2ff'
+      },
+      {
+        label: 'FIRST CLUE',
+        value: `${efficiency.firstClueSolves}/${played}`,
+        accent: '#f3efe6'
+      },
+      {
+        label: 'SOLVED',
+        value: `${efficiency.roundsSolved}/${played}`,
+        accent: '#f3efe6'
+      }
+    ] as const
+    const cardW = (WIDTH - PAD * 2 - 24) / 3
+    const statsY = HEADER_H
+    stats.forEach((stat, index) => {
+      const x = PAD + index * (cardW + 12)
+      roundRect(ctx, x, statsY, cardW, 108, 18)
+      ctx.fillStyle = '#0a1228'
+      ctx.fill()
+      roundRect(ctx, x, statsY, cardW, 108, 18)
+      ctx.fillStyle = index === 0 ? '#152048' : '#121a2e'
+      ctx.fill()
+      ctx.fillStyle = 'rgba(243,239,230,0.45)'
+      ctx.font = '700 18px Inter, system-ui, sans-serif'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(stat.label, x + cardW / 2, statsY + 34)
+      ctx.fillStyle = stat.accent
+      ctx.font = '800 40px Inter, system-ui, sans-serif'
+      ctx.fillText(stat.value, x + cardW / 2, statsY + 74)
+    })
+  }
+
   const avatars = await Promise.all(
     ranked.map(async (row) => {
       if (!isAvatarId(row.avatarId)) return null
@@ -229,7 +275,7 @@ export async function exportLeaderboardPng(options: {
   )
 
   ranked.forEach((row, index) => {
-    const y = HEADER_H + index * ROW_H
+    const y = boardTop + index * ROW_H
     const rowMid = y + (ROW_H - 14) / 2
     const accent = rankAccent(row.rank, row.score)
     const showTied = row.tied && row.score > 0

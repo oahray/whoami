@@ -1,6 +1,6 @@
 /** Shared notary / lawyer embossed seal for share-card exports. */
 
-export const SHARE_SEAL_RADIUS = 78
+export const SHARE_SEAL_RADIUS = 102
 
 export type ShareSealAccent = 'teal' | 'blue'
 
@@ -41,16 +41,32 @@ const PALETTES: Record<ShareSealAccent, SealPalette> = {
   }
 }
 
+function fitSealLine(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+  maxSize: number,
+  minSize: number,
+  weight: 700 | 800
+): number {
+  for (let size = maxSize; size >= minSize; size -= 1) {
+    ctx.font = `${weight} ${size}px Inter, system-ui, sans-serif`
+    if (ctx.measureText(text).width <= maxWidth) return size
+  }
+  ctx.font = `${weight} ${minSize}px Inter, system-ui, sans-serif`
+  return minSize
+}
+
 /** Top-right corner anchor that clears the left header copy column. */
 export function shareSealAnchor(
   canvasWidth: number,
   frameInset = 36
 ): { x: number; y: number; radius: number; textMaxX: number } {
   const radius = SHARE_SEAL_RADIUS
-  // Nest in the frame corner so the scalloped rim stays clear of header lines.
-  const x = canvasWidth - frameInset - radius - 8
-  const y = 122
-  return { x, y, radius, textMaxX: x - radius - 24 }
+  // Nest in the frame corner; leave a modest gap before header copy.
+  const x = canvasWidth - frameInset - radius - 4
+  const y = frameInset + radius + 10
+  return { x, y, radius, textMaxX: x - radius - 16 }
 }
 
 /** Notary seal: scalloped rim, concentric rings, two-line center legend. */
@@ -74,12 +90,13 @@ export function paintNotarySeal(
     accent = 'teal'
   } = options
   const palette = PALETTES[accent]
-  const lobes = 28
+  const lobes = 32
   const baseR = radius * 0.88
   const bumpR = radius * 0.14
   const ringOuter = radius * 0.74
   const ringInner = radius * 0.64
-  const faceR = radius * 0.58
+  const faceR = radius * 0.6
+  const textMax = faceR * 1.7
 
   ctx.beginPath()
   for (let i = 0; i < lobes; i += 1) {
@@ -101,19 +118,19 @@ export function paintNotarySeal(
   ctx.fillStyle = palette.body
   ctx.fill()
   ctx.strokeStyle = palette.rim
-  ctx.lineWidth = 2.5
+  ctx.lineWidth = Math.max(2.5, radius * 0.028)
   ctx.stroke()
 
   ctx.beginPath()
   ctx.arc(cx, cy, ringOuter, 0, Math.PI * 2)
   ctx.strokeStyle = palette.ringOuter
-  ctx.lineWidth = 2
+  ctx.lineWidth = Math.max(2, radius * 0.022)
   ctx.stroke()
 
   ctx.beginPath()
   ctx.arc(cx, cy, ringInner, 0, Math.PI * 2)
   ctx.strokeStyle = palette.ringInner
-  ctx.lineWidth = 1.5
+  ctx.lineWidth = Math.max(1.5, radius * 0.016)
   ctx.stroke()
 
   ctx.beginPath()
@@ -121,23 +138,39 @@ export function paintNotarySeal(
   ctx.fillStyle = palette.face
   ctx.fill()
   ctx.strokeStyle = palette.faceStroke
-  ctx.lineWidth = 1.25
+  ctx.lineWidth = Math.max(1.25, radius * 0.014)
   ctx.stroke()
 
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillStyle = palette.line1
-  ctx.font = '700 15px Inter, system-ui, sans-serif'
-  ctx.fillText(line1, cx, cy - 14)
+  const line1Size = fitSealLine(
+    ctx,
+    line1,
+    textMax,
+    Math.round(radius * 0.2),
+    Math.round(radius * 0.12),
+    700
+  )
+  ctx.font = `700 ${line1Size}px Inter, system-ui, sans-serif`
+  ctx.fillText(line1, cx, cy - radius * 0.18, textMax)
 
   ctx.strokeStyle = palette.rule
-  ctx.lineWidth = 1.5
+  ctx.lineWidth = Math.max(1.5, radius * 0.016)
   ctx.beginPath()
   ctx.moveTo(cx - faceR * 0.55, cy)
   ctx.lineTo(cx + faceR * 0.55, cy)
   ctx.stroke()
 
   ctx.fillStyle = '#ffffff'
-  ctx.font = '800 22px Inter, system-ui, sans-serif'
-  ctx.fillText(line2, cx, cy + 16)
+  const line2Size = fitSealLine(
+    ctx,
+    line2,
+    textMax,
+    Math.round(radius * 0.27),
+    Math.round(radius * 0.14),
+    800
+  )
+  ctx.font = `800 ${line2Size}px Inter, system-ui, sans-serif`
+  ctx.fillText(line2, cx, cy + radius * 0.2, textMax)
 }

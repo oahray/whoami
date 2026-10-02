@@ -12,6 +12,10 @@ import {
   type DailyProgress
 } from '../lib/dailySolo'
 import {
+  downloadSoloBoardPng,
+  shareSoloBoardPng
+} from '../lib/exportSoloBoardPng'
+import {
   downloadSoloDailyPng,
   shareSoloDailyPng
 } from '../lib/exportSoloDailyPng'
@@ -106,6 +110,9 @@ function SoloGame() {
   } | null>(null)
   const [restarting, setRestarting] = useState(false)
   const [dailyShareState, setDailyShareState] = useState<
+    'idle' | 'working' | 'shared' | 'downloaded' | 'error'
+  >('idle')
+  const [boardShareState, setBoardShareState] = useState<
     'idle' | 'working' | 'shared' | 'downloaded' | 'error'
   >('idle')
   const { status: maintenanceStatus } = useMaintenanceStatus({ poll: true })
@@ -660,7 +667,7 @@ function SoloGame() {
         : listSoloRecords(session.variation, session.datasetId)[0]?.score
     const isSingleAction =
       session.variation === 'daily' || session.variation === 'review'
-    const canShareDailyImage =
+    const canShareImage =
       typeof navigator !== 'undefined' && typeof navigator.share === 'function'
     const dailyShareInput =
       session.variation === 'daily' && session.dailyDateKey
@@ -669,6 +676,13 @@ function SoloGame() {
             record: result.record,
             currentStreak: result.dailyProgress?.currentStreak ?? 0,
             bestStreak: result.dailyProgress?.bestStreak
+          }
+        : null
+    const boardShareInput =
+      session.variation === 'challenge' || session.variation === 'endurance'
+        ? {
+            variation: session.variation,
+            records: listSoloRecords(session.variation, session.datasetId)
           }
         : null
 
@@ -690,6 +704,27 @@ function SoloGame() {
           console.warn('Solo daily share failed:', err)
           setDailyShareState('error')
           window.setTimeout(() => setDailyShareState('idle'), 2200)
+        })
+    }
+
+    const runBoardShare = (mode: 'share' | 'download') => {
+      if (!boardShareInput || boardShareInput.records.length === 0) return
+      setBoardShareState('working')
+      const action =
+        mode === 'share' ? shareSoloBoardPng(boardShareInput) : downloadSoloBoardPng(boardShareInput)
+      void action
+        .then(() => {
+          setBoardShareState(mode === 'share' ? 'shared' : 'downloaded')
+          window.setTimeout(() => setBoardShareState('idle'), 2200)
+        })
+        .catch((err) => {
+          if (err instanceof Error && err.name === 'AbortError') {
+            setBoardShareState('idle')
+            return
+          }
+          console.warn('Solo board share failed:', err)
+          setBoardShareState('error')
+          window.setTimeout(() => setBoardShareState('idle'), 2200)
         })
     }
 
@@ -768,7 +803,7 @@ function SoloGame() {
           )}
           {dailyShareInput && (
             <div className="mt-5 flex items-center justify-center gap-2">
-              {canShareDailyImage && (
+              {canShareImage && (
                 <button
                   type="button"
                   onClick={() => runDailyShare('share')}
@@ -822,6 +857,69 @@ function SoloGame() {
                         : 'download'}
                 </span>
               </button>
+            </div>
+          )}
+          {boardShareInput && boardShareInput.records.length > 0 && (
+            <div className="mt-5 flex flex-col items-center gap-2">
+              <div className="flex items-center justify-center gap-2">
+                {canShareImage && (
+                  <button
+                    type="button"
+                    onClick={() => runBoardShare('share')}
+                    disabled={boardShareState === 'working'}
+                    aria-label={`Share ${session.variation === 'challenge' ? 'Classic' : 'Endurance'} board image`}
+                    title={
+                      boardShareState === 'working'
+                        ? 'Sharing…'
+                        : boardShareState === 'shared'
+                          ? 'Shared!'
+                          : boardShareState === 'error'
+                            ? 'Failed'
+                            : 'Share board'
+                    }
+                    className="flex size-11 items-center justify-center rounded-lg bg-primary text-white hover:bg-primary/90 disabled:opacity-60"
+                  >
+                    <span className="material-symbols-outlined text-xl" aria-hidden>
+                      {boardShareState === 'working'
+                        ? 'hourglass_top'
+                        : boardShareState === 'shared'
+                          ? 'check'
+                          : boardShareState === 'error'
+                            ? 'error'
+                            : 'share'}
+                    </span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => runBoardShare('download')}
+                  disabled={boardShareState === 'working'}
+                  aria-label={`Download ${session.variation === 'challenge' ? 'Classic' : 'Endurance'} board image`}
+                  title={
+                    boardShareState === 'working'
+                      ? 'Saving…'
+                      : boardShareState === 'downloaded'
+                        ? 'Saved!'
+                        : boardShareState === 'error'
+                          ? 'Failed'
+                          : 'Download board'
+                  }
+                  className="flex size-11 items-center justify-center rounded-lg border-2 border-edge text-foreground hover:bg-surface-muted disabled:opacity-60"
+                >
+                  <span className="material-symbols-outlined text-xl" aria-hidden>
+                    {boardShareState === 'working'
+                      ? 'hourglass_top'
+                      : boardShareState === 'downloaded'
+                        ? 'check'
+                        : boardShareState === 'error'
+                          ? 'error'
+                          : 'download'}
+                  </span>
+                </button>
+              </div>
+              <p className="text-xs text-foreground-muted">
+                Share your {session.variation === 'challenge' ? 'Classic' : 'Endurance'} top 10.
+              </p>
             </div>
           )}
           <div className={`mt-6 ${isSingleAction ? '' : 'grid grid-cols-2 gap-3'}`}>
