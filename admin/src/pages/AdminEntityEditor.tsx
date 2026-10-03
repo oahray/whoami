@@ -4,6 +4,7 @@ import LoadingState from '../components/LoadingState'
 import { useAuth } from '../context/AuthContext'
 import { useAdminDataset } from '../context/AdminDatasetContext'
 import { AdminLayout } from '../components/AdminLayout'
+import { buildClueBaselineMap, isClueDirty, type ClueBaseline } from '../lib/clueDirty'
 import type { Entity, Clue, Difficulty } from '../types'
 
 const API_BASE_URL = import.meta.env.VITE_SOCKET_URL?.replace('ws://', 'http://').replace('wss://', 'https://') || 'http://localhost:3001'
@@ -32,6 +33,7 @@ function AdminEntityEditor() {
   })
   const [aliasesText, setAliasesText] = useState('')
   const [clues, setClues] = useState<ClueForm[]>([])
+  const [clueBaselineById, setClueBaselineById] = useState<Record<string, ClueBaseline>>({})
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -74,11 +76,13 @@ function AdminEntityEditor() {
         aliases: Array.isArray(entityData.aliases) ? entityData.aliases : []
       })
       setAliasesText(Array.isArray(entityData.aliases) ? entityData.aliases.join(', ') : '')
-      setClues(cluesData.map(c => ({
+      const nextClues = cluesData.map(c => ({
         ...c,
         id: c.id,
         citations: c.citations || '',
-      })))
+      }))
+      setClues(nextClues)
+      setClueBaselineById(buildClueBaselineMap(nextClues))
     } catch (err: any) {
       setError(err.message || 'Failed to load entity')
     } finally {
@@ -163,35 +167,44 @@ function AdminEntityEditor() {
         }
       }
 
-      for (const clue of clues) {
-        if (clue.id) {
-          await fetch(`${API_BASE_URL}/admin/clues/${clue.id}`, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              text: clue.text,
-              citations: clue.citations || null,
-              difficulty: clue.difficulty || null,
-            }),
-          })
-        } else {
-          await fetch(`${API_BASE_URL}/admin/entities/${entityId}/clues`, {
+      const dirtyClues = clues.filter((clue) => isClueDirty(clue, clueBaselineById))
+      await Promise.all(
+        dirtyClues.map(async (clue) => {
+          const body = {
+            text: clue.text,
+            citations: clue.citations || null,
+            difficulty: clue.difficulty || null,
+          }
+          if (clue.id) {
+            const response = await fetch(`${API_BASE_URL}/admin/clues/${clue.id}`, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify(body),
+            })
+            if (!response.ok) {
+              const data = (await response.json().catch(() => ({}))) as { error?: string }
+              throw new Error(data.error || 'Failed to update clue')
+            }
+            return
+          }
+
+          const response = await fetch(`${API_BASE_URL}/admin/entities/${entityId}/clues`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               Authorization: `Bearer ${token}`,
             },
-            body: JSON.stringify({
-              text: clue.text,
-              citations: clue.citations || null,
-              difficulty: clue.difficulty || null,
-            }),
+            body: JSON.stringify(body),
           })
-        }
-      }
+          if (!response.ok) {
+            const data = (await response.json().catch(() => ({}))) as { error?: string }
+            throw new Error(data.error || 'Failed to create clue')
+          }
+        })
+      )
 
       navigate('/entities')
     } catch (err: any) {
@@ -227,14 +240,23 @@ function AdminEntityEditor() {
 
     try {
       const token = await getAccessToken()
-      await fetch(`${API_BASE_URL}/admin/clues/${clueId}`, {
+      const response = await fetch(`${API_BASE_URL}/admin/clues/${clueId}`, {
         method: 'DELETE',
         headers: {
           Authorization: `Bearer ${token}`,
         },
       })
+      if (!response.ok) {
+        const data = (await response.json().catch(() => ({}))) as { error?: string }
+        throw new Error(data.error || 'Failed to delete clue')
+      }
 
-      await loadEntity()
+      setClues(clues.filter((_, i) => i !== index))
+      setClueBaselineById((prev) => {
+        const next = { ...prev }
+        delete next[clueId]
+        return next
+      })
     } catch (err: any) {
       setError(err.message || 'Failed to delete clue')
     }

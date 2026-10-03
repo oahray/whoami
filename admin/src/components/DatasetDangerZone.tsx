@@ -7,6 +7,8 @@ const API_BASE_URL =
   import.meta.env.VITE_SOCKET_URL?.replace('ws://', 'http://').replace('wss://', 'https://') ||
   'http://localhost:3001'
 
+type PurgeMode = 'clues' | 'all'
+
 interface DatasetDangerZoneProps {
   datasetId: string
 }
@@ -20,12 +22,14 @@ export default function DatasetDangerZone({ datasetId }: DatasetDangerZoneProps)
   const [error, setError] = useState('')
   const [exporting, setExporting] = useState(false)
   const [showPurgeModal, setShowPurgeModal] = useState(false)
+  const [purgeMode, setPurgeMode] = useState<PurgeMode>('clues')
   const [confirmText, setConfirmText] = useState('')
   const [backupChecked, setBackupChecked] = useState(false)
   const [purging, setPurging] = useState(false)
 
   const enabledCount = datasets.filter((d) => d.is_enabled).length
   const isOnlyEnabled = enabledCount === 1 && selectedDataset?.is_enabled
+  const confirmWord = purgeMode === 'all' ? 'purge all' : 'purge'
 
   useEffect(() => {
     let cancelled = false
@@ -106,6 +110,13 @@ export default function DatasetDangerZone({ datasetId }: DatasetDangerZoneProps)
     }
   }
 
+  const openPurgeModal = (mode: PurgeMode = 'clues') => {
+    setPurgeMode(mode)
+    setConfirmText('')
+    setBackupChecked(false)
+    setShowPurgeModal(true)
+  }
+
   const handlePurge = async () => {
     setPurging(true)
     setError('')
@@ -113,6 +124,7 @@ export default function DatasetDangerZone({ datasetId }: DatasetDangerZoneProps)
       const token = await getAccessToken()
       const url = new URL(`${API_BASE_URL}/admin/datasets/${datasetId}/content`)
       url.searchParams.set('selectedDatasetId', datasetId)
+      url.searchParams.set('mode', purgeMode)
       const res = await fetch(url.toString(), {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
@@ -124,6 +136,7 @@ export default function DatasetDangerZone({ datasetId }: DatasetDangerZoneProps)
       setShowPurgeModal(false)
       setConfirmText('')
       setBackupChecked(false)
+      setPurgeMode('clues')
       await refresh()
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Purge failed')
@@ -138,14 +151,14 @@ export default function DatasetDangerZone({ datasetId }: DatasetDangerZoneProps)
       ? 'Purge is only available during an active maintenance window for this dataset.'
       : null
 
-  const canSubmitPurge = confirmText === 'purge' && backupChecked && !purging
+  const canSubmitPurge = confirmText === confirmWord && backupChecked && !purging
 
   return (
     <section className="mt-6">
       <div className="bg-admin-panel rounded-md border border-red-300 shadow-sm p-4">
         <h2 className="text-red-700 text-lg font-bold mb-0.5">Danger zone</h2>
         <p className="text-admin-muted text-sm mb-4">
-          Export all entities and clues for backup, or purge all content in this dataset. The dataset row itself is kept.
+          Export a backup, then purge before reimport. Prefer clues-only so entity ids (and Solo Progress) stay stable.
         </p>
 
         {error && (
@@ -172,15 +185,24 @@ export default function DatasetDangerZone({ datasetId }: DatasetDangerZoneProps)
           </button>
           <button
             type="button"
-            onClick={() => setShowPurgeModal(true)}
+            onClick={() => openPurgeModal('clues')}
             disabled={Boolean(purgeDisabledReason)}
             title={purgeDisabledReason ?? undefined}
             className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700 disabled:opacity-50"
           >
-            <span className="material-symbols-outlined">delete_forever</span>
-            Purge all content…
+            <span className="material-symbols-outlined">delete_sweep</span>
+            Purge clues…
           </button>
         </div>
+        <button
+          type="button"
+          onClick={() => openPurgeModal('all')}
+          disabled={Boolean(purgeDisabledReason)}
+          title={purgeDisabledReason ?? undefined}
+          className="mt-3 text-sm font-medium text-red-700 hover:underline disabled:opacity-50 disabled:no-underline"
+        >
+          Or purge entities &amp; clues (nuclear)…
+        </button>
         {purgeDisabledReason && (
           <p className="text-admin-muted text-xs mt-2">{purgeDisabledReason}</p>
         )}
@@ -195,17 +217,70 @@ export default function DatasetDangerZone({ datasetId }: DatasetDangerZoneProps)
             className="w-full max-w-md rounded-lg bg-admin-panel border border-admin-border shadow-2xl p-5"
           >
             <h3 id="purge-dialog-title" className="text-admin-fg text-lg font-bold mb-2">
-              Purge all content?
+              {purgeMode === 'clues' ? 'Purge clues only?' : 'Purge entities & clues?'}
             </h3>
-            <p className="text-admin-muted text-sm mb-3">
-              This permanently deletes every entity and clue in{' '}
-              <strong className="text-admin-fg">{selectedDataset?.name}</strong>. The empty dataset remains.
-            </p>
-            {isOnlyEnabled && (
+            {purgeMode === 'clues' ? (
+              <p className="text-admin-muted text-sm mb-3">
+                Deletes every clue in{' '}
+                <strong className="text-admin-fg">{selectedDataset?.name}</strong>, keeps entity
+                rows (ids stay the same), and unpublishes them. Reimport with bulk upload to refresh
+                clues.
+              </p>
+            ) : (
+              <p className="text-admin-muted text-sm mb-3">
+                Permanently deletes every entity and clue in{' '}
+                <strong className="text-admin-fg">{selectedDataset?.name}</strong>. New entity ids
+                after reimport will break Solo Progress until players rebuild it. Prefer clues-only
+                unless you need a structural wipe.
+              </p>
+            )}
+            {isOnlyEnabled && purgeMode === 'all' && (
               <p className="text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 text-sm mb-3">
                 This is the only enabled dataset. New games will have no content until you import or enable another dataset.
               </p>
             )}
+            {purgeMode === 'clues' && (
+              <p className="text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 text-sm mb-3">
+                Entities stay, but nothing is playable until you reimport clues (or add them manually).
+              </p>
+            )}
+            <fieldset className="mb-3">
+              <legend className="text-admin-muted text-sm mb-2">Purge mode</legend>
+              <div className="flex flex-col gap-2">
+                <label className="flex items-start gap-2 text-sm text-admin-fg">
+                  <input
+                    type="radio"
+                    name="purge-mode"
+                    checked={purgeMode === 'clues'}
+                    onChange={() => {
+                      setPurgeMode('clues')
+                      setConfirmText('')
+                    }}
+                    className="mt-1"
+                  />
+                  <span>
+                    <span className="font-semibold">Clues only</span>
+                    <span className="block text-admin-muted text-xs">Recommended — keeps entity ids</span>
+                  </span>
+                </label>
+                <label className="flex items-start gap-2 text-sm text-admin-fg">
+                  <input
+                    type="radio"
+                    name="purge-mode"
+                    checked={purgeMode === 'all'}
+                    onChange={() => {
+                      setPurgeMode('all')
+                      setConfirmText('')
+                    }}
+                    className="mt-1"
+                  />
+                  <span>
+                    <span className="font-semibold">Entities &amp; clues</span>
+                    <span className="block text-admin-muted text-xs">Nuclear — new ids after reimport</span>
+                  </span>
+                </label>
+              </div>
+            </fieldset>
             <label className="flex items-start gap-2 text-sm text-admin-fg mb-3">
               <input
                 type="checkbox"
@@ -217,7 +292,9 @@ export default function DatasetDangerZone({ datasetId }: DatasetDangerZoneProps)
             </label>
             <label className="flex flex-col gap-1.5 mb-4">
               <span className="text-admin-muted text-sm">
-                Type <code className="text-red-600 dark:text-red-400 font-semibold">purge</code> to confirm
+                Type{' '}
+                <code className="text-red-600 dark:text-red-400 font-semibold">{confirmWord}</code> to
+                confirm
               </span>
               <input
                 type="text"
@@ -234,6 +311,7 @@ export default function DatasetDangerZone({ datasetId }: DatasetDangerZoneProps)
                   setShowPurgeModal(false)
                   setConfirmText('')
                   setBackupChecked(false)
+                  setPurgeMode('clues')
                 }}
                 className="px-4 py-2 rounded-lg border border-admin-border text-admin-fg font-medium"
               >
@@ -245,7 +323,7 @@ export default function DatasetDangerZone({ datasetId }: DatasetDangerZoneProps)
                 onClick={() => void handlePurge()}
                 className="px-4 py-2 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700 disabled:opacity-50"
               >
-                {purging ? 'Purging…' : 'Purge content'}
+                {purging ? 'Purging…' : purgeMode === 'clues' ? 'Purge clues' : 'Purge everything'}
               </button>
             </div>
           </div>
