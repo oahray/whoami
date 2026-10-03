@@ -14,6 +14,7 @@ vi.mock('../db/maintenance.js', () => ({
 
 import { supabase } from '../db/supabase.js'
 import cardsRouter, { DAILY_CHALLENGE_VERSION } from './cards.js'
+import { resetDailyChallengeCacheForTests } from '../game/dailyChallenge.js'
 import {
   createQueryBuilder,
   hasEq,
@@ -306,7 +307,12 @@ describe('GET /cards/eligibility', () => {
 })
 
 describe('GET /cards/daily-challenge', () => {
-  it('returns a deterministic fixed challenge with scoring rules', async () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    resetDailyChallengeCacheForTests()
+  })
+
+  it('returns a deterministic fixed challenge with frozen cards', async () => {
     installMocks(
       [ENTITY_A, ENTITY_B, ENTITY_PLACE],
       [
@@ -326,6 +332,11 @@ describe('GET /cards/daily-challenge', () => {
     )
     expect(first.body.challengeVersion).toBe(DAILY_CHALLENGE_VERSION)
     expect(first.body.entityIds).toHaveLength(3)
+    expect(Object.keys(first.body.cards).sort()).toEqual([...first.body.entityIds].sort())
+    for (const entityId of first.body.entityIds) {
+      expect(first.body.cards[entityId].entity.id).toBe(entityId)
+      expect(first.body.cards[entityId].clues.length).toBeGreaterThanOrEqual(3)
+    }
     expect(first.body).toMatchObject({
       datasetId: 'ds-1',
       difficulty: 'any',
@@ -334,6 +345,24 @@ describe('GET /cards/daily-challenge', () => {
       clueRevealIntervalMs: 5_000,
       scoringVersion: 1
     })
+  })
+
+  it('serves the same frozen card via /cards/entity when dailyChallengeId is set', async () => {
+    installMocks([ENTITY_A, ENTITY_B], [...makeClues('ent-a', 12), ...makeClues('ent-b', 12)])
+
+    const daily = await request(makeApp()).get('/cards/daily-challenge')
+    expect(daily.status).toBe(200)
+    const entityId = daily.body.entityIds[0] as string
+    const frozen = daily.body.cards[entityId]
+
+    const fetched = await request(makeApp()).get(`/cards/entity/${entityId}`).query({
+      datasetId: 'ds-1',
+      difficulty: 'any',
+      dailyChallengeId: daily.body.challengeId
+    })
+
+    expect(fetched.status).toBe(200)
+    expect(fetched.body).toEqual(frozen)
   })
 })
 

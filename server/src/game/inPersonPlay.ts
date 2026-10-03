@@ -406,7 +406,7 @@ export async function buildInPersonCardForEntity(params: {
 function selectCluesForCard<T extends { id: string }>(clues: T[], seed?: string): T[] {
   const limit = Math.min(IN_PERSON_CLUES_MAX, clues.length)
   if (seed) {
-    const stable = [...clues].sort((a, b) => a.id.localeCompare(b.id))
+    const stable = [...clues].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
     return seededShuffle(stable, seed).slice(0, limit)
   }
   return shuffle(clues).slice(0, limit)

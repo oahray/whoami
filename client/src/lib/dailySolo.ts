@@ -1,8 +1,10 @@
 import { API_BASE_URL } from './apiBase'
+import { rememberDailyCard } from './inPersonCardFetch'
 import type {
   KnowledgeScoreRules,
   SoloRecord
 } from './soloSession'
+import type { InPersonCard } from '../types'
 
 const DAILY_PROGRESS_KEY = 'whoami-solo-daily-progress'
 
@@ -17,6 +19,8 @@ export type DailyChallenge = {
   roundDurationMs: number
   clueRevealIntervalMs: number
   entityIds: string[]
+  /** Server-frozen cards for this challenge (same clues on every device). */
+  cards?: Record<string, InPersonCard>
   scoringVersion: number
   scoringRules: KnowledgeScoreRules
 }
@@ -44,13 +48,24 @@ function emptyProgress(): DailyProgress {
   }
 }
 
+/** Seed the Daily card cache from the challenge snapshot so play never reshuffles. */
+export function hydrateDailyCardCache(challenge: DailyChallenge): void {
+  if (!challenge.cards) return
+  for (const entityId of challenge.entityIds) {
+    const card = challenge.cards[entityId]
+    if (card) rememberDailyCard(challenge.challengeId, entityId, card)
+  }
+}
+
 export async function fetchDailyChallenge(): Promise<DailyChallenge> {
   const response = await fetch(`${API_BASE_URL}/cards/daily-challenge`)
   if (!response.ok) {
     const body = await response.json().catch(() => ({}))
     throw new Error(body.error ?? `Failed to load daily challenge (${response.status})`)
   }
-  return (await response.json()) as DailyChallenge
+  const challenge = (await response.json()) as DailyChallenge
+  hydrateDailyCardCache(challenge)
+  return challenge
 }
 
 export function loadDailyProgress(): DailyProgress {
