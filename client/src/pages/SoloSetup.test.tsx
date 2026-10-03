@@ -41,6 +41,16 @@ describe('SoloSetup', () => {
         return { ok: true, json: async () => ({ modes: { any: 12, easy: 12, medium: 0, hard: 0, nightmare: 0 } }) } as Response
       }
       if (url.includes('/cards/daily-challenge')) {
+        const entityIds = Array.from({ length: 10 }, (_, index) => `daily-${index}`)
+        const cards = Object.fromEntries(
+          entityIds.map((id) => [
+            id,
+            {
+              entity: { id, name: id, type: 'character', aliases: [] },
+              clues: [{ order: 1, text: `${id} clue`, citations: null }]
+            }
+          ])
+        )
         return {
           ok: true,
           json: async () => ({
@@ -53,7 +63,8 @@ describe('SoloSetup', () => {
             entityType: 'all',
             roundDurationMs: 30_000,
             clueRevealIntervalMs: 5_000,
-            entityIds: Array.from({ length: 10 }, (_, index) => `daily-${index}`),
+            entityIds,
+            cards,
             scoringVersion: 1,
             scoringRules: {
               basePoints: 1000,

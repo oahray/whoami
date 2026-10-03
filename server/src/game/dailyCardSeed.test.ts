@@ -16,7 +16,7 @@ describe('dailyCardSeed', () => {
     ]
     const seed = dailyCardSeed('2026-10-02-v3', 'ent-a')
     const pick = () => {
-      const stable = [...clues].sort((a, b) => a.id.localeCompare(b.id))
+      const stable = [...clues].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
       return seededShuffle(stable, seed)
         .slice(0, 3)
         .map((c) => c.id)

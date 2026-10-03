@@ -8,6 +8,7 @@ import { useMaintenanceStatus } from '../hooks/useMaintenanceStatus'
 import { API_BASE_URL } from '../lib/apiBase'
 import {
   fetchDailyChallenge,
+  hydrateDailyCardCache,
   loadDailyProgress,
   type DailyChallenge
 } from '../lib/dailySolo'
@@ -497,6 +498,7 @@ function SoloSetup() {
 
   const startDaily = () => {
     if (!dailyChallenge || offline || maintenanceBlocking) return
+    hydrateDailyCardCache(dailyChallenge)
     const existing = loadSoloSession()
     if (
       existing?.variation === 'daily' &&
