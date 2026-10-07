@@ -187,6 +187,31 @@ body {
   }
 }
 
+/* Brand lockup: cartoony display face (also listed in tailwind fontFamily.brand) */
+.font-brand {
+  font-family: 'Lilita One', cursive;
+}
+
+.home-brand-title {
+  filter: drop-shadow(0 7px 0 rgb(24 35 120 / 0.3));
+  -webkit-text-stroke: 1px rgb(255 255 255 / 0.12);
+}
+
+@keyframes home-logo-pop {
+  0% {
+    opacity: 0.35;
+    transform: scale(0.82);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 /* Home hero: faded abstract shapes on solid primary (no full-page gradient) */
 .home-hero-pattern {
   background-image:

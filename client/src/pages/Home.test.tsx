@@ -43,6 +43,24 @@ describe('Home', () => {
     })
   })
 
+  it('leads with create a room and reveals join when asked', () => {
+    render(
+      <MemoryRouter>
+        <Home />
+      </MemoryRouter>
+    )
+
+    expect(
+      screen.getByText(/one person creates a room; everyone else joins/i)
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /create a room/i })).toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('Code or invite link')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /i have a code/i }))
+    expect(screen.getByLabelText(/friend's room code/i)).toBeInTheDocument()
+    expect(screen.getByText(/ask the host/i)).toBeInTheDocument()
+  })
+
   it('prefills room code from URL once and lets the user clear it', () => {
     render(
       <MemoryRouter initialEntries={['/?room=abc123']}>
@@ -53,10 +71,13 @@ describe('Home', () => {
     const roomCodeInput = screen.getByPlaceholderText('Code or invite link') as HTMLInputElement
 
     expect(roomCodeInput.value).toBe('ABC123')
+    expect(screen.getByRole('button', { name: /join room/i })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /create a room/i })).not.toBeInTheDocument()
 
     fireEvent.change(roomCodeInput, { target: { value: '' } })
 
     expect(roomCodeInput.value).toBe('')
+    expect(screen.getByRole('button', { name: /create a room/i })).toBeInTheDocument()
   })
 
   it('strips an invite URL pasted into the room code field', () => {
@@ -66,6 +87,7 @@ describe('Home', () => {
       </MemoryRouter>
     )
 
+    fireEvent.click(screen.getByRole('button', { name: /i have a code/i }))
     const roomCodeInput = screen.getByPlaceholderText('Code or invite link') as HTMLInputElement
     fireEvent.change(roomCodeInput, {
       target: { value: 'https://play.example.com/?room=ab12cd&utm=1' }
@@ -106,6 +128,7 @@ describe('Home', () => {
     fireEvent.change(screen.getByPlaceholderText('e.g. Samuel'), {
       target: { value: 'Paul' }
     })
+    fireEvent.click(screen.getByRole('button', { name: /i have a code/i }))
     fireEvent.change(screen.getByPlaceholderText('Code or invite link'), {
       target: { value: 'ab12cd' }
     })
@@ -118,6 +141,34 @@ describe('Home', () => {
       avatarId: expect.stringMatching(/^avatar-\d{2}$/)
     })
     expect(setError).toHaveBeenCalledWith(null)
+  })
+
+  it('emits CREATE_ROOM from the primary host action', () => {
+    const emit = vi.fn()
+
+    mockUseSocket.mockReturnValue({
+      socket: { on: vi.fn(), off: vi.fn(), connect: vi.fn() },
+      emit,
+      connected: true,
+      transportStatus: 'connected',
+      retryConnect: vi.fn()
+    })
+
+    render(
+      <MemoryRouter>
+        <Home />
+      </MemoryRouter>
+    )
+
+    fireEvent.change(screen.getByPlaceholderText('e.g. Samuel'), {
+      target: { value: 'Paul' }
+    })
+    fireEvent.click(screen.getByRole('button', { name: /create a room/i }))
+
+    expect(emit).toHaveBeenCalledWith('CREATE_ROOM', {
+      nickname: 'Paul',
+      avatarId: expect.stringMatching(/^avatar-\d{2}$/)
+    })
   })
 
   it('does not clear an existing room session just by rendering Home', () => {
@@ -157,17 +208,17 @@ describe('Home', () => {
     expect(localStorage.getItem('whoami_room')).not.toBeNull()
   })
 
-  it('shows the brand logo in the hero', () => {
+  it('shows the brand logo in the Who Am I? lockup', () => {
     render(
       <MemoryRouter>
         <Home />
       </MemoryRouter>
     )
 
-    expect(screen.getByRole('img', { name: /who am i\?/i })).toHaveAttribute(
-      'src',
-      '/brand-logo.svg'
-    )
+    expect(screen.getByRole('heading', { name: /who am i\?/i })).toBeInTheDocument()
+    const logo = document.querySelector('img[src="/brand-logo.svg"]')
+    expect(logo).toBeTruthy()
+    expect(logo).toHaveAttribute('aria-hidden', 'true')
   })
 
   it('links to solo mode, pass & play and about', () => {
