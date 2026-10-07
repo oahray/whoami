@@ -8,7 +8,8 @@
     "preview": "vite preview",
     "test": "vitest",
     "pwa-assets:prep": "node scripts/prepIconSource.mjs",
-    "pwa-assets": "npm run pwa-assets:prep && pwa-assets-generator",
+    "pwa-assets": "npm run pwa-assets:prep && pwa-assets-generator && npm run pwa-splashes",
+    "pwa-splashes": "node scripts/generateSplashScreens.mjs",
     "avatars": "node scripts/generateAvatars.mjs"
   },
   "dependencies": {

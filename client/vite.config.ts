@@ -4,7 +4,6 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 const THEME_COLOR = '#2b4bee'
-const BACKGROUND_COLOR = '#f6f6f8'
 
 export default defineConfig({
   plugins: [
@@ -25,7 +24,6 @@ export default defineConfig({
       filename: 'sw.js',
       strategies: 'generateSW',
       includeAssets: [
-        'favicon.ico',
         'favicon.svg',
         'apple-touch-icon-180x180.png',
         'apple-splash-*.png'
@@ -35,7 +33,7 @@ export default defineConfig({
         short_name: 'Who Am I?',
         description: 'Real-time multiplayer Bible character guessing game.',
         theme_color: THEME_COLOR,
-        background_color: BACKGROUND_COLOR,
+        background_color: THEME_COLOR,
         display: 'standalone',
         orientation: 'portrait',
         start_url: '/',

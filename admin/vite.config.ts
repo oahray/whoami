@@ -4,7 +4,6 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 const THEME_COLOR = '#18181b'
-const BACKGROUND_COLOR = '#f4f4f5'
 
 export default defineConfig({
   plugins: [
@@ -14,13 +13,13 @@ export default defineConfig({
       injectRegister: false,
       filename: 'sw.js',
       strategies: 'generateSW',
-      includeAssets: ['favicon.svg', 'brand-logo.svg'],
+      includeAssets: ['favicon.svg', 'brand-logo.svg', 'apple-splash-*.png'],
       manifest: {
         name: 'Who Am I? Admin',
         short_name: 'WhoAmI Admin',
         description: 'Content management for Who Am I?',
         theme_color: THEME_COLOR,
-        background_color: BACKGROUND_COLOR,
+        background_color: '#2b4bee',
         display: 'standalone',
         orientation: 'portrait',
         start_url: '/',

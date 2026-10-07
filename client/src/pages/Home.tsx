@@ -34,12 +34,15 @@ function Home() {
   const [avatarId, setAvatarId] = useState<AvatarId>(() => readStoredAvatarId() ?? pickRandomAvatarId())
   const [avatarPickerOpen, setAvatarPickerOpen] = useState(false)
   const [joinCode, setJoinCode] = useState('')
+  const [showJoin, setShowJoin] = useState(() => Boolean(new URLSearchParams(location.search).get('room')))
   const [loading, setLoading] = useState(false)
   const [historySheetOpen, setHistorySheetOpen] = useState(false)
   const [deviceHistory, setDeviceHistory] = useState<GameHistoryEntry[]>([])
   const lastPrefilledRoomParamRef = useRef<string | null>(null)
+  const joinCodeInputRef = useRef<HTMLInputElement | null>(null)
   const params = new URLSearchParams(location.search)
   const roomParam = params.get('room')
+  const hasCompleteJoinCode = parseRoomCodeInput(joinCode).length === ROOM_CODE_LENGTH
 
   useEffect(() => {
     if (!roomParam) {
@@ -49,9 +52,17 @@ function Home() {
 
     if (lastPrefilledRoomParamRef.current !== roomParam) {
       setJoinCode(parseRoomCodeInput(roomParam))
+      setShowJoin(true)
       lastPrefilledRoomParamRef.current = roomParam
     }
   }, [roomParam])
+
+  useEffect(() => {
+    if (!showJoin) return
+    // Focus after expand so guests can type/paste immediately.
+    const id = window.setTimeout(() => joinCodeInputRef.current?.focus(), 0)
+    return () => window.clearTimeout(id)
+  }, [showJoin])
 
   useEffect(() => {
     const storedNickname = localStorage.getItem('whoami_nickname')
@@ -133,8 +144,7 @@ function Home() {
     }
   }, [socket, navigate, setError, joinCode, setRoomCode])
 
-  const handleCreateRoom = (e: React.MouseEvent) => {
-    e.preventDefault()
+  const handleCreateRoom = () => {
     if (!nickname.trim()) {
       setError('Please enter a nickname')
       return
@@ -151,8 +161,7 @@ function Home() {
     emit('CREATE_ROOM', { nickname: nickname.trim(), avatarId })
   }
 
-  const handleJoinRoom = (e: React.FormEvent | React.MouseEvent) => {
-    e.preventDefault()
+  const handleJoinRoom = () => {
     const roomCode = parseRoomCodeInput(joinCode)
     if (!nickname.trim() || roomCode.length !== ROOM_CODE_LENGTH) {
       setError('Please enter both nickname and room code')
@@ -172,6 +181,12 @@ function Home() {
       nickname: nickname.trim(),
       avatarId
     })
+  }
+
+  const handleOnlineSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (hasCompleteJoinCode) handleJoinRoom()
+    else handleCreateRoom()
   }
 
   return (
@@ -206,17 +221,65 @@ function Home() {
       )}
 
       <div className="flex flex-1 flex-col items-center justify-center p-6 pb-12">
-        <div className="mb-8 flex flex-col items-center">
-          <Logo className="mb-4 h-32 w-32 object-contain sm:h-40 sm:w-40" />
-          <h1 className="text-white text-3xl font-bold tracking-tight text-center">Who Am I?</h1>
-          <p className="text-white/80 text-base font-medium text-center mt-1">The Ultimate Bible Character Quiz</p>
-        </div>
+        <section className="relative isolate mb-5 flex w-full max-w-lg flex-col items-center text-center">
+          <span
+            aria-hidden="true"
+            className="material-symbols-outlined absolute -left-1 top-12 -rotate-12 text-3xl text-amber-300/80 sm:left-5 sm:text-4xl"
+          >
+            auto_awesome
+          </span>
+          <span
+            aria-hidden="true"
+            className="material-symbols-outlined absolute -right-1 top-20 rotate-12 text-4xl text-white/25 sm:right-5 sm:text-5xl"
+          >
+            question_mark
+          </span>
+
+          <div className="mb-3 inline-flex -rotate-1 items-center gap-1.5 rounded-full border border-white/25 bg-white/15 px-3 py-1 text-[0.65rem] font-bold uppercase tracking-[0.2em] text-white shadow-sm backdrop-blur-sm">
+            <span className="material-symbols-outlined text-sm text-amber-300" aria-hidden>
+              auto_awesome
+            </span>
+            The Bible guessing game
+          </div>
+
+          <h1 className="home-brand-title text-white">
+            <span className="sr-only">Who Am I?</span>
+            <span
+              aria-hidden="true"
+              className="inline-flex items-center justify-center gap-0 font-brand text-[3.25rem] font-normal leading-none tracking-wide sm:text-7xl"
+            >
+              <span>Wh</span>
+              <Logo
+                title=""
+                className="mx-[-0.06em] h-[1.25em] w-[1.25em] -rotate-2 object-contain drop-shadow-lg motion-safe:animate-[home-logo-pop_500ms_ease-out]"
+              />
+              <span className="ml-[0.08em]">Am I?</span>
+            </span>
+          </h1>
+
+          <div
+            aria-hidden="true"
+            className="mt-4 flex items-center gap-2 text-[0.7rem] font-bold uppercase tracking-wider text-white/75"
+          >
+            <span>Read clues</span>
+            <span className="size-1 rounded-full bg-amber-300" />
+            <span>Guess fast</span>
+            <span className="size-1 rounded-full bg-amber-300" />
+            <span className="text-amber-300">Have fun</span>
+          </div>
+        </section>
 
         <div className="w-full max-w-md bg-surface rounded-xl shadow-2xl border border-edge py-8 px-5 flex flex-col gap-6">
+          <div className="-mb-1 text-center">
+            <h2 className="text-lg font-bold text-foreground">Start a multiplayer game</h2>
+            <p className="mt-1 text-xs font-medium text-foreground-muted">
+              One person creates a room; everyone else joins with the code.
+            </p>
+          </div>
           {maintenanceStatus.phase !== 'none' && (
             <MaintenanceBanner status={maintenanceStatus} />
           )}
-          <form onSubmit={handleJoinRoom} className="flex flex-col gap-6">
+          <form onSubmit={handleOnlineSubmit} className="flex flex-col gap-6">
             <div className="flex flex-col gap-2">
               <label className="text-foreground text-sm font-semibold ml-1">Your Nickname</label>
               <div className="relative">
@@ -264,64 +327,106 @@ function Home() {
               )}
             </div>
 
-            <div className="flex flex-col gap-2">
-              <label className="text-foreground text-sm font-semibold ml-1">Room Code</label>
-              <div className="relative">
-                <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-foreground-muted">key</span>
-                <input
-                  type="text"
-                  value={joinCode}
-                  onChange={(e) => setJoinCode(parseRoomCodeInput(e.target.value))}
-                  onPaste={(e) => {
-                    const pasted = e.clipboardData.getData('text')
-                    if (!pasted) return
-                    e.preventDefault()
-                    setJoinCode(parseRoomCodeInput(pasted))
-                  }}
-                  placeholder="Code or invite link"
-                  inputMode="text"
-                  autoCapitalize="characters"
-                  autoCorrect="off"
-                  spellCheck={false}
-                  disabled={loading}
-                  enterKeyHint="go"
-                  className="w-full pl-12 pr-4 py-4 bg-surface-muted border-2 border-edge rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors text-foreground placeholder:text-foreground-muted font-medium tracking-[0.2em] uppercase disabled:opacity-60"
-                />
+            {!hasCompleteJoinCode && (
+              <button
+                type="submit"
+                disabled={loading || !nickname.trim() || !connected}
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-5 font-bold text-white shadow-lg shadow-primary/30 transition-all hover:bg-primary/90 active:scale-[0.98] motion-reduce:active:scale-100 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
+              >
+                {loading && !showJoin ? (
+                  <LoadingState label="Creating" layout="inline" className="text-white" />
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined">add_circle</span>
+                    <span>Create a room</span>
+                  </>
+                )}
+              </button>
+            )}
+            {!hasCompleteJoinCode && (
+              <p className="text-foreground-muted text-xs text-center -mt-3">
+                You’ll get a code to share with friends.
+              </p>
+            )}
+
+            {showJoin ? (
+              <div className="flex flex-col gap-2">
+                <label htmlFor="friend-room-code" className="text-foreground text-sm font-semibold ml-1">
+                  Friend&apos;s room code
+                </label>
+                <div className="relative">
+                  <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-foreground-muted" aria-hidden>
+                    key
+                  </span>
+                  <input
+                    id="friend-room-code"
+                    ref={joinCodeInputRef}
+                    type="text"
+                    value={joinCode}
+                    onChange={(e) => setJoinCode(parseRoomCodeInput(e.target.value))}
+                    onPaste={(e) => {
+                      const pasted = e.clipboardData.getData('text')
+                      if (!pasted) return
+                      e.preventDefault()
+                      setJoinCode(parseRoomCodeInput(pasted))
+                    }}
+                    placeholder="Code or invite link"
+                    inputMode="text"
+                    autoCapitalize="characters"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    disabled={loading}
+                    enterKeyHint="go"
+                    className="w-full pl-12 pr-4 py-4 bg-surface-muted border-2 border-edge rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors text-foreground placeholder:text-foreground-muted font-medium tracking-[0.2em] uppercase disabled:opacity-60"
+                  />
+                </div>
+                <p className="text-foreground-muted text-xs ml-1">
+                  Ask the host — they create the room and share the code or link.
+                </p>
               </div>
-            </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowJoin(true)}
+                className="w-full py-3.5 px-4 rounded-lg border-2 border-primary bg-primary/10 text-primary font-semibold hover:bg-primary/20 hover:border-primary/80 active:bg-primary/25 transition-colors flex items-center justify-center gap-2"
+              >
+                <span className="material-symbols-outlined text-xl" aria-hidden>
+                  login
+                </span>
+                I have a code
+              </button>
+            )}
 
-            <button
-              type="submit"
-              disabled={loading || !nickname.trim() || joinCode.length !== ROOM_CODE_LENGTH || !connected}
-              className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-5 font-bold text-white shadow-lg shadow-primary/30 transition-all hover:bg-primary/90 active:scale-[0.98] motion-reduce:active:scale-100 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
-            >
-              {loading ? (
-                <LoadingState label="Joining" layout="inline" className="text-white" />
-              ) : (
-                <>
-                  <span>Join Room</span>
-                  <span className="material-symbols-outlined">login</span>
-                </>
-              )}
-            </button>
+            {showJoin && (
+              <button
+                type={hasCompleteJoinCode ? 'submit' : 'button'}
+                onClick={hasCompleteJoinCode ? undefined : handleJoinRoom}
+                disabled={loading || !nickname.trim() || !hasCompleteJoinCode || !connected}
+                className={
+                  hasCompleteJoinCode
+                    ? 'flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-5 font-bold text-white shadow-lg shadow-primary/30 transition-all hover:bg-primary/90 active:scale-[0.98] motion-reduce:active:scale-100 disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100'
+                    : 'flex w-full items-center justify-center gap-2 rounded-lg border-2 border-primary bg-primary/10 py-3.5 font-semibold text-primary transition-colors hover:bg-primary/20 disabled:cursor-not-allowed disabled:opacity-50'
+                }
+              >
+                {loading && hasCompleteJoinCode ? (
+                  <LoadingState label="Joining" layout="inline" className="text-white" />
+                ) : (
+                  <>
+                    <span>Join room</span>
+                    <span className="material-symbols-outlined" aria-hidden>
+                      login
+                    </span>
+                  </>
+                )}
+              </button>
+            )}
+
+            {showJoin && !hasCompleteJoinCode && (
+              <p className="text-foreground-muted text-xs text-center -mt-3">
+                Don&apos;t have a code? Create a room above.
+              </p>
+            )}
           </form>
-
-          <div className="flex flex-col items-center gap-3">
-            <div className="flex items-center w-full gap-3">
-              <div className="flex-1 h-px bg-edge" />
-              <span className="text-foreground-muted text-sm font-medium">Or</span>
-              <div className="flex-1 h-px bg-edge" />
-            </div>
-            <button
-              type="button"
-              onClick={handleCreateRoom}
-              disabled={loading || !nickname.trim() || !connected}
-              className="w-full py-3.5 px-4 rounded-lg border-2 border-primary bg-primary/10 text-primary font-semibold hover:bg-primary/20 hover:border-primary/80 active:bg-primary/25 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              <span className="material-symbols-outlined text-xl">add_circle</span>
-              Create new room instead
-            </button>
-          </div>
         </div>
 
         <nav

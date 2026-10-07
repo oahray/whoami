@@ -23,6 +23,7 @@ export default {
       },
       fontFamily: {
         display: ['Inter', 'sans-serif'],
+        brand: ['"Lilita One"', 'cursive'],
       },
       borderRadius: {
         DEFAULT: '0.5rem',
