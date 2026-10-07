@@ -7,7 +7,8 @@ import {
 /**
  * Asset pipeline for the installable PWA. One source PNG (`public/app-icon.png`)
  * fans out to:
- *   - favicon.ico + favicon.svg (transparent set)
+ *   - generated icon assets (the branded favicon.svg is written afterward by
+ *     scripts/generateSplashScreens.mjs)
  *   - 192/512 icon PNGs (regular + maskable)
  *   - 180×180 apple-touch-icon
  *   - apple-touch-startup-image splash screens for the modern device cohort
