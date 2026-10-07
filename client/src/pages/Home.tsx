@@ -380,8 +380,8 @@ function Home() {
                     className="w-full pl-12 pr-4 py-4 bg-surface-muted border-2 border-edge rounded-lg focus:border-primary focus:ring-2 focus:ring-primary/20 transition-colors text-foreground placeholder:text-foreground-muted font-medium tracking-[0.2em] uppercase disabled:opacity-60"
                   />
                 </div>
-                <p className="text-foreground-muted text-xs ml-1">
-                  Ask the host — they create the room and share the code or link.
+                <p className="text-foreground-muted text-center text-xs ml-1">
+                  Ask the host (room creator) to share the code or link.
                 </p>
               </div>
             ) : (
