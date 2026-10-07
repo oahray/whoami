@@ -22,7 +22,14 @@ import {
  */
 export default defineConfig({
   preset: combinePresetAndAppleSplashScreens(
-    minimal2023Preset,
+    {
+      ...minimal2023Preset,
+      maskable: {
+        ...minimal2023Preset.maskable,
+        padding: 0,
+        resizeOptions: { background: '#2b4bee', fit: 'contain' }
+      }
+    },
     {
       padding: 0.3,
       resizeOptions: { background: '#2b4bee', fit: 'contain' },
