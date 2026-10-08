@@ -164,8 +164,34 @@ describe('soloMastery', () => {
     })
 
     expect(formatMasteryRunDelta(summarizeMasteryRun([missed, learned]))).toBe(
-      '+2 encountered'
+      '+1 learning · +2 encountered'
     )
+  })
+
+  it('counts a card that becomes familiar during the run', () => {
+    const changes = []
+    for (let index = 0; index < 2; index += 1) {
+      applyMasteryOutcome({
+        eventId: `earlier-${index}`,
+        datasetId: 'bible',
+        entityId: 'ruth',
+        entityName: 'Ruth',
+        correct: true,
+        revealedClueCount: 2
+      })
+    }
+    changes.push(
+      applyMasteryOutcome({
+        eventId: 'run-1:0',
+        datasetId: 'bible',
+        entityId: 'ruth',
+        entityName: 'Ruth',
+        correct: true,
+        revealedClueCount: 2
+      })
+    )
+
+    expect(formatMasteryRunDelta(summarizeMasteryRun(changes))).toBe('+1 familiar')
   })
 
   it('remaps mastery onto new entity ids by name after a content reimport', () => {

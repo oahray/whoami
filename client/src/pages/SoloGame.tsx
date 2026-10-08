@@ -751,10 +751,15 @@ function SoloGame() {
           : 'Endurance complete!'
     const averageClues = soloRecordAverageClues(result.record)
     const firstClueCorrect = soloRecordFirstClueCorrectCount(result.record)
-    const personalBestScore =
+    const bestRecord =
       session.variation === 'review'
         ? null
-        : listSoloRecords(session.variation, session.datasetId)[0]?.score
+        : listSoloRecords(session.variation, session.datasetId)[0] ?? null
+    const personalBestScore = bestRecord?.score ?? null
+    const enduranceStreakShort =
+      session.variation === 'endurance' && !result.isPersonalBest && bestRecord
+        ? Math.max(0, bestRecord.correctCount - result.record.correctCount)
+        : 0
     const topTenPlaceLabel =
       !result.isPersonalBest &&
       (session.variation === 'challenge' || session.variation === 'endurance')
@@ -851,26 +856,48 @@ function SoloGame() {
             </p>
           </div>
           <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
-            <div className="rounded-lg bg-primary/10 p-4">
-              <p className="text-3xl font-black text-primary">
-                {formatSoloScore(result.record.score ?? 0)}
-              </p>
-              <p className="text-xs font-bold uppercase tracking-wider text-foreground-muted">Score</p>
-            </div>
-            <div className="rounded-lg bg-surface-muted p-4">
-              <p className="text-3xl font-black">{result.record.correctCount}</p>
-              <p className="text-xs font-bold uppercase tracking-wider text-foreground-muted">Correct</p>
-            </div>
-            <div className="rounded-lg bg-surface-muted p-4">
-              <p className="text-3xl font-black">
-                {averageClues == null ? '—' : averageClues.toFixed(1)}
-              </p>
-              <p className="text-xs font-bold uppercase tracking-wider text-foreground-muted">Avg clues</p>
-            </div>
-            <div className="rounded-lg bg-surface-muted p-4">
-              <p className="text-3xl font-black">{firstClueCorrect}</p>
-              <p className="text-xs font-bold uppercase tracking-wider text-foreground-muted">First clue</p>
-            </div>
+            {(
+              [
+                {
+                  value: formatSoloScore(result.record.score ?? 0),
+                  label: 'Score',
+                  valueClass: 'text-primary',
+                  cardClass: 'bg-primary/10'
+                },
+                {
+                  value: String(result.record.correctCount),
+                  label: 'Correct',
+                  valueClass: 'text-foreground',
+                  cardClass: 'bg-surface-muted'
+                },
+                {
+                  value: averageClues == null ? '—' : averageClues.toFixed(1),
+                  label: 'Avg clues',
+                  valueClass: 'text-foreground',
+                  cardClass: 'bg-surface-muted'
+                },
+                {
+                  value: String(firstClueCorrect),
+                  label: 'First clue',
+                  valueClass: 'text-foreground',
+                  cardClass: 'bg-surface-muted'
+                }
+              ] as const
+            ).map((stat) => (
+              <div
+                key={stat.label}
+                className={`min-w-0 rounded-lg px-2 py-4 [container-type:inline-size] ${stat.cardClass}`}
+              >
+                <p
+                  className={`whitespace-nowrap text-center font-black tabular-nums leading-none [font-size:clamp(1rem,20cqi,1.875rem)] ${stat.valueClass}`}
+                >
+                  {stat.value}
+                </p>
+                <p className="mt-1 text-center text-xs font-bold uppercase leading-tight tracking-wider text-foreground-muted">
+                  {stat.label}
+                </p>
+              </div>
+            ))}
           </div>
           <p className="mt-3 text-xs text-foreground-muted">
             Active time: {formatSoloTime(result.record.activeElapsedMs)}
@@ -894,9 +921,18 @@ function SoloGame() {
             </p>
           )}
           {!result.isPersonalBest &&
+            session.variation === 'endurance' &&
+            (topTenPlaceLabel != null || enduranceStreakShort > 0) && (
+            <p className="mt-3 text-sm text-foreground-muted">
+              {topTenPlaceLabel ? `${topTenPlaceLabel}. ` : ''}
+              {enduranceStreakShort > 0
+                ? `${enduranceStreakShort} short of your best streak.`
+                : null}
+            </p>
+          )}
+          {!result.isPersonalBest &&
             personalBestScore != null &&
-            session.variation !== 'daily' &&
-            session.variation !== 'review' && (
+            session.variation === 'challenge' && (
             <p className="mt-3 text-sm text-foreground-muted">
               {topTenPlaceLabel ? `${topTenPlaceLabel}. ` : ''}
               Personal best: {formatSoloScore(personalBestScore)} points.

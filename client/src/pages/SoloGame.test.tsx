@@ -134,6 +134,46 @@ describe('SoloGame', () => {
     expect(screen.queryByText(/new personal best/i)).not.toBeInTheDocument()
   })
 
+  it('shows how far an endurance streak is from the best', async () => {
+    saveSoloRecord({
+      datasetId: 'ds-1',
+      difficulty: [],
+      entityType: 'character',
+      variation: 'endurance',
+      roundDurationMs: 100,
+      clueRevealIntervalMs: 100,
+      correctCount: 5,
+      activeElapsedMs: 20_000,
+      score: 4000,
+      achievedAt: '2026-01-01T00:00:00.000Z'
+    })
+    saveSoloSession({
+      datasetId: 'ds-1',
+      difficulty: [],
+      entityType: 'character',
+      variation: 'endurance',
+      roundDurationMs: 100,
+      clueRevealIntervalMs: 100,
+      entityIds: ['ent-1'],
+      index: 0,
+      correctCount: 0,
+      activeElapsedMs: 0
+    })
+    vi.useFakeTimers()
+
+    renderSoloPlay()
+    await flushCardLoad()
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(200)
+    })
+    fireEvent.click(screen.getByRole('button', { name: /see results/i }))
+
+    expect(screen.getByRole('heading', { name: /endurance complete/i })).toBeInTheDocument()
+    expect(screen.getByText(/2nd in your top 10\. 5 short of your best streak/i)).toBeInTheDocument()
+    expect(screen.queryByText(/new personal best/i)).not.toBeInTheDocument()
+  })
+
   it('starts review for missed cards without showing their names', async () => {
     saveSoloSession({
       datasetId: 'ds-1',

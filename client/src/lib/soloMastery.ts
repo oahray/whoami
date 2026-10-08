@@ -171,10 +171,7 @@ export function recordMasteryChange(
   return next
 }
 
-/**
- * Cards newly met, and cards that reached Mastered, during one run.
- * Learning and Familiar stay off this summary.
- */
+/** Cards newly met, and cards that entered Learning, Familiar, or Mastered. */
 export function summarizeMasteryRun(changes: MasteryChange[]): MasteryRunDelta {
   const delta: MasteryRunDelta = {
     encountered: 0,
@@ -184,7 +181,14 @@ export function summarizeMasteryRun(changes: MasteryChange[]): MasteryRunDelta {
   }
   for (const change of changes) {
     if (change.previousState === 'new') delta.encountered += 1
-    if (change.changed && change.state === 'mastered') delta.mastered += 1
+    if (!change.changed) continue
+    if (
+      change.state === 'learning' ||
+      change.state === 'familiar' ||
+      change.state === 'mastered'
+    ) {
+      delta[change.state] += 1
+    }
   }
   return delta
 }
@@ -192,6 +196,8 @@ export function summarizeMasteryRun(changes: MasteryChange[]): MasteryRunDelta {
 export function formatMasteryRunDelta(delta: MasteryRunDelta): string | null {
   const parts: string[] = []
   if (delta.mastered > 0) parts.push(`+${delta.mastered} mastered`)
+  if (delta.familiar > 0) parts.push(`+${delta.familiar} familiar`)
+  if (delta.learning > 0) parts.push(`+${delta.learning} learning`)
   if (delta.encountered > 0) parts.push(`+${delta.encountered} encountered`)
   return parts.length > 0 ? parts.join(' · ') : null
 }
