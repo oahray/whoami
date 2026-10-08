@@ -89,8 +89,8 @@ function About() {
           <p className="text-foreground text-sm leading-relaxed">
             Solo also remembers how you&apos;re doing with each card on this device.{' '}
             <strong>Needs review</strong> means you missed or timed out, <strong>Learning</strong>{' '}
-            means you got it right at least once, and <strong>Mastered</strong> means you&apos;ve
-            gotten it right a few times, including once from the first clue. Missed cards unlock a{' '}
+            means you got it right at least once, and <strong>Mastered</strong> means five correct
+            guesses, including one from the first clue. Missed cards unlock a{' '}
             <strong>Review</strong> button in Progress (above Custom game). Everything stays on this
             device until you clear it.
           </p>

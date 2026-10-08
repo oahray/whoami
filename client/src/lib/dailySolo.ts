@@ -78,8 +78,35 @@ export function loadDailyProgress(): DailyProgress {
   }
 }
 
+/** Highest completed Daily score on this device. */
+export function getDailyBestScore(progress: DailyProgress): number | null {
+  const scores = Object.values(progress.results)
+    .map((result) => result.record.score)
+    .filter((score): score is number => typeof score === 'number' && Number.isFinite(score))
+  return scores.length > 0 ? Math.max(...scores) : null
+}
+
 function dayNumber(dateKey: string): number {
   return Math.floor(Date.parse(`${dateKey}T00:00:00Z`) / 86_400_000)
+}
+
+/** UTC date key, matching the server Daily challenge day. */
+export function dailyDateKey(now = new Date()): string {
+  return now.toISOString().slice(0, 10)
+}
+
+/**
+ * Streak still showing on `todayKey`. Stored `currentStreak` is only rewritten
+ * when a Daily is completed, so a missed day is applied here.
+ * Alive when the last completion was today or yesterday.
+ */
+export function getActiveDailyStreak(
+  progress: DailyProgress,
+  todayKey = dailyDateKey()
+): number {
+  if (!progress.lastCompletedDate || progress.currentStreak <= 0) return 0
+  const gap = dayNumber(todayKey) - dayNumber(progress.lastCompletedDate)
+  return gap === 0 || gap === 1 ? progress.currentStreak : 0
 }
 
 export function saveDailyResult(result: DailyResult): DailyProgress {

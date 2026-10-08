@@ -178,6 +178,9 @@ describe('SoloSetup', () => {
     renderWithPreferences(<MemoryRouter><SoloSetup /></MemoryRouter>)
 
     expect(await screen.findByText(/completed today/i)).toBeInTheDocument()
+    expect(screen.getByText(/current streak: 3/i)).toBeInTheDocument()
+    expect(screen.getByText(/best streak: 5/i, { hidden: true })).toBeInTheDocument()
+    expect(screen.getByText(/high score: 6,400/i, { hidden: true })).toBeInTheDocument()
     expect(screen.getByText(/save or share the image if you want to keep/i)).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /download daily result image/i }))
     await waitFor(() => expect(downloadSoloDailyPng).toHaveBeenCalled())

@@ -7,11 +7,14 @@ import {
   continueEndurancePool,
   createSoloSession,
   formatSoloRecordAchievedAt,
+  formatSoloTopTenPlace,
   getSoloRecord,
   isBetterRecord,
   listSoloRecords,
+  missedEntityIds,
   loadSoloSetupPreferences,
   saveSoloRecord,
+  soloRecordPlace,
   saveSoloSession,
   saveSoloSetupPreferences,
   loadSoloSession,
@@ -260,6 +263,78 @@ describe('soloSession', () => {
     })
     expect(better.isPersonalBest).toBe(true)
     expect(getSoloRecord(config)?.correctCount).toBe(8)
+  })
+
+  it('lists missed cards from a run without their names', () => {
+    expect(
+      missedEntityIds({
+        rounds: [
+          { entityId: 'moses', correct: true, revealedClueCount: 1, incorrectGuessCount: 0, elapsedMs: 1, score: 1, breakdown: { score: 1 } },
+          { entityId: 'ruth', correct: false, revealedClueCount: 4, incorrectGuessCount: 1, elapsedMs: 1, score: 0, breakdown: { score: 0 } },
+          { entityId: 'ruth', correct: false, revealedClueCount: 4, incorrectGuessCount: 0, elapsedMs: 1, score: 0, breakdown: { score: 0 } },
+          { entityId: 'naomi', correct: false, revealedClueCount: 3, incorrectGuessCount: 0, elapsedMs: 1, score: 0, breakdown: { score: 0 } }
+        ]
+      } as never)
+    ).toEqual(['ruth', 'naomi'])
+  })
+
+  it('places a non-best score inside the top 10', () => {
+    saveSoloRecord({
+      ...config,
+      score: 5000,
+      correctCount: 9,
+      activeElapsedMs: 20_000,
+      achievedAt: '2026-01-01T00:00:00.000Z'
+    })
+    const second = saveSoloRecord({
+      ...config,
+      score: 3000,
+      correctCount: 6,
+      activeElapsedMs: 30_000,
+      achievedAt: '2026-01-02T00:00:00.000Z'
+    })
+    const endurance = saveSoloRecord({
+      ...config,
+      variation: 'endurance',
+      score: 900,
+      correctCount: 4,
+      activeElapsedMs: 20_000,
+      achievedAt: '2026-01-03T00:00:00.000Z'
+    })
+    saveSoloRecord({
+      ...config,
+      variation: 'endurance',
+      score: 100,
+      correctCount: 8,
+      activeElapsedMs: 40_000,
+      achievedAt: '2026-01-04T00:00:00.000Z'
+    })
+
+    expect(second.isPersonalBest).toBe(false)
+    expect(soloRecordPlace(second.record)).toBe(2)
+    expect(soloRecordPlace(endurance.record)).toBe(2)
+    expect(formatSoloTopTenPlace(2)).toBe('2nd in your top 10')
+    expect(formatSoloTopTenPlace(1)).toBeNull()
+  })
+
+  it('returns no place when the score misses the top 10', () => {
+    for (let index = 0; index < SOLO_RECORDS_PER_MODE; index += 1) {
+      saveSoloRecord({
+        ...config,
+        score: 1000 + index,
+        correctCount: index,
+        activeElapsedMs: 10_000,
+        achievedAt: `2026-01-${String(index + 1).padStart(2, '0')}T00:00:00.000Z`
+      })
+    }
+    const missed = saveSoloRecord({
+      ...config,
+      score: 1,
+      correctCount: 0,
+      activeElapsedMs: 90_000,
+      achievedAt: '2026-02-01T00:00:00.000Z'
+    })
+    expect(soloRecordPlace(missed.record)).toBeNull()
   })
 
   it('returns this attempt even when it is not a personal best', () => {

@@ -265,7 +265,7 @@ function Home() {
             <span className="size-1 rounded-full bg-amber-300" />
             <span>Guess fast</span>
             <span className="size-1 rounded-full bg-amber-300" />
-            <span className="text-amber-300">Have fun</span>
+            <span className="text-amber-300">Challenge friends</span>
           </div>
         </section>
 

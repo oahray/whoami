@@ -8,6 +8,8 @@ import { useMaintenanceStatus } from '../hooks/useMaintenanceStatus'
 import { API_BASE_URL } from '../lib/apiBase'
 import {
   fetchDailyChallenge,
+  getActiveDailyStreak,
+  getDailyBestScore,
   hydrateDailyCardCache,
   loadDailyProgress,
   type DailyChallenge
@@ -130,13 +132,13 @@ function SoloSetup() {
 
   const currentConfig: SoloConfig | null = datasetId
     ? {
-        datasetId,
-        difficulty,
-        entityType,
-        variation,
-        roundDurationMs: roundSeconds * 1000,
-        clueRevealIntervalMs: clueIntervalSeconds * 1000
-      }
+      datasetId,
+      difficulty,
+      entityType,
+      variation,
+      roundDurationMs: roundSeconds * 1000,
+      clueRevealIntervalMs: clueIntervalSeconds * 1000
+    }
     : null
 
   const currentBest = currentConfig ? getSoloRecord(currentConfig) : null
@@ -148,6 +150,11 @@ function SoloSetup() {
   const todayResult = dailyChallenge
     ? dailyProgress.results[dailyChallenge.challengeId]
     : undefined
+  const dailyBestScore = getDailyBestScore(dailyProgress)
+  const dailyStreak = getActiveDailyStreak(
+    dailyProgress,
+    dailyChallenge?.dateKey
+  )
 
   const renderRecordRow = (record: SoloRecord, opts?: { highlightCurrent?: boolean }) => {
     const isCurrent =
@@ -405,6 +412,8 @@ function SoloSetup() {
     fetchInPersonEligibility(datasetId, entityType)
       .then((data) => {
         if (cancelled) return
+        // Keep loading + eligibility updates in the same tick so Start isn't
+        // briefly disabled after tiers already show as unavailable.
         setEligibility(data)
         setDifficulty((current) => {
           if (!isDifficultySelectionPlayable(data, current) && (data.modes.any ?? 0) > 0) {
@@ -412,14 +421,13 @@ function SoloSetup() {
           }
           return current
         })
+        setEligibilityLoading(false)
       })
       .catch((err) => {
         if (cancelled) return
         logSetupLoadError('Solo setup: eligibility', err)
         setError(SETUP_ELIGIBILITY_LOAD_ERROR)
-      })
-      .finally(() => {
-        if (!cancelled) setEligibilityLoading(false)
+        setEligibilityLoading(false)
       })
     return () => {
       cancelled = true
@@ -646,9 +654,17 @@ function SoloSetup() {
                 <p className="mt-1 text-sm text-foreground-muted">
                   {dailyChallenge.entityIds.length} cards · {dailyChallenge.datasetName}
                 </p>
+                <div
+                  aria-hidden="true"
+                  className="mt-4 flex items-center gap-2 text-[0.7rem] font-bold uppercase tracking-wider text-green-700 dark:text-green-300/75"
+                >
+                  <span>Best streak: {dailyProgress.bestStreak}</span>
+                  <span className="size-1 rounded-full bg-amber-300" />
+                  High score: {dailyBestScore == null ? '—' : formatSoloScore(dailyBestScore)}
+                </div>
+
                 <p className="mt-2 text-sm font-semibold">
-                  Current streak: {dailyProgress.currentStreak}{' '}
-                  {dailyProgress.currentStreak === 1 ? 'day' : 'days'}
+                  Current streak: {dailyStreak}
                 </p>
               </div>
             </div>
@@ -668,7 +684,7 @@ function SoloSetup() {
                             dateKey: dailyChallenge.dateKey,
                             datasetName: dailyChallenge.datasetName,
                             record: todayResult.record,
-                            currentStreak: dailyProgress.currentStreak,
+                            currentStreak: dailyStreak,
                             bestStreak: dailyProgress.bestStreak
                           })
                             .then(() => {
@@ -708,7 +724,7 @@ function SoloSetup() {
                           dateKey: dailyChallenge.dateKey,
                           datasetName: dailyChallenge.datasetName,
                           record: todayResult.record,
-                          currentStreak: dailyProgress.currentStreak,
+                          currentStreak: dailyStreak,
                           bestStreak: dailyProgress.bestStreak
                         })
                           .then(() => {
@@ -790,8 +806,16 @@ function SoloSetup() {
                   at least once.
                 </li>
                 <li>
-                  <span className="font-semibold text-foreground">Mastered:</span> several right
-                  answers, including one from the first clue.
+                  <span className="font-semibold text-foreground">Familiar:</span> three correct
+                  guesses.
+                </li>
+                <li>
+                  <span className="font-semibold text-foreground">Mastered:</span> five correct
+                  guesses, including one from the first clue.
+                </li>
+                <li>
+                  <span className="font-semibold text-foreground">First clue:</span> how often a
+                  correct guess used only the first clue.
                 </li>
               </ul>
             </details>
@@ -863,14 +887,14 @@ function SoloSetup() {
               </p>
             )}
             {masterySummary.encountered > 0 && (
-              <button
-                type="button"
-                onClick={() => setClearProgressOpen(true)}
-                className="w-full text-sm font-semibold text-foreground-muted underline-offset-2 hover:text-foreground hover:underline"
-              >
-                Clear learning progress
-              </button>
-            )}
+                <button
+                  type="button"
+                  onClick={() => setClearProgressOpen(true)}
+                  className="w-full text-sm font-semibold text-foreground-muted underline-offset-2 hover:text-foreground hover:underline"
+                >
+                  Clear learning progress
+                </button>
+              )}
           </section>
         )}
         {!loading && datasets.length > 0 && (
@@ -954,9 +978,8 @@ function SoloSetup() {
                       setVariation(option.value)
                       persistSetup({ variation: option.value })
                     }}
-                    className={`rounded-lg border p-3 text-left ${
-                      variation === option.value ? 'border-primary bg-primary/10' : 'border-edge'
-                    }`}
+                    className={`rounded-lg border p-3 text-left ${variation === option.value ? 'border-primary bg-primary/10' : 'border-edge'
+                      }`}
                   >
                     <span className="block text-sm font-bold">{option.label}</span>
                     <span className="text-xs text-foreground-muted">{option.hint}</span>

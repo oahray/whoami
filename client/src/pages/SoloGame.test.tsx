@@ -3,7 +3,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PreferencesProvider } from '../context/PreferencesContext'
 import { resetInPersonCardCacheForTests } from '../lib/inPersonCardFetch'
-import { saveSoloSession } from '../lib/soloSession'
+import { loadSoloSession, saveSoloRecord, saveSoloSession } from '../lib/soloSession'
 import SoloGame from './SoloGame'
 
 function renderSoloPlay() {
@@ -91,6 +91,154 @@ describe('SoloGame', () => {
     fireEvent.click(screen.getByRole('button', { name: /see results/i }))
 
     expect(screen.getByRole('heading', { name: /endurance complete/i })).toBeInTheDocument()
+  })
+
+  it('shows a classic score’s place in the top 10 when it is not the high score', async () => {
+    saveSoloRecord({
+      datasetId: 'ds-1',
+      difficulty: [],
+      entityType: 'character',
+      variation: 'challenge',
+      roundDurationMs: 100,
+      clueRevealIntervalMs: 100,
+      correctCount: 8,
+      activeElapsedMs: 20_000,
+      score: 5000,
+      achievedAt: '2026-01-01T00:00:00.000Z'
+    })
+    saveSoloSession({
+      datasetId: 'ds-1',
+      difficulty: [],
+      entityType: 'character',
+      variation: 'challenge',
+      roundDurationMs: 100,
+      clueRevealIntervalMs: 100,
+      entityIds: ['ent-1'],
+      index: 0,
+      correctCount: 0,
+      activeElapsedMs: 0
+    })
+    vi.useFakeTimers()
+
+    renderSoloPlay()
+    await flushCardLoad()
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(200)
+    })
+    fireEvent.click(screen.getByRole('button', { name: /see results/i }))
+
+    expect(screen.getByRole('heading', { name: /classic complete/i })).toBeInTheDocument()
+    expect(screen.getByText(/2nd in your top 10/i)).toBeInTheDocument()
+    expect(screen.getByText(/personal best: 5,000 points/i)).toBeInTheDocument()
+    expect(screen.queryByText(/new personal best/i)).not.toBeInTheDocument()
+  })
+
+  it('shows how far an endurance streak is from the best', async () => {
+    saveSoloRecord({
+      datasetId: 'ds-1',
+      difficulty: [],
+      entityType: 'character',
+      variation: 'endurance',
+      roundDurationMs: 100,
+      clueRevealIntervalMs: 100,
+      correctCount: 5,
+      activeElapsedMs: 20_000,
+      score: 4000,
+      achievedAt: '2026-01-01T00:00:00.000Z'
+    })
+    saveSoloSession({
+      datasetId: 'ds-1',
+      difficulty: [],
+      entityType: 'character',
+      variation: 'endurance',
+      roundDurationMs: 100,
+      clueRevealIntervalMs: 100,
+      entityIds: ['ent-1'],
+      index: 0,
+      correctCount: 0,
+      activeElapsedMs: 0
+    })
+    vi.useFakeTimers()
+
+    renderSoloPlay()
+    await flushCardLoad()
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(200)
+    })
+    fireEvent.click(screen.getByRole('button', { name: /see results/i }))
+
+    expect(screen.getByRole('heading', { name: /endurance complete/i })).toBeInTheDocument()
+    expect(screen.getByText(/2nd in your top 10\. 5 short of your best streak/i)).toBeInTheDocument()
+    expect(screen.queryByText(/new personal best/i)).not.toBeInTheDocument()
+  })
+
+  it('starts review for missed cards without showing their names', async () => {
+    saveSoloSession({
+      datasetId: 'ds-1',
+      difficulty: [],
+      entityType: 'character',
+      variation: 'challenge',
+      roundDurationMs: 100,
+      clueRevealIntervalMs: 100,
+      entityIds: ['ent-1'],
+      index: 0,
+      correctCount: 0,
+      activeElapsedMs: 0
+    })
+    vi.useFakeTimers()
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      const url = String(input)
+      if (url.includes('/maintenance/status')) {
+        return {
+          ok: true,
+          json: async () => ({ phase: 'none', endsAt: null, startsAt: null })
+        } as Response
+      }
+      if (url.includes('/cards/resolve')) {
+        expect(JSON.parse(String(init?.body))).toEqual({
+          datasetId: 'ds-1',
+          entities: [{ id: 'ent-1' }]
+        })
+        return {
+          ok: true,
+          json: async () => ({
+            entities: [{ id: 'ent-1', name: 'Moses', previousId: 'ent-1' }]
+          })
+        } as Response
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          entity: { id: 'ent-1', name: 'Moses', type: 'character', aliases: [] },
+          clues: [{ order: 1, text: 'A clue', citations: null }]
+        })
+      } as Response
+    })
+
+    renderSoloPlay()
+    await flushCardLoad()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(200)
+    })
+    fireEvent.click(screen.getByRole('button', { name: /see results/i }))
+
+    expect(screen.getByText(/1 card needs review/i)).toBeInTheDocument()
+    expect(screen.queryByText('Moses')).not.toBeInTheDocument()
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /review now/i }))
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    expect(loadSoloSession()).toMatchObject({
+      variation: 'review',
+      entityIds: ['ent-1']
+    })
+    expect(screen.getByText('A clue')).toBeInTheDocument()
+    expect(screen.queryByText('Moses')).not.toBeInTheDocument()
   })
 
   it('focuses Next round after a correct guess so Enter can advance', async () => {

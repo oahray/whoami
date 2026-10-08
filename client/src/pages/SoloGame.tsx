@@ -8,6 +8,7 @@ import { useStickToBottom } from '../hooks/useStickToBottom'
 import { useVisualViewportLock } from '../hooks/useVisualViewportLock'
 import { encodeDifficultySelection } from '../lib/difficultySelection'
 import {
+  getActiveDailyStreak,
   saveDailyResult,
   type DailyProgress
 } from '../lib/dailySolo'
@@ -36,9 +37,13 @@ import {
   clearSoloSession,
   continueEndurancePool,
   createSoloSession,
+  missedEntityIds,
+  SOLO_CHALLENGE_ROUNDS,
   formatSoloScore,
   formatSoloTime,
+  formatSoloTopTenPlace,
   listSoloRecords,
+  soloRecordPlace,
   loadSoloSession,
   saveSoloRecord,
   saveSoloSession,
@@ -53,7 +58,15 @@ import {
   type SoloSession
 } from '../lib/soloSession'
 import { scoreSoloRound } from '../lib/soloScoring'
-import { applyMasteryOutcome, masterySettleCue } from '../lib/soloMastery'
+import {
+  applyMasteryOutcome,
+  applyResolveRemaps,
+  formatMasteryRunDelta,
+  masterySettleCue,
+  recordMasteryChange,
+  summarizeMasteryRun,
+  type MasteryChange
+} from '../lib/soloMastery'
 import { playSound } from '../lib/sounds'
 import { API_BASE_URL } from '../lib/apiBase'
 import type { InPersonCard } from '../types'
@@ -108,8 +121,10 @@ function SoloGame() {
     isPersonalBest: boolean
     endedByMaintenance?: boolean
     dailyProgress?: DailyProgress
+    masteryChanges?: MasteryChange[]
   } | null>(null)
   const [restarting, setRestarting] = useState(false)
+  const [reviewing, setReviewing] = useState(false)
   const [dailyShareState, setDailyShareState] = useState<
     'idle' | 'working' | 'shared' | 'downloaded' | 'error'
   >('idle')
@@ -246,7 +261,10 @@ function SoloGame() {
           : (nextSession.settledRoundPerformance ?? restoredTimeoutPerformance),
         settledMasteryChange: freshRound
           ? null
-          : (nextSession.settledMasteryChange ?? restoredMasteryChange)
+          : (nextSession.settledMasteryChange ?? restoredMasteryChange),
+        masteryChanges: restoredMasteryChange
+          ? recordMasteryChange(nextSession.masteryChanges, restoredMasteryChange)
+          : (nextSession.masteryChanges ?? [])
       }
       activeSession.current = withRound
       setSession(withRound)
@@ -307,7 +325,8 @@ function SoloGame() {
       record,
       isPersonalBest: saved.isPersonalBest,
       endedByMaintenance: opts?.endedByMaintenance,
-      dailyProgress
+      dailyProgress,
+      masteryChanges: completed.masteryChanges ?? []
     })
     if (record.correctCount > 0) playSound('yay')
   }, [])
@@ -435,19 +454,21 @@ function SoloGame() {
           score: 0,
           breakdown: ZERO_SCORE_BREAKDOWN
         }
+        const masteryChange = applyMasteryOutcome({
+          eventId: `${current.datasetId}:${card.entity.id}:${roundStartedAt.current}`,
+          datasetId: current.datasetId,
+          entityId: card.entity.id,
+          entityName: card.entity.name,
+          correct: false,
+          revealedClueCount: performance.revealedClueCount
+        })
         const settled = {
           ...current,
           roundStatus: 'timeout' as const,
           roundRemainingMs: 0,
           settledRoundPerformance: performance,
-          settledMasteryChange: applyMasteryOutcome({
-            eventId: `${current.datasetId}:${card.entity.id}:${roundStartedAt.current}`,
-            datasetId: current.datasetId,
-            entityId: card.entity.id,
-            entityName: card.entity.name,
-            correct: false,
-            revealedClueCount: performance.revealedClueCount
-          })
+          settledMasteryChange: masteryChange,
+          masteryChanges: recordMasteryChange(current.masteryChanges, masteryChange)
         }
         activeSession.current = settled
         setSession(settled)
@@ -578,6 +599,64 @@ function SoloGame() {
     }
   }
 
+  const startRunReview = async () => {
+    const current = activeSession.current
+    if (!current || !result || reviewing || maintenanceBlocking) return
+    if (current.variation === 'review') return
+    const missed = missedEntityIds(result.record).slice(0, SOLO_CHALLENGE_ROUNDS)
+    if (missed.length === 0) return
+    setReviewing(true)
+    setError(null)
+    playSound('go')
+    try {
+      const response = await fetch(`${API_BASE_URL}/cards/resolve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          datasetId: current.datasetId,
+          entities: missed.map((id) => ({ id }))
+        })
+      })
+      if (!response.ok) throw new Error('Could not start review')
+      const { entities, scoringVersion, scoringRules } = (await response.json()) as {
+        entities: Array<{ id: string; name: string; previousId: string }>
+        scoringVersion?: number
+        scoringRules?: SoloSession['scoringRules']
+      }
+      applyResolveRemaps(current.datasetId, entities, missed)
+      const reviewDeck = entities.map((entity) => entity.id).slice(0, SOLO_CHALLENGE_ROUNDS)
+      if (reviewDeck.length === 0) throw new Error('Those review cards are no longer available.')
+      const nextSession = createSoloSession(
+        {
+          datasetId: current.datasetId,
+          difficulty: current.difficulty,
+          entityType: current.entityType,
+          variation: 'review',
+          roundDurationMs: current.roundDurationMs,
+          clueRevealIntervalMs: current.clueRevealIntervalMs
+        },
+        reviewDeck,
+        scoringVersion != null && scoringRules
+          ? { version: scoringVersion, rules: scoringRules }
+          : current.scoringVersion != null && current.scoringRules
+            ? { version: current.scoringVersion, rules: current.scoringRules }
+            : undefined
+      )
+      saveSoloSession(nextSession)
+      activeSession.current = nextSession
+      setSession(nextSession)
+      setResult(null)
+      await loadCard(
+        { ...nextSession, roundStartedAt: null, roundRemainingMs: null, roundStatus: null },
+        { freshRound: true }
+      )
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not start review')
+    } finally {
+      setReviewing(false)
+    }
+  }
+
   const submitGuess = () => {
     if (!card || status !== 'active' || !guess.trim()) return
     if (!validateGuess(guess, card.entity.name, card.entity.aliases)) {
@@ -641,17 +720,19 @@ function SoloGame() {
         score: breakdown.score,
         breakdown
       }
+      const masteryChange = applyMasteryOutcome({
+        eventId: `${current.datasetId}:${card.entity.id}:${roundStartedAt.current}`,
+        datasetId: current.datasetId,
+        entityId: card.entity.id,
+        entityName: card.entity.name,
+        correct: true,
+        revealedClueCount: performance.revealedClueCount
+      })
       const settled = {
         ...pending,
         settledRoundPerformance: performance,
-        settledMasteryChange: applyMasteryOutcome({
-          eventId: `${current.datasetId}:${card.entity.id}:${roundStartedAt.current}`,
-          datasetId: current.datasetId,
-          entityId: card.entity.id,
-          entityName: card.entity.name,
-          correct: true,
-          revealedClueCount: performance.revealedClueCount
-        })
+        settledMasteryChange: masteryChange,
+        masteryChanges: recordMasteryChange(pending.masteryChanges, masteryChange)
       }
       activeSession.current = settled
       setSession(settled)
@@ -670,20 +751,38 @@ function SoloGame() {
           : 'Endurance complete!'
     const averageClues = soloRecordAverageClues(result.record)
     const firstClueCorrect = soloRecordFirstClueCorrectCount(result.record)
-    const personalBestScore =
+    const bestRecord =
       session.variation === 'review'
         ? null
-        : listSoloRecords(session.variation, session.datasetId)[0]?.score
+        : listSoloRecords(session.variation, session.datasetId)[0] ?? null
+    const personalBestScore = bestRecord?.score ?? null
+    const enduranceStreakShort =
+      session.variation === 'endurance' && !result.isPersonalBest && bestRecord
+        ? Math.max(0, bestRecord.correctCount - result.record.correctCount)
+        : 0
+    const topTenPlaceLabel =
+      !result.isPersonalBest &&
+      (session.variation === 'challenge' || session.variation === 'endurance')
+        ? formatSoloTopTenPlace(soloRecordPlace(result.record) ?? 0)
+        : null
     const isSingleAction =
       session.variation === 'daily' || session.variation === 'review'
     const canShareImage =
       typeof navigator !== 'undefined' && typeof navigator.share === 'function'
+    const activeDailyStreak = result.dailyProgress
+      ? getActiveDailyStreak(result.dailyProgress, session.dailyDateKey)
+      : 0
+    const masteryDeltaLabel = formatMasteryRunDelta(
+      summarizeMasteryRun(result.masteryChanges ?? [])
+    )
+    const missedReviewCount =
+      session.variation === 'review' ? 0 : missedEntityIds(result.record).length
     const dailyShareInput =
       session.variation === 'daily' && session.dailyDateKey
         ? {
             dateKey: session.dailyDateKey,
             record: result.record,
-            currentStreak: result.dailyProgress?.currentStreak ?? 0,
+            currentStreak: activeDailyStreak,
             bestStreak: result.dailyProgress?.bestStreak
           }
         : null
@@ -757,26 +856,48 @@ function SoloGame() {
             </p>
           </div>
           <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
-            <div className="rounded-lg bg-primary/10 p-4">
-              <p className="text-3xl font-black text-primary">
-                {formatSoloScore(result.record.score ?? 0)}
-              </p>
-              <p className="text-xs font-bold uppercase tracking-wider text-foreground-muted">Score</p>
-            </div>
-            <div className="rounded-lg bg-surface-muted p-4">
-              <p className="text-3xl font-black">{result.record.correctCount}</p>
-              <p className="text-xs font-bold uppercase tracking-wider text-foreground-muted">Correct</p>
-            </div>
-            <div className="rounded-lg bg-surface-muted p-4">
-              <p className="text-3xl font-black">
-                {averageClues == null ? '—' : averageClues.toFixed(1)}
-              </p>
-              <p className="text-xs font-bold uppercase tracking-wider text-foreground-muted">Avg clues</p>
-            </div>
-            <div className="rounded-lg bg-surface-muted p-4">
-              <p className="text-3xl font-black">{firstClueCorrect}</p>
-              <p className="text-xs font-bold uppercase tracking-wider text-foreground-muted">First clue</p>
-            </div>
+            {(
+              [
+                {
+                  value: formatSoloScore(result.record.score ?? 0),
+                  label: 'Score',
+                  valueClass: 'text-primary',
+                  cardClass: 'bg-primary/10'
+                },
+                {
+                  value: String(result.record.correctCount),
+                  label: 'Correct',
+                  valueClass: 'text-foreground',
+                  cardClass: 'bg-surface-muted'
+                },
+                {
+                  value: averageClues == null ? '—' : averageClues.toFixed(1),
+                  label: 'Avg clues',
+                  valueClass: 'text-foreground',
+                  cardClass: 'bg-surface-muted'
+                },
+                {
+                  value: String(firstClueCorrect),
+                  label: 'First clue',
+                  valueClass: 'text-foreground',
+                  cardClass: 'bg-surface-muted'
+                }
+              ] as const
+            ).map((stat) => (
+              <div
+                key={stat.label}
+                className={`min-w-0 rounded-lg px-2 py-4 [container-type:inline-size] ${stat.cardClass}`}
+              >
+                <p
+                  className={`whitespace-nowrap text-center font-black tabular-nums leading-none [font-size:clamp(1rem,20cqi,1.875rem)] ${stat.valueClass}`}
+                >
+                  {stat.value}
+                </p>
+                <p className="mt-1 text-center text-xs font-bold uppercase leading-tight tracking-wider text-foreground-muted">
+                  {stat.label}
+                </p>
+              </div>
+            ))}
           </div>
           <p className="mt-3 text-xs text-foreground-muted">
             Active time: {formatSoloTime(result.record.activeElapsedMs)}
@@ -788,17 +909,32 @@ function SoloGame() {
           )}
           {result.dailyProgress && (
             <p role="status" className="banner-success mt-4 font-semibold">
-              {result.dailyProgress.currentStreak}-day daily streak
-              {result.dailyProgress.bestStreak > result.dailyProgress.currentStreak
+              {activeDailyStreak}-day daily streak
+              {result.dailyProgress.bestStreak > activeDailyStreak
                 ? ` · Best ${result.dailyProgress.bestStreak}`
                 : ''}
             </p>
           )}
+          {masteryDeltaLabel && (
+            <p role="status" className="mt-4 text-sm font-semibold text-foreground">
+              {masteryDeltaLabel}
+            </p>
+          )}
+          {!result.isPersonalBest &&
+            session.variation === 'endurance' &&
+            (topTenPlaceLabel != null || enduranceStreakShort > 0) && (
+            <p className="mt-3 text-sm text-foreground-muted">
+              {topTenPlaceLabel ? `${topTenPlaceLabel}. ` : ''}
+              {enduranceStreakShort > 0
+                ? `${enduranceStreakShort} short of your best streak.`
+                : null}
+            </p>
+          )}
           {!result.isPersonalBest &&
             personalBestScore != null &&
-            session.variation !== 'daily' &&
-            session.variation !== 'review' && (
+            session.variation === 'challenge' && (
             <p className="mt-3 text-sm text-foreground-muted">
+              {topTenPlaceLabel ? `${topTenPlaceLabel}. ` : ''}
               Personal best: {formatSoloScore(personalBestScore)} points.
             </p>
           )}
@@ -929,6 +1065,23 @@ function SoloGame() {
               <p className="text-xs text-foreground-muted">
                 Share your {session.variation === 'challenge' ? 'Classic' : 'Endurance'} top 10.
               </p>
+            </div>
+          )}
+          {missedReviewCount > 0 && (
+            <div className="mt-5">
+              <p className="text-sm font-semibold text-foreground">
+                {missedReviewCount === 1
+                  ? '1 card needs review'
+                  : `${missedReviewCount} cards need review`}
+              </p>
+              <button
+                type="button"
+                onClick={() => void startRunReview()}
+                disabled={reviewing || maintenanceBlocking}
+                className="mt-2 w-full rounded-lg bg-primary py-3 font-bold text-white shadow-md shadow-primary/20 hover:bg-primary/90 disabled:opacity-50"
+              >
+                {reviewing ? 'Starting…' : 'Review now'}
+              </button>
             </div>
           )}
           <div className={`mt-6 ${isSingleAction ? '' : 'grid grid-cols-2 gap-3'}`}>

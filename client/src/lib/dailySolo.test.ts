@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
+  getActiveDailyStreak,
+  getDailyBestScore,
   hydrateDailyCardCache,
   loadDailyProgress,
   saveDailyResult,
@@ -47,6 +49,38 @@ describe('dailySolo', () => {
     })
     expect(second.currentStreak).toBe(2)
     expect(loadDailyProgress().bestStreak).toBe(2)
+  })
+
+  it('returns the highest completed Daily score', () => {
+    expect(getDailyBestScore(loadDailyProgress())).toBeNull()
+    saveDailyResult({
+      challengeId: '2026-10-01-v1',
+      dateKey: '2026-10-01',
+      completedAt: '2026-10-01T12:00:00Z',
+      record: { ...record(), score: 6400 }
+    })
+    const progress = saveDailyResult({
+      challengeId: '2026-10-02-v1',
+      dateKey: '2026-10-02',
+      completedAt: '2026-10-02T12:00:00Z',
+      record: { ...record(), score: 7200 }
+    })
+
+    expect(getDailyBestScore(progress)).toBe(7200)
+  })
+
+  it('keeps yesterday’s streak alive and clears a missed day', () => {
+    const progress = saveDailyResult({
+      challengeId: '2026-10-01-v1',
+      dateKey: '2026-10-01',
+      completedAt: '2026-10-01T12:00:00Z',
+      record: record()
+    })
+
+    expect(getActiveDailyStreak(progress, '2026-10-01')).toBe(1)
+    expect(getActiveDailyStreak(progress, '2026-10-02')).toBe(1)
+    expect(getActiveDailyStreak(progress, '2026-10-03')).toBe(0)
+    expect(progress.bestStreak).toBe(1)
   })
 
   it('hydrates the Daily card cache from the challenge snapshot', () => {

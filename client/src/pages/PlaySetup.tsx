@@ -161,6 +161,8 @@ function PlaySetup() {
     fetchInPersonEligibility(datasetId, entityType)
       .then((data) => {
         if (cancelled) return
+        // Keep loading + eligibility updates in the same tick so Start isn't
+        // briefly disabled after tiers already show as unavailable.
         setEligibility(data)
         setDifficulty((current) => {
           if (!isDifficultySelectionPlayable(data, current) && (data.modes.any ?? 0) > 0) {
@@ -168,16 +170,15 @@ function PlaySetup() {
           }
           return current
         })
+        setEligibilityLoading(false)
       })
       .catch((err) => {
         if (!cancelled) {
           logSetupLoadError('Pass & play setup: eligibility', err)
           setEligibility(null)
           setError(SETUP_ELIGIBILITY_LOAD_ERROR)
+          setEligibilityLoading(false)
         }
-      })
-      .finally(() => {
-        if (!cancelled) setEligibilityLoading(false)
       })
 
     return () => {
