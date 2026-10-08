@@ -78,12 +78,9 @@ describe('PlaySetup', () => {
     )
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /start cards/i })).toBeInTheDocument()
-    })
-
-    await waitFor(() => {
       expect(screen.getByRole('button', { name: /^medium$/i })).toBeDisabled()
       expect(screen.getByRole('button', { name: /^hard$/i })).toBeDisabled()
+      expect(screen.getByRole('button', { name: /start cards/i })).toBeEnabled()
     })
 
     fireEvent.click(screen.getByRole('button', { name: /start cards/i }))

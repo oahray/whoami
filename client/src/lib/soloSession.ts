@@ -77,6 +77,8 @@ export type SoloSession = SoloConfig & {
   settledRoundPerformance?: SoloRoundPerformance | null
   /** Mastery state change for the frozen outcome; survives refresh. */
   settledMasteryChange?: MasteryChange | null
+  /** Mastery moves from this run, one entry per card. */
+  masteryChanges?: MasteryChange[]
   scoringVersion?: number
   scoringRules?: KnowledgeScoreRules
 }
@@ -130,6 +132,7 @@ export function createSoloSession(
     currentIncorrectGuessCount: 0,
     settledRoundPerformance: null,
     settledMasteryChange: null,
+    masteryChanges: [],
     scoringVersion: scoring?.version,
     scoringRules: scoring?.rules
   }
@@ -192,7 +195,8 @@ export function loadSoloSession(): SoloSession | null {
           : rounds.reduce((sum, round) => sum + round.score, 0),
       currentIncorrectGuessCount: session.currentIncorrectGuessCount ?? 0,
       settledRoundPerformance: session.settledRoundPerformance ?? null,
-      settledMasteryChange: session.settledMasteryChange ?? null
+      settledMasteryChange: session.settledMasteryChange ?? null,
+      masteryChanges: Array.isArray(session.masteryChanges) ? session.masteryChanges : []
     }
   } catch {
     return null
@@ -371,6 +375,39 @@ export function listSoloRecords(variation?: SoloVariation, datasetId?: string): 
     .sort(compareRecords)
 }
 
+function sameSavedAttempt(stored: SoloRecord, attempt: SoloRecord): boolean {
+  return (
+    stored.achievedAt === attempt.achievedAt &&
+    stored.correctCount === attempt.correctCount &&
+    stored.activeElapsedMs === attempt.activeElapsedMs &&
+    stored.score === attempt.score
+  )
+}
+
+/** 1-based place in this mode's top 10, or null when the attempt was not kept. */
+export function soloRecordPlace(record: SoloRecord): number | null {
+  const ranked = listSoloRecords(record.variation, record.datasetId)
+  const index = ranked.findIndex((item) => sameSavedAttempt(item, record))
+  return index < 0 ? null : index + 1
+}
+
+/** Label for a saved run that made the top 10 without taking first place. */
+export function formatSoloTopTenPlace(place: number): string | null {
+  if (place < 2 || place > SOLO_RECORDS_PER_MODE) return null
+  const mod100 = place % 100
+  const suffix =
+    mod100 >= 11 && mod100 <= 13
+      ? 'th'
+      : place % 10 === 1
+        ? 'st'
+        : place % 10 === 2
+          ? 'nd'
+          : place % 10 === 3
+            ? 'rd'
+            : 'th'
+  return `${place}${suffix} in your top 10`
+}
+
 export function shuffleEntityIds(entityIds: string[]): string[] {
   const next = [...entityIds]
   for (let i = next.length - 1; i > 0; i -= 1) {
@@ -461,6 +498,16 @@ export function soloRecordFirstClueCorrectCount(
   return (record.rounds ?? []).filter(
     (round) => round.correct && round.revealedClueCount === 1
   ).length
+}
+
+/** Missed cards from one run, in the order they were played. Names stay out. */
+export function missedEntityIds(record: Pick<SoloRecord, 'rounds'>): string[] {
+  const ids: string[] = []
+  for (const round of record.rounds ?? []) {
+    if (round.correct || !round.entityId || ids.includes(round.entityId)) continue
+    ids.push(round.entityId)
+  }
+  return ids
 }
 
 /** Relative or short absolute date for when a personal best was set. */

@@ -1,6 +1,14 @@
 const MASTERY_KEY = 'whoami-solo-mastery-v1'
 
-export type MasteryState = 'learning' | 'mastered' | 'needs_review'
+export type MasteryState =
+  | 'encountered'
+  | 'learning'
+  | 'familiar'
+  | 'mastered'
+  | 'needs_review'
+
+/** Ladder position from how many times the card was answered correctly. */
+export type MasteryStage = Exclude<MasteryState, 'needs_review'>
 
 export type EntityMastery = {
   datasetId: string
@@ -35,6 +43,7 @@ export type MasteryChange = {
   state: MasteryState
   previousState: MasteryState | 'new'
   changed: boolean
+  entityId: string
   entityName: string
 }
 
@@ -45,9 +54,11 @@ export type MasterySettleCue = {
 }
 
 const MASTERY_STATUS_UI: Record<MasteryState, { label: string; icon: string }> = {
+  encountered: { label: 'Encountered', icon: 'visibility' },
   learning: { label: 'Learning', icon: 'menu_book' },
-  needs_review: { label: 'Needs review', icon: 'replay' },
-  mastered: { label: 'Mastered', icon: 'verified' }
+  familiar: { label: 'Familiar', icon: 'school' },
+  mastered: { label: 'Mastered', icon: 'verified' },
+  needs_review: { label: 'Needs review', icon: 'replay' }
 }
 
 /** Icon + short status for Progress tiles and settle cues. */
@@ -55,9 +66,9 @@ export function masteryStatusUi(state: MasteryState): { label: string; icon: str
   return MASTERY_STATUS_UI[state]
 }
 
-/** Settle cue only when mastery state changes this round. */
+/** Settle cue only when mastery state changes this round. Familiar stays quiet. */
 export function masterySettleCue(change: MasteryChange): MasterySettleCue | null {
-  if (!change.changed) return null
+  if (!change.changed || change.state === 'familiar') return null
   const ui = masteryStatusUi(change.state)
   return { state: change.state, label: ui.label, icon: ui.icon }
 }
@@ -67,6 +78,13 @@ export type MasterySummary = {
   mastered: number
   needsReview: number
   firstClueAccuracy: number | null
+}
+
+export type MasteryRunDelta = {
+  encountered: number
+  learning: number
+  familiar: number
+  mastered: number
 }
 
 function emptyStore(): MasteryStore {
@@ -83,14 +101,34 @@ function loadStore(): MasteryStore {
     if (!raw) return emptyStore()
     const parsed = JSON.parse(raw) as Partial<MasteryStore>
     if (parsed.version !== 1) return emptyStore()
-    return {
+    const store: MasteryStore = {
       version: 1,
       entities: parsed.entities ?? {},
       appliedEvents: parsed.appliedEvents ?? {}
     }
+    return migrateStoredStates(store)
   } catch {
     return emptyStore()
   }
+}
+
+/** Rewrite stored states when the ladder changes, so older "mastered" rows land on Familiar. */
+function migrateStoredStates(store: MasteryStore): MasteryStore {
+  let dirty = false
+  const entities = { ...store.entities }
+  for (const [entityKey, entity] of Object.entries(entities)) {
+    const state = deriveState(
+      entity.correctCount,
+      entity.firstClueCorrectCount,
+      entity.lastCorrect
+    )
+    if (entity.state === state) continue
+    entities[entityKey] = { ...entity, state }
+    dirty = true
+  }
+  const next = dirty ? { ...store, entities } : store
+  if (dirty) saveStore(next)
+  return next
 }
 
 function saveStore(store: MasteryStore): void {
@@ -101,14 +139,61 @@ function saveStore(store: MasteryStore): void {
   }
 }
 
+/** Progress from correct answers. A miss does not erase the ladder. */
+export function masteryStage(
+  correctCount: number,
+  firstClueCorrectCount: number
+): MasteryStage {
+  if (correctCount >= 5 && firstClueCorrectCount >= 1) return 'mastered'
+  if (correctCount >= 3) return 'familiar'
+  if (correctCount >= 1) return 'learning'
+  return 'encountered'
+}
+
 function deriveState(
   correctCount: number,
   firstClueCorrectCount: number,
   lastCorrect: boolean
 ): MasteryState {
   if (!lastCorrect) return 'needs_review'
-  if (correctCount >= 3 && firstClueCorrectCount >= 1) return 'mastered'
-  return 'learning'
+  return masteryStage(correctCount, firstClueCorrectCount)
+}
+
+/** Keep one change per card for the current run. A later round replaces the earlier one. */
+export function recordMasteryChange(
+  changes: MasteryChange[] | undefined,
+  change: MasteryChange
+): MasteryChange[] {
+  const next = [...(changes ?? [])]
+  const index = next.findIndex((item) => item.entityId === change.entityId)
+  if (index >= 0) next[index] = change
+  else next.push(change)
+  return next
+}
+
+/**
+ * Cards newly met, and cards that reached Mastered, during one run.
+ * Learning and Familiar stay off this summary.
+ */
+export function summarizeMasteryRun(changes: MasteryChange[]): MasteryRunDelta {
+  const delta: MasteryRunDelta = {
+    encountered: 0,
+    learning: 0,
+    familiar: 0,
+    mastered: 0
+  }
+  for (const change of changes) {
+    if (change.previousState === 'new') delta.encountered += 1
+    if (change.changed && change.state === 'mastered') delta.mastered += 1
+  }
+  return delta
+}
+
+export function formatMasteryRunDelta(delta: MasteryRunDelta): string | null {
+  const parts: string[] = []
+  if (delta.mastered > 0) parts.push(`+${delta.mastered} mastered`)
+  if (delta.encountered > 0) parts.push(`+${delta.encountered} encountered`)
+  return parts.length > 0 ? parts.join(' · ') : null
 }
 
 /** Idempotently apply one settled Solo round to device-local mastery. */
@@ -122,6 +207,7 @@ export function applyMasteryOutcome(outcome: MasteryOutcome): MasteryChange {
       state: existing.state,
       previousState: existing.state,
       changed: false,
+      entityId: existing.entityId,
       entityName: existing.entityName
     }
   }
@@ -151,6 +237,7 @@ export function applyMasteryOutcome(outcome: MasteryOutcome): MasteryChange {
     state,
     previousState,
     changed: state !== previousState,
+    entityId: outcome.entityId,
     entityName: outcome.entityName
   }
 }
@@ -176,7 +263,9 @@ export function getMasterySummary(datasetId?: string): MasterySummary {
   )
   return {
     encountered: entities.length,
-    mastered: entities.filter((entity) => entity.state === 'mastered').length,
+    mastered: entities.filter(
+      (entity) => masteryStage(entity.correctCount, entity.firstClueCorrectCount) === 'mastered'
+    ).length,
     needsReview: entities.filter((entity) => entity.state === 'needs_review').length,
     firstClueAccuracy: correct > 0 ? firstClue / correct : null
   }

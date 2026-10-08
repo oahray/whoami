@@ -3,11 +3,13 @@ import {
   applyMasteryOutcome,
   applyResolveRemaps,
   clearMasteryForDataset,
+  formatMasteryRunDelta,
   getMasterySummary,
   getNeedsReviewEntityIds,
   listEntityMastery,
   masterySettleCue,
-  rekeyMasteryToCatalog
+  rekeyMasteryToCatalog,
+  summarizeMasteryRun
 } from './soloMastery'
 
 describe('soloMastery', () => {
@@ -61,7 +63,7 @@ describe('soloMastery', () => {
     expect(getNeedsReviewEntityIds('bible')).toEqual([])
   })
 
-  it('masters an entity after three correct answers including a first-clue answer', () => {
+  it('marks an entity familiar after three correct answers', () => {
     for (let index = 0; index < 3; index += 1) {
       applyMasteryOutcome({
         eventId: `run-${index}:0`,
@@ -73,13 +75,97 @@ describe('soloMastery', () => {
       })
     }
 
-    expect(listEntityMastery('bible')[0]?.state).toBe('mastered')
+    expect(listEntityMastery('bible')[0]?.state).toBe('familiar')
     expect(getMasterySummary('bible')).toEqual({
       encountered: 1,
-      mastered: 1,
+      mastered: 0,
       needsReview: 0,
       firstClueAccuracy: 1 / 3
     })
+  })
+
+  it('masters an entity after five correct answers including a first-clue answer', () => {
+    for (let index = 0; index < 5; index += 1) {
+      applyMasteryOutcome({
+        eventId: `run-${index}:0`,
+        datasetId: 'bible',
+        entityId: 'ruth',
+        entityName: 'Ruth',
+        correct: true,
+        revealedClueCount: index === 4 ? 1 : 2
+      })
+    }
+
+    expect(listEntityMastery('bible')[0]?.state).toBe('mastered')
+    expect(getMasterySummary('bible').mastered).toBe(1)
+  })
+
+  it('stays familiar at five correct answers when none used the first clue', () => {
+    for (let index = 0; index < 5; index += 1) {
+      applyMasteryOutcome({
+        eventId: `run-${index}:0`,
+        datasetId: 'bible',
+        entityId: 'esther',
+        entityName: 'Esther',
+        correct: true,
+        revealedClueCount: 2
+      })
+    }
+
+    expect(listEntityMastery('bible')[0]?.state).toBe('familiar')
+  })
+
+  it('moves older three-correct mastered rows to familiar', () => {
+    localStorage.setItem(
+      'whoami-solo-mastery-v1',
+      JSON.stringify({
+        version: 1,
+        entities: {
+          'bible:ruth': {
+            datasetId: 'bible',
+            entityId: 'ruth',
+            entityName: 'Ruth',
+            encounters: 3,
+            correctCount: 3,
+            firstClueCorrectCount: 1,
+            missCount: 0,
+            lastCorrect: true,
+            lastEncounteredAt: '2026-01-01T00:00:00.000Z',
+            state: 'mastered'
+          }
+        },
+        appliedEvents: {}
+      })
+    )
+
+    expect(listEntityMastery('bible')[0]?.state).toBe('familiar')
+    expect(getMasterySummary('bible')).toMatchObject({
+      encountered: 1,
+      mastered: 0
+    })
+  })
+
+  it('summarizes stage changes from one run', () => {
+    const missed = applyMasteryOutcome({
+      eventId: 'run-1:0',
+      datasetId: 'bible',
+      entityId: 'adam',
+      entityName: 'Adam',
+      correct: false,
+      revealedClueCount: 4
+    })
+    const learned = applyMasteryOutcome({
+      eventId: 'run-1:1',
+      datasetId: 'bible',
+      entityId: 'eve',
+      entityName: 'Eve',
+      correct: true,
+      revealedClueCount: 2
+    })
+
+    expect(formatMasteryRunDelta(summarizeMasteryRun([missed, learned]))).toBe(
+      '+2 encountered'
+    )
   })
 
   it('remaps mastery onto new entity ids by name after a content reimport', () => {
