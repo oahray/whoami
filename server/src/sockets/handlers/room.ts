@@ -176,7 +176,6 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
           players: Array.from(room.players.values()).map(toPublicPlayer)
         })
         persistRoom(room)
-        recordPlayCount('multiplayerPlayerConnections')
         return
       }
     }
@@ -229,7 +228,6 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
         players: Array.from(room.players.values()).map(toPublicPlayer)
       })
       persistRoom(room)
-      recordPlayCount('multiplayerPlayerConnections')
       return
     }
 

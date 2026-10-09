@@ -234,7 +234,7 @@ export default function MaintenancePanel() {
                 value={datasetId}
                 onChange={(e) => setDatasetId(e.target.value)}
                 required
-                className="rounded-lg border border-admin-border bg-admin-muted-surface text-admin-fg h-11 px-4 max-w-md"
+                className="admin-select rounded-lg border border-admin-border bg-admin-muted-surface text-admin-fg h-11 pl-4 max-w-md"
               >
                 <option value="" disabled>
                   Select dataset

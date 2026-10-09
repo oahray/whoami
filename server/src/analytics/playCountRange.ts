@@ -4,6 +4,7 @@ import {
   PLAY_COUNT_METRICS,
   emptyPlayCounts,
   getPlayCountsForDay,
+  higherPlayCounts,
   listMemoryPlayCountDays,
   listRedisPlayCountDays,
   utcPlayCountDate,
@@ -84,15 +85,17 @@ export async function getPlayCountsForRange(
       logger.error('Failed to read stored play totals', error)
     }
 
+    const memoryByDay = new Map(listMemoryPlayCountDays().map((row) => [row.day, row.counts]))
     for (const row of await listRedisPlayCountDays()) {
       if (!inClosedSpan(row.day, span, today) || seen.has(row.day)) continue
       seen.add(row.day)
-      addCounts(counts, row.counts)
+      const inMemory = memoryByDay.get(row.day)
+      addCounts(counts, inMemory ? higherPlayCounts(row.counts, inMemory) : row.counts)
     }
-    for (const row of listMemoryPlayCountDays()) {
-      if (!inClosedSpan(row.day, span, today) || seen.has(row.day)) continue
-      seen.add(row.day)
-      addCounts(counts, row.counts)
+    for (const [day, dayCounts] of memoryByDay) {
+      if (!inClosedSpan(day, span, today) || seen.has(day)) continue
+      seen.add(day)
+      addCounts(counts, dayCounts)
     }
   }
 

@@ -88,7 +88,7 @@ export default function AdminActiveDatasetBar({ hidden }: AdminActiveDatasetBarP
             <select
               value={selectedDatasetId ?? ''}
               onChange={(e) => setSelectedDatasetId(e.target.value || null)}
-              className="max-w-[9rem] sm:max-w-[11rem] shrink-0 bg-admin-panel border border-admin-border rounded-md text-xs py-1.5 px-2 text-admin-fg font-medium focus:ring-2 focus:ring-primary/20"
+              className="admin-select max-w-[9rem] sm:max-w-[11rem] shrink-0 bg-admin-panel border border-admin-border rounded-md text-xs py-1.5 pl-2 text-admin-fg font-medium focus:ring-2 focus:ring-primary/20"
               aria-label="Switch active dataset"
             >
               {enabledDatasets.map((dataset) => (
@@ -158,7 +158,7 @@ export default function AdminActiveDatasetBar({ hidden }: AdminActiveDatasetBarP
               <select
                 value={selectedDatasetId ?? ''}
                 onChange={(e) => setSelectedDatasetId(e.target.value || null)}
-                className="w-full bg-admin-panel border border-admin-border rounded-lg text-sm py-2.5 px-3 text-admin-fg font-medium focus:ring-2 focus:ring-primary/20"
+                className="admin-select w-full bg-admin-panel border border-admin-border rounded-lg text-sm py-2.5 pl-3 text-admin-fg font-medium focus:ring-2 focus:ring-primary/20"
                 aria-label="Switch active dataset"
               >
                 {enabledDatasets.map((dataset) => (

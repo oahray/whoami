@@ -151,6 +151,17 @@ function AdminDashboard() {
           <StatCard icon="hourglass_top" label="Lobbies waiting" value={live?.roomsWaiting ?? '—'} />
           <StatCard icon="meeting_room" label="Open rooms" value={live?.totalRooms ?? '—'} />
         </div>
+        <button
+          type="button"
+          onClick={() => navigate('/analytics')}
+          className="md:hidden mt-3 inline-flex min-h-11 items-center gap-0.5 text-sm font-semibold text-primary hover:text-primary/80"
+          aria-label="See more play totals"
+        >
+          See more
+          <span className="material-symbols-outlined text-lg" aria-hidden="true">
+            chevron_right
+          </span>
+        </button>
       </section>
 
       <section className="mb-6">

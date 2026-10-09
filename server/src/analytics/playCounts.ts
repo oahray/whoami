@@ -59,6 +59,15 @@ function countsFor(raw: Record<string, string | number | undefined>): PlayCounts
   return counts
 }
 
+/** Keep the larger total when Redis and this process both have a copy. */
+export function higherPlayCounts(left: PlayCounts, right: PlayCounts): PlayCounts {
+  const merged = emptyPlayCounts()
+  for (const metric of PLAY_COUNT_METRICS) {
+    merged[metric] = Math.max(left[metric] || 0, right[metric] || 0)
+  }
+  return merged
+}
+
 /** Increment today's total. Gameplay must continue if Redis is down. */
 export function recordPlayCount(metric: PlayCountMetric, now = new Date()): void {
   const day = utcPlayCountDate(now)
@@ -79,20 +88,23 @@ async function incrementRedis(day: string, metric: PlayCountMetric): Promise<voi
   }
 }
 
-/** Today's totals. Redis wins when it is configured; memory covers local dev. */
+/**
+ * Today's totals. Redis and this process both count the same events.
+ * A partial Redis hash must not hide a total that only this process has.
+ */
 export async function getPlayCountsForDay(day = utcPlayCountDate()): Promise<PlayCounts> {
-  if (isRedisConfigured()) {
-    try {
-      const redis = await getRedis()
-      if (redis) {
-        const raw = await redis.hgetall(redisKey(day))
-        if (raw && Object.keys(raw).length > 0) return countsFor(raw)
-      }
-    } catch (error) {
-      logger.error('Failed to read play totals', error, { day })
-    }
+  const fromMemory = { ...(memory.get(day) ?? emptyPlayCounts()) }
+  if (!isRedisConfigured()) return fromMemory
+  try {
+    const redis = await getRedis()
+    if (!redis) return fromMemory
+    const raw = await redis.hgetall(redisKey(day))
+    if (!raw || Object.keys(raw).length === 0) return fromMemory
+    return higherPlayCounts(fromMemory, countsFor(raw))
+  } catch (error) {
+    logger.error('Failed to read play totals', error, { day })
+    return fromMemory
   }
-  return { ...(memory.get(day) ?? emptyPlayCounts()) }
 }
 
 export function listMemoryPlayCountDays(): Array<{ day: string; counts: PlayCounts }> {

@@ -332,7 +332,7 @@ function AdminEntityEditor() {
               <select
                 value={entity.type || 'character'}
                 onChange={(e) => setEntity({ ...entity, type: e.target.value as 'character' | 'place' })}
-                className="w-full rounded-lg border border-admin-border bg-admin-muted-surface text-admin-fg focus:ring-primary focus:border-primary h-12 px-4 font-medium"
+                className="admin-select w-full rounded-lg border border-admin-border bg-admin-muted-surface text-admin-fg focus:ring-primary focus:border-primary h-12 pl-4 font-medium"
               >
                 <option value="character">Character</option>
                 <option value="place">Place</option>
@@ -405,7 +405,7 @@ function AdminEntityEditor() {
                   <select
                     value={clue.difficulty ?? ''}
                     onChange={(e) => handleUpdateClue(index, 'difficulty', (e.target.value || null) as Difficulty | null)}
-                    className="w-full rounded-lg border border-admin-border bg-admin-muted-surface text-admin-fg focus:ring-primary focus:border-primary h-11 px-3 font-medium text-sm"
+                    className="admin-select w-full rounded-lg border border-admin-border bg-admin-muted-surface text-admin-fg focus:ring-primary focus:border-primary h-11 pl-3 font-medium text-sm"
                   >
                     <option value="">Not set</option>
                     <option value="easy">Easy</option>
