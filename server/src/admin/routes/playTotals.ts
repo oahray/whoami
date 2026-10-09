@@ -1,23 +1,12 @@
 import { Router, Response } from 'express'
-import { getPlayCountsForDay, utcPlayCountDate } from '../../analytics/playCounts.js'
+import { getPlayCountsForRange, parsePlayCountRange } from '../../analytics/playCountRange.js'
+import type { PlayCounts } from '../../analytics/playCounts.js'
 import type { AuthRequest } from '../auth.js'
 
 const router = Router()
 
-/** Historical play totals. This chunk serves the current UTC day only. */
-router.get('/play-totals', async (req: AuthRequest, res: Response) => {
-  const range = typeof req.query.range === 'string' ? req.query.range : 'today'
-  if (range !== 'today') {
-    res.status(400).json({ error: 'Only today is available' })
-    return
-  }
-
-  const day = utcPlayCountDate()
-  const counts = await getPlayCountsForDay(day)
-  res.json({
-    range: 'today',
-    timeZone: 'UTC',
-    day,
+function present(counts: PlayCounts) {
+  return {
     multiplayer: {
       roomsCreated: counts.multiplayerRoomsCreated,
       gamesStarted: counts.multiplayerGamesStarted,
@@ -31,6 +20,26 @@ router.get('/play-totals', async (req: AuthRequest, res: Response) => {
       endurance: { started: counts.soloEnduranceStarted, completed: counts.soloEnduranceCompleted },
       review: { started: counts.soloReviewStarted, completed: counts.soloReviewCompleted }
     }
+  }
+}
+
+/** Historical play totals. Today is live. Longer ranges add closed days. */
+router.get('/play-totals', async (req: AuthRequest, res: Response) => {
+  const raw = typeof req.query.range === 'string' ? req.query.range : 'today'
+  const range = parsePlayCountRange(raw)
+  if (!range) {
+    res.status(400).json({ error: 'Range must be today, yesterday, week, month, or all' })
+    return
+  }
+
+  const { span, counts } = await getPlayCountsForRange(range)
+  res.json({
+    range,
+    timeZone: 'UTC',
+    from: span.from,
+    to: span.to,
+    day: span.to,
+    ...present(counts)
   })
 })
 

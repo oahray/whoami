@@ -88,9 +88,13 @@ export interface SoloModePlayTotals {
   completed: number
 }
 
+export type PlayTotalsRange = 'today' | 'yesterday' | 'week' | 'month' | 'all'
+
 export interface PlayTotalsToday {
-  range: 'today'
+  range: PlayTotalsRange
   timeZone: 'UTC'
+  from: string | null
+  to: string
   day: string
   multiplayer: MultiplayerPlayTotals
   solo: {

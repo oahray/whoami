@@ -28,6 +28,7 @@ import {
   BULK_IMPORT_JSON_BODY_LIMIT,
   DEFAULT_JSON_BODY_LIMIT
 } from './config/bodyLimits.js'
+import { startPlayCountReconcileSchedule } from './analytics/reconcilePlayCounts.js'
 import { isRedisConfigured } from './redis/client.js'
 import { fetchRoomsFromRedis } from './rooms/persist.js'
 import { loadHydratedRooms } from './rooms/store.js'
@@ -215,6 +216,8 @@ async function boot() {
       process.exit(1)
     }
   }
+
+  startPlayCountReconcileSchedule()
 
   server.listen(PORT, () => {
     const rearmed = rearmAllHydratedRoomTimers(io, hydratedRooms)

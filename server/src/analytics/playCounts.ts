@@ -95,6 +95,59 @@ export async function getPlayCountsForDay(day = utcPlayCountDate()): Promise<Pla
   return { ...(memory.get(day) ?? emptyPlayCounts()) }
 }
 
+export function listMemoryPlayCountDays(): Array<{ day: string; counts: PlayCounts }> {
+  return [...memory.entries()].map(([day, counts]) => ({ day, counts: { ...counts } }))
+}
+
+export function forgetMemoryPlayCountDay(day: string): void {
+  memory.delete(day)
+}
+
+/** Closed and open days currently held in Redis. Empty when Redis is off. */
+export async function listRedisPlayCountDays(): Promise<Array<{ day: string; counts: PlayCounts }>> {
+  if (!isRedisConfigured()) return []
+  try {
+    const redis = await getRedis()
+    if (!redis) return []
+    const keys = await scanPlayCountKeys(redis)
+    const days: Array<{ day: string; counts: PlayCounts }> = []
+    for (const key of keys) {
+      const day = key.slice(redisKey('').length)
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) continue
+      const raw = await redis.hgetall(key)
+      days.push({ day, counts: countsFor(raw) })
+    }
+    return days
+  } catch (error) {
+    logger.error('Failed to list play totals', error)
+    return []
+  }
+}
+
+export async function expireRedisPlayCountDay(day: string, seconds: number): Promise<void> {
+  if (!isRedisConfigured()) return
+  const redis = await getRedis()
+  if (!redis) return
+  await redis.expire(redisKey(day), seconds)
+}
+
+async function scanPlayCountKeys(
+  redis: NonNullable<Awaited<ReturnType<typeof getRedis>>>
+): Promise<string[]> {
+  const keys: string[] = []
+  let cursor = '0'
+  const scan = redis.scan as unknown as (
+    cursor: string,
+    ...args: Array<string | number>
+  ) => Promise<[string, string[]]>
+  do {
+    const [next, batch] = await scan(cursor, 'MATCH', `${redisKey('')}*`, 'COUNT', 100)
+    cursor = String(next)
+    keys.push(...batch)
+  } while (cursor !== '0')
+  return keys
+}
+
 export function resetPlayCountsForTests(): void {
   memory.clear()
 }

@@ -4,13 +4,21 @@ import LoadingState from '../components/LoadingState'
 import { AdminLayout } from '../components/AdminLayout'
 import StatCard from '../components/StatCard'
 import { useAuth } from '../context/AuthContext'
-import type { PlayTotalsToday, SoloModePlayTotals } from '../types'
+import type { PlayTotalsRange, PlayTotalsToday, SoloModePlayTotals } from '../types'
 
 const API_BASE_URL = import.meta.env.VITE_SOCKET_URL?.replace('ws://', 'http://').replace('wss://', 'https://') || 'http://localhost:3001'
 
+const RANGES: Array<{ value: PlayTotalsRange; label: string }> = [
+  { value: 'today', label: 'Today' },
+  { value: 'yesterday', label: 'Yesterday' },
+  { value: 'week', label: 'This week' },
+  { value: 'month', label: 'This month' },
+  { value: 'all', label: 'All time' },
+]
+
 const SOLO_MODES: Array<{ key: keyof PlayTotalsToday['solo']; label: string }> = [
-  { key: 'classic', label: 'Classic' },
   { key: 'daily', label: 'Daily' },
+  { key: 'classic', label: 'Classic' },
   { key: 'endurance', label: 'Endurance' },
   { key: 'review', label: 'Review' },
 ]
@@ -19,6 +27,16 @@ function formatUtcDay(day: string): string {
   return new Intl.DateTimeFormat(undefined, { dateStyle: 'long', timeZone: 'UTC' }).format(
     new Date(`${day}T00:00:00Z`)
   )
+}
+
+function rangeLabel(totals: PlayTotalsToday): string {
+  const end = formatUtcDay(totals.to)
+  if (totals.range === 'today') return `Today · ${end} UTC`
+  if (totals.range === 'yesterday') return `Yesterday · ${end} UTC`
+  if (totals.range === 'all') return `All time · through ${end} UTC`
+  const start = totals.from ? formatUtcDay(totals.from) : end
+  if (totals.range === 'week') return `This week · ${start} – ${end} UTC`
+  return `This month · ${start} – ${end} UTC`
 }
 
 function ModeCards({ mode }: { mode: SoloModePlayTotals }) {
@@ -33,19 +51,21 @@ function ModeCards({ mode }: { mode: SoloModePlayTotals }) {
 function AdminAnalytics() {
   const { getAccessToken } = useAuth()
   const navigate = useNavigate()
+  const [range, setRange] = useState<PlayTotalsRange>('today')
   const [totals, setTotals] = useState<PlayTotalsToday | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   const load = useCallback(async () => {
     try {
+      setLoading(true)
       setError('')
       const token = await getAccessToken()
       if (!token) {
         navigate('/login')
         return
       }
-      const res = await fetch(`${API_BASE_URL}/admin/play-totals?range=today`, {
+      const res = await fetch(`${API_BASE_URL}/admin/play-totals?range=${range}`, {
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
@@ -58,7 +78,7 @@ function AdminAnalytics() {
     } finally {
       setLoading(false)
     }
-  }, [getAccessToken, navigate])
+  }, [getAccessToken, navigate, range])
 
   useEffect(() => {
     void load()
@@ -66,6 +86,23 @@ function AdminAnalytics() {
 
   return (
     <AdminLayout breadcrumb="Analytics" title="Analytics">
+      <div className="mb-6">
+        <label htmlFor="play-totals-range" className="sr-only">
+          Date range
+        </label>
+        <select
+          id="play-totals-range"
+          value={range}
+          onChange={(event) => setRange(event.target.value as PlayTotalsRange)}
+          className="bg-admin-panel border border-admin-border rounded-lg text-sm py-2.5 px-4 text-admin-fg font-medium focus:ring-2 focus:ring-primary/20"
+        >
+          {RANGES.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
       {loading ? (
         <div className="flex items-center justify-center py-24">
           <LoadingState label="Loading" layout="inline" />
@@ -78,8 +115,9 @@ function AdminAnalytics() {
             </div>
           )}
           <p className="text-admin-muted text-sm mb-6">
-            Today{totals?.day ? ` · ${formatUtcDay(totals.day)} UTC` : ''}. Event counts, not unique
-            people. Started minus completed is games that began and never finished.
+            {totals ? rangeLabel(totals) : 'UTC'}. Event counts, not unique people. Started minus
+            completed is games that began and never finished. A game that crosses midnight counts on
+            both days.
           </p>
 
           <section className="mb-8">
