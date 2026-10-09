@@ -115,7 +115,7 @@ function Privacy() {
             We also keep daily totals of multiplayer rooms created, games started, games finished,
             lobbies closed before play, and player connections, plus how many Classic, Daily,
             Endurance, and Review games start and finish. Those totals do not include nicknames,
-            room codes, scores, or a way to tell players apart. A reconnect counts again.
+            room codes, scores, or a way to tell players apart.
           </p>
         </section>
 

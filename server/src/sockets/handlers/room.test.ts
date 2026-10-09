@@ -27,6 +27,7 @@ vi.mock('../../game/nicknameFilter.js', () => ({
 
 const actualStore = await vi.importActual<typeof import('../../rooms/store.js')>('../../rooms/store.js')
 
+import { getPlayCountsForDay } from '../../analytics/playCounts.js'
 import { createRoom as createRoomInStore, deleteRoom, getRoom, getRoomBySocket } from '../../rooms/store.js'
 import { buildReconnectPayload, findReturningPlayer, transferHost, GRACE_PERIOD_MS } from './utils.js'
 import {
@@ -52,7 +53,7 @@ describe('room socket handlers', () => {
     vi.useRealTimers()
   })
 
-  it('reconnects a returning player in an active game with RECONNECT_SUCCESS', () => {
+  it('reconnects a returning player in an active game with RECONNECT_SUCCESS', async () => {
     const room = actualStore.createRoom('host-1', 'Host')
     const oldPlayer = {
       id: 'old-socket',
@@ -126,6 +127,7 @@ describe('room socket handlers', () => {
     vi.mocked(getRoom).mockReturnValue(room)
     vi.mocked(findReturningPlayer).mockReturnValue(oldPlayer as any)
     vi.mocked(buildReconnectPayload).mockReturnValue({ ok: true } as any)
+    const before = await getPlayCountsForDay()
 
     handleJoinRoom({} as any, socket, {
       roomCode: room.code,
@@ -143,6 +145,7 @@ describe('room socket handlers', () => {
     expect(room.finalScoreboard?.[0].playerId).toBe('new-socket')
     expect(socket.join).toHaveBeenCalledWith(room.code)
     expect(socket.emit).toHaveBeenCalledWith('RECONNECT_SUCCESS', { ok: true })
+    expect((await getPlayCountsForDay()).multiplayerPlayerConnections).toBe(before.multiplayerPlayerConnections)
   })
 
   it('rejects a banned player from rejoining', () => {

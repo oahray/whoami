@@ -33,6 +33,7 @@ router.get('/play-totals', async (req: AuthRequest, res: Response) => {
   }
 
   const { span, counts } = await getPlayCountsForRange(range)
+  res.set('Cache-Control', 'no-store')
   res.json({
     range,
     timeZone: 'UTC',

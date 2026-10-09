@@ -181,7 +181,7 @@ function AdminEntities() {
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
-              className="bg-admin-panel border border-admin-border rounded-lg text-sm py-2.5 px-4 text-admin-fg font-medium focus:ring-2 focus:ring-primary/20"
+              className="admin-select bg-admin-panel border border-admin-border rounded-lg text-sm py-2.5 pl-4 text-admin-fg font-medium focus:ring-2 focus:ring-primary/20"
             >
               <option value="all">All Types</option>
               <option value="character">Character</option>
@@ -190,7 +190,7 @@ function AdminEntities() {
             <select
               value={filterPublished}
               onChange={(e) => setFilterPublished(e.target.value)}
-              className="bg-admin-panel border border-admin-border rounded-lg text-sm py-2.5 px-4 text-admin-fg font-medium focus:ring-2 focus:ring-primary/20"
+              className="admin-select bg-admin-panel border border-admin-border rounded-lg text-sm py-2.5 pl-4 text-admin-fg font-medium focus:ring-2 focus:ring-primary/20"
             >
               <option value="all">All Status</option>
               <option value="published">Published</option>

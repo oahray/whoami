@@ -3,6 +3,7 @@ import { logger } from '../utils/logger.js'
 
 let client: Redis | null = null
 let connectAttempted = false
+let connecting: Promise<Redis | null> | null = null
 
 /** True when REDIS_URL is set (persistence intended for this process). */
 export function isRedisConfigured(): boolean {

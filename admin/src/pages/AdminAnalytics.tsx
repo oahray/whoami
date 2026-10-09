@@ -54,11 +54,13 @@ function AdminAnalytics() {
   const [range, setRange] = useState<PlayTotalsRange>('today')
   const [totals, setTotals] = useState<PlayTotalsToday | null>(null)
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [fetchedAt, setFetchedAt] = useState<Date | null>(null)
   const [error, setError] = useState('')
 
   const load = useCallback(async () => {
     try {
-      setLoading(true)
+      setRefreshing(true)
       setError('')
       const token = await getAccessToken()
       if (!token) {
@@ -66,6 +68,7 @@ function AdminAnalytics() {
         return
       }
       const res = await fetch(`${API_BASE_URL}/admin/play-totals?range=${range}`, {
+        cache: 'no-store',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
@@ -73,9 +76,11 @@ function AdminAnalytics() {
       })
       if (!res.ok) throw new Error('Failed to load analytics')
       setTotals((await res.json()) as PlayTotalsToday)
+      setFetchedAt(new Date())
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load analytics')
     } finally {
+      setRefreshing(false)
       setLoading(false)
     }
   }, [getAccessToken, navigate, range])
@@ -86,7 +91,7 @@ function AdminAnalytics() {
 
   return (
     <AdminLayout breadcrumb="Analytics" title="Analytics">
-      <div className="mb-6">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <label htmlFor="play-totals-range" className="sr-only">
           Date range
         </label>
@@ -94,7 +99,8 @@ function AdminAnalytics() {
           id="play-totals-range"
           value={range}
           onChange={(event) => setRange(event.target.value as PlayTotalsRange)}
-          className="bg-admin-panel border border-admin-border rounded-lg text-sm py-2.5 px-4 text-admin-fg font-medium focus:ring-2 focus:ring-primary/20"
+          style={{ width: `calc(${(RANGES.find((option) => option.value === range)?.label.length ?? 5)}ch + 4.5rem)` }}
+          className="admin-select bg-admin-panel border border-admin-border rounded-md text-sm py-2.5 pl-3.5 text-admin-fg font-medium focus:border-primary focus:ring-2 focus:ring-primary/25"
         >
           {RANGES.map((option) => (
             <option key={option.value} value={option.value}>
@@ -102,6 +108,14 @@ function AdminAnalytics() {
             </option>
           ))}
         </select>
+        <button
+          type="button"
+          onClick={() => void load()}
+          disabled={refreshing}
+          className="inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:text-primary/80 disabled:opacity-60"
+        >
+          {refreshing ? 'Refreshing…' : 'Refresh'}
+        </button>
       </div>
       {loading ? (
         <div className="flex items-center justify-center py-24">
@@ -118,12 +132,13 @@ function AdminAnalytics() {
             {totals ? rangeLabel(totals) : 'UTC'}. Event counts, not unique people. Started minus
             completed is games that began and never finished. A game that crosses midnight counts on
             both days.
+            {fetchedAt ? ` Updated ${fetchedAt.toLocaleTimeString()}.` : ''}
           </p>
 
           <section className="mb-8">
             <h2 className="text-admin-fg text-lg font-bold mb-1">Multiplayer</h2>
             <p className="text-admin-muted text-sm mb-4">
-              Rooms and games on the server. A reconnect counts as another player connection.
+              Rooms and games on the server. Coming back to a room does not count again.
             </p>
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
               <StatCard icon="add_box" label="Rooms created" value={totals?.multiplayer.roomsCreated ?? '—'} />
