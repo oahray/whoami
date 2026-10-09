@@ -20,6 +20,7 @@ import publicDatasetsRoutes from './routes/datasets.js'
 import publicCardsRoutes from './routes/cards.js'
 import publicMaintenanceRoutes from './routes/maintenance.js'
 import publicHistoryKeyRoutes from './routes/historyPublicKey.js'
+import publicPlayTotalsRoutes from './routes/playTotals.js'
 import { supabase } from './db/supabase.js'
 import { logger } from './utils/logger.js'
 import { errorHandler } from './middleware/errorHandler.js'
@@ -27,6 +28,7 @@ import {
   BULK_IMPORT_JSON_BODY_LIMIT,
   DEFAULT_JSON_BODY_LIMIT
 } from './config/bodyLimits.js'
+import { startPlayCountReconcileSchedule } from './analytics/reconcilePlayCounts.js'
 import { isRedisConfigured } from './redis/client.js'
 import { fetchRoomsFromRedis } from './rooms/persist.js'
 import { loadHydratedRooms } from './rooms/store.js'
@@ -145,6 +147,7 @@ app.use(publicDatasetsRoutes)
 app.use(publicCardsRoutes)
 app.use(publicMaintenanceRoutes)
 app.use(publicHistoryKeyRoutes)
+app.use(publicPlayTotalsRoutes)
 app.use('/admin', adminRoutes)
 
 app.use(errorHandler)
@@ -213,6 +216,8 @@ async function boot() {
       process.exit(1)
     }
   }
+
+  startPlayCountReconcileSchedule()
 
   server.listen(PORT, () => {
     const rearmed = rearmAllHydratedRoomTimers(io, hydratedRooms)

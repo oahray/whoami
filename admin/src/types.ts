@@ -74,6 +74,37 @@ export interface Stats {
 }
 
 /** Anonymous multiplayer presence from the game server. */
+/** Multiplayer event totals for one UTC day. Not unique people. */
+export interface MultiplayerPlayTotals {
+  roomsCreated: number
+  gamesStarted: number
+  gamesCompleted: number
+  abandonedBeforeStart: number
+  playerConnections: number
+}
+
+export interface SoloModePlayTotals {
+  started: number
+  completed: number
+}
+
+export type PlayTotalsRange = 'today' | 'yesterday' | 'week' | 'month' | 'all'
+
+export interface PlayTotalsToday {
+  range: PlayTotalsRange
+  timeZone: 'UTC'
+  from: string | null
+  to: string
+  day: string
+  multiplayer: MultiplayerPlayTotals
+  solo: {
+    classic: SoloModePlayTotals
+    daily: SoloModePlayTotals
+    endurance: SoloModePlayTotals
+    review: SoloModePlayTotals
+  }
+}
+
 export interface LiveMultiplayerStats {
   connectedPlayers: number
   roomsWaiting: number

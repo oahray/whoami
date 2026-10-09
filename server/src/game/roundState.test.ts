@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { getPlayCountsForDay } from '../analytics/playCounts.js'
 import { createRoom } from '../rooms/store.js'
 
 vi.mock('../db/entities.js', () => ({
@@ -109,8 +110,10 @@ describe('roundState unit', () => {
     room.players.get('player-1')!.lastGuessAt = Date.now()
     room.players.get('player-1')!.isLocked = true
 
+    const before = await getPlayCountsForDay()
     await startGame(room)
 
+    expect((await getPlayCountsForDay()).multiplayerGamesStarted).toBe(before.multiplayerGamesStarted + 1)
     expect(room.status).toBe('in_progress')
     expect(room.currentRound?.roundNumber).toBe(1)
     expect(room.currentRound?.entity).toEqual(mockEntity)
@@ -338,8 +341,10 @@ describe('roundState unit', () => {
       is_default: false
     } as any)
 
+    const before = await getPlayCountsForDay()
     await expect(startGame(room)).rejects.toBeInstanceOf(GameStartError)
     expect(buildEntityPool).not.toHaveBeenCalled()
+    expect((await getPlayCountsForDay()).multiplayerGamesStarted).toBe(before.multiplayerGamesStarted)
   })
 
   it('startGame throws NO_DATASET when no enabled dataset can be resolved', async () => {

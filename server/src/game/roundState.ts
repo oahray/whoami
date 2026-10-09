@@ -6,6 +6,7 @@ import { validateGuess } from './validation.js'
 import { isRateLimited, hasExceededMaxGuesses } from './rateLimit.js'
 import { shuffle } from './shuffle.js'
 import type { RoomState } from '../rooms/store.js'
+import { recordPlayCount } from '../analytics/playCounts.js'
 import { recordFinishedGame } from '../rooms/store.js'
 import { persistRoom } from '../rooms/persist.js'
 
@@ -59,6 +60,7 @@ export async function startGame(room: RoomState): Promise<void> {
   }
 
   room.status = 'in_progress'
+  recordPlayCount('multiplayerGamesStarted')
   room.currentRound = null
   room.roundHistory = []
   room.usedEntityIds = new Set()
@@ -303,6 +305,7 @@ export function endRound(room: RoomState): void {
 }
 
 export function endGame(room: RoomState): void {
+  const alreadyFinished = room.status === 'finished'
   room.status = 'finished'
   room.currentRound = null
 
@@ -319,6 +322,7 @@ export function endGame(room: RoomState): void {
 
   room.finalScoreboard = finalScoreboard
   recordFinishedGame(room)
+  if (!alreadyFinished) recordPlayCount('multiplayerGamesCompleted')
 }
 
 export function resetRoomForNewGame(room: RoomState): void {

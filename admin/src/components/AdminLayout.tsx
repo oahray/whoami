@@ -13,6 +13,7 @@ interface AdminLayoutProps {
 
 const navItems = [
   { path: '/', label: 'Dashboard', icon: 'dashboard', exact: true },
+  { path: '/analytics', label: 'Analytics', icon: 'monitoring', exact: false },
   { path: '/datasets', label: 'Datasets', icon: 'collections_bookmark', exact: false },
   { path: '/entities', label: 'Entities', icon: 'database', exact: false },
   { path: '/bulk-import', label: 'Bulk Import', icon: 'upload_file', exact: false },
@@ -20,6 +21,7 @@ const navItems = [
 
 const bottomNavItems = [
   { path: '/', label: 'Home', icon: 'home' },
+  { path: '/analytics', label: 'Stats', icon: 'monitoring' },
   { path: '/datasets', label: 'Sets', icon: 'collections_bookmark' },
   { path: '/entities', label: 'Entities', icon: 'database' },
   { path: '/bulk-import', label: 'Import', icon: 'upload_file' },

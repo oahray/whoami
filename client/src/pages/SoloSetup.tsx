@@ -6,6 +6,7 @@ import MaintenanceBanner from '../components/MaintenanceBanner'
 import PreferencesMenu from '../components/PreferencesMenu'
 import { useMaintenanceStatus } from '../hooks/useMaintenanceStatus'
 import { API_BASE_URL } from '../lib/apiBase'
+import { reportSoloPlay } from '../lib/reportSoloPlay'
 import {
   fetchDailyChallenge,
   getActiveDailyStreak,
@@ -495,6 +496,7 @@ function SoloSetup() {
       )
       saveSoloSetupPreferences(config)
       saveSoloSession(session)
+      reportSoloPlay(session.variation, 'started')
       navigate('/solo/play')
     } catch (err) {
       logSetupLoadError('Solo setup: start', err)
@@ -533,6 +535,7 @@ function SoloSetup() {
       }
     )
     saveSoloSession(session)
+    reportSoloPlay('daily', 'started')
     unlockAudio()
     fadeOutMenuMusic()
     playSound('go')
@@ -598,6 +601,7 @@ function SoloSetup() {
           : undefined
       )
       saveSoloSession(session)
+      reportSoloPlay('review', 'started')
       navigate('/solo/play')
     } catch (err) {
       setError(err instanceof Error ? err.message : SETUP_START_ERROR)

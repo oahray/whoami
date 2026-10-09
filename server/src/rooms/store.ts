@@ -5,6 +5,7 @@ import {
   type GameHistoryEfficiency
 } from '../game/gameEfficiency.js'
 import { createDefaultMultiplayerRoomSettings, GAME_HISTORY_MAX } from '../game/multiplayerDefaults.js'
+import { recordPlayCount } from '../analytics/playCounts.js'
 import { persistRoom, removePersistedRoom } from './persist.js'
 
 export type { GameHistoryEfficiency }
@@ -175,6 +176,8 @@ export function createRoom(hostId: string, hostNickname: string, avatarId?: unkn
 
   rooms.set(code, room)
   persistRoom(room)
+  recordPlayCount('multiplayerRoomsCreated')
+  recordPlayCount('multiplayerPlayerConnections')
   return room
 }
 
@@ -192,6 +195,8 @@ export function getRoomBySocket(socketId: string): RoomState | null {
 }
 
 export function deleteRoom(code: string): void {
+  const room = rooms.get(code)
+  if (room?.status === 'waiting') recordPlayCount('multiplayerAbandonedBeforeStart')
   rooms.delete(code)
   removePersistedRoom(code)
 }
