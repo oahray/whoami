@@ -9,6 +9,7 @@ import UpdatePrompt from './pwa/UpdatePrompt'
 
 const AdminLogin = lazy(() => import('./pages/AdminLogin'))
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'))
+const AdminAnalytics = lazy(() => import('./pages/AdminAnalytics'))
 const AdminDatasets = lazy(() => import('./pages/AdminDatasets'))
 const AdminEntities = lazy(() => import('./pages/AdminEntities'))
 const AdminEntityEditor = lazy(() => import('./pages/AdminEntityEditor'))
@@ -39,6 +40,14 @@ function App() {
                     element={
                       <AdminRoute>
                         <AdminDashboard />
+                      </AdminRoute>
+                    }
+                  />
+                  <Route
+                    path="/analytics"
+                    element={
+                      <AdminRoute>
+                        <AdminAnalytics />
                       </AdminRoute>
                     }
                   />

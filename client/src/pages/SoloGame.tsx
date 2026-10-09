@@ -67,6 +67,7 @@ import {
   summarizeMasteryRun,
   type MasteryChange
 } from '../lib/soloMastery'
+import { reportSoloPlay } from '../lib/reportSoloPlay'
 import { playSound } from '../lib/sounds'
 import { API_BASE_URL } from '../lib/apiBase'
 import type { InPersonCard } from '../types'
@@ -319,6 +320,7 @@ function SoloGame() {
           })
         : undefined
     clearSoloSession()
+    reportSoloPlay(completed.variation, 'completed')
     setError(null)
     setStatus('finished')
     setResult({
@@ -577,6 +579,7 @@ function SoloGame() {
             : undefined
       )
       saveSoloSession(nextSession)
+      reportSoloPlay(nextSession.variation, 'started')
       activeSession.current = nextSession
       setSession(nextSession)
       setResult(null)
@@ -643,6 +646,7 @@ function SoloGame() {
             : undefined
       )
       saveSoloSession(nextSession)
+      reportSoloPlay(nextSession.variation, 'started')
       activeSession.current = nextSession
       setSession(nextSession)
       setResult(null)

@@ -7,6 +7,7 @@ import {
   markLobbyReaction
 } from '../../game/lobbyReactions.js'
 import { nicknameIsBlocked } from '../../game/nicknameFilter.js'
+import { recordPlayCount } from '../../analytics/playCounts.js'
 import { getRoom, getRoomBySocket, createRoom, deleteRoom } from '../../rooms/store.js'
 import { persistRoom } from '../../rooms/persist.js'
 import {
@@ -175,6 +176,7 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
           players: Array.from(room.players.values()).map(toPublicPlayer)
         })
         persistRoom(room)
+        recordPlayCount('multiplayerPlayerConnections')
         return
       }
     }
@@ -227,6 +229,7 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
         players: Array.from(room.players.values()).map(toPublicPlayer)
       })
       persistRoom(room)
+      recordPlayCount('multiplayerPlayerConnections')
       return
     }
 
@@ -267,6 +270,7 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
       avatarId
     })
     persistRoom(room)
+    recordPlayCount('multiplayerPlayerConnections')
   } catch (error: any) {
     logger.error('Error in handleJoinRoom', error, {
       socketId: socket.id,

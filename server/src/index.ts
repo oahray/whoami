@@ -20,6 +20,7 @@ import publicDatasetsRoutes from './routes/datasets.js'
 import publicCardsRoutes from './routes/cards.js'
 import publicMaintenanceRoutes from './routes/maintenance.js'
 import publicHistoryKeyRoutes from './routes/historyPublicKey.js'
+import publicPlayTotalsRoutes from './routes/playTotals.js'
 import { supabase } from './db/supabase.js'
 import { logger } from './utils/logger.js'
 import { errorHandler } from './middleware/errorHandler.js'
@@ -145,6 +146,7 @@ app.use(publicDatasetsRoutes)
 app.use(publicCardsRoutes)
 app.use(publicMaintenanceRoutes)
 app.use(publicHistoryKeyRoutes)
+app.use(publicPlayTotalsRoutes)
 app.use('/admin', adminRoutes)
 
 app.use(errorHandler)

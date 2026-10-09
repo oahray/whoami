@@ -30,7 +30,7 @@ function Privacy() {
             </div>
             <div>
               <h2 className="text-xl font-bold text-foreground">Privacy policy</h2>
-              <p className="text-foreground-muted text-sm">Last updated: 4 August 2026</p>
+              <p className="text-foreground-muted text-sm">Last updated: 9 October 2026</p>
             </div>
           </div>
           <p className="text-foreground leading-relaxed">
@@ -110,8 +110,12 @@ function Privacy() {
           </ul>
           <p className="text-foreground text-sm leading-relaxed">
             We do not sell your personal information. We do not use player nicknames or guesses for
-            advertising profiles. Live multiplayer counts shown to administrators (players connected and
+            advertising profiles.             Live multiplayer counts shown to administrators (players connected and
             games in progress) are anonymous totals from the game server, not individual profiles.
+            We also keep daily totals of multiplayer rooms created, games started, games finished,
+            lobbies closed before play, and player connections, plus how many Classic, Daily,
+            Endurance, and Review games start and finish. Those totals do not include nicknames,
+            room codes, scores, or a way to tell players apart. A reconnect counts again.
           </p>
         </section>
 
