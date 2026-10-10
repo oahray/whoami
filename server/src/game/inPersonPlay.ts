@@ -34,6 +34,8 @@ export type InPersonEligibility = {
   modes: Record<GameDifficultyMode, number>
   /** Entities eligible for the requested difficulty selection (defaults to any). */
   selectedCount: number
+  /** Published entities in the dataset, ignoring the requested card type. */
+  types: { character: number; place: number }
 }
 
 function coerceSelection(
@@ -152,7 +154,7 @@ function isEligibleForMode(counts: EntityClueCounts, mode: GameDifficultyMode): 
 function countEligibleModes(
   countsByEntity: Map<string, EntityClueCounts>,
   selection: DifficultySelection
-): InPersonEligibility {
+): Omit<InPersonEligibility, 'types'> {
   const modes = emptyClueCounts()
   for (const counts of countsByEntity.values()) {
     for (const mode of GAME_DIFFICULTY_MODES) {
@@ -174,9 +176,15 @@ export async function getInPersonEligibility(
   difficultySelection: DifficultySelection | GameDifficultyMode = []
 ): Promise<InPersonEligibility> {
   await assertPlayableDataset(datasetId)
-  const entities = await fetchPublishedEntities(datasetId, entityType)
+  const published = await fetchPublishedEntities(datasetId, 'all')
+  const types = { character: 0, place: 0 }
+  for (const entity of published) {
+    if (entity.type === 'place') types.place += 1
+    else if (entity.type === 'character') types.character += 1
+  }
+  const entities = published.filter((entity) => entityMatchesTypeFilter(entity.type, entityType))
   const countsByEntity = await fetchClueCountsByEntity(entities.map((e) => e.id))
-  return countEligibleModes(countsByEntity, coerceSelection(difficultySelection))
+  return { ...countEligibleModes(countsByEntity, coerceSelection(difficultySelection)), types }
 }
 
 export async function getEligibleEntities(

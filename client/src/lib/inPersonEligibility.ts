@@ -7,6 +7,8 @@ export type InPersonEligibility = {
   modes: Record<GameDifficultyMode, number>
   /** Entities playable for the requested difficulty selection (server; unused by client gate). */
   selectedCount?: number
+  /** Published characters and places in the dataset. Absent on older responses. */
+  types?: { character: number; place: number }
 }
 
 export const IN_PERSON_DIFFICULTY_OPTIONS: {

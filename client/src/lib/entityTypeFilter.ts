@@ -24,3 +24,13 @@ export function entityTypeCountLabel(filter: EntityTypeFilter, count: number): s
     filter === 'place' ? 'place' : filter === 'character' ? 'character' : 'entity'
   return `${count} ${noun}${count === 1 ? '' : 's'} in this deck`
 }
+
+/** The only card type in the set, when the other type is absent. */
+export function soleCardType(
+  types: { character: number; place: number } | null | undefined
+): 'character' | 'place' | null {
+  if (!types) return null
+  if (types.character > 0 && types.place === 0) return 'character'
+  if (types.place > 0 && types.character === 0) return 'place'
+  return null
+}
