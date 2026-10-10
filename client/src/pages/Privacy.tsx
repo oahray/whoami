@@ -30,7 +30,8 @@ function Privacy() {
             </div>
             <div>
               <h2 className="text-xl font-bold text-foreground">Privacy policy</h2>
-              <p className="text-foreground-muted text-sm">Last updated: 9 October 2026</p>
+              <p className="text-foreground-muted text-sm">Published 29 July 2026</p>
+              <p className="text-foreground-muted text-sm">Last edited 10 October 2026</p>
             </div>
           </div>
           <p className="text-foreground leading-relaxed">
@@ -65,8 +66,8 @@ function Privacy() {
               not used to build advertising profiles.
             </li>
             <li>
-              <strong>Published game content:</strong> datasets, entities, and clues are loaded from our
-              database when you play online, solo, or pass &amp; play.
+              <strong>Game content:</strong> clues are loaded when you play online, solo, or pass &amp;
+              play.
             </li>
           </ul>
         </section>
@@ -109,13 +110,9 @@ function Privacy() {
             <li>To understand site traffic in aggregate (Cloudflare Web Analytics)</li>
           </ul>
           <p className="text-foreground text-sm leading-relaxed">
-            We do not sell your personal information. We do not use player nicknames or guesses for
-            advertising profiles.             Live multiplayer counts shown to administrators (players connected and
-            games in progress) are anonymous totals from the game server, not individual profiles.
-            We also keep daily totals of multiplayer rooms created, games started, games finished,
-            lobbies closed before play, and player connections, plus how many Classic, Daily,
-            Endurance, and Review games start and finish. Those totals do not include nicknames,
-            room codes, scores, or a way to tell players apart.
+            We do not sell your personal information. We do not use any gameplay data for
+            advertising. We keep anonymous totals of how the game is played. Those totals are not
+            linked to a nickname, a room, a score, or a particular player.
           </p>
         </section>
 
@@ -159,8 +156,8 @@ function Privacy() {
             <h2 className="text-lg font-bold text-foreground">Changes</h2>
           </div>
           <p className="text-foreground text-sm leading-relaxed">
-            We may update this policy as the app changes. The &quot;Last updated&quot; date at the top
-            will change when we do.
+            We may update this policy as the app changes. The last
+            edited date at the top changes when we do.
           </p>
         </section>
 

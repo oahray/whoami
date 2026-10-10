@@ -162,6 +162,25 @@ function AdminAnalytics() {
             </div>
           </section>
 
+          <section className="mb-8">
+            <h2 className="text-admin-fg text-lg font-bold mb-1">Pass &amp; play</h2>
+            <p className="text-admin-muted text-sm mb-4">
+              A new game on one phone. Characters loaded counts each character whose card was fetched.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <StatCard
+                icon="play_arrow"
+                label="Games started"
+                value={totals?.passAndPlay?.gamesStarted ?? '—'}
+              />
+              <StatCard
+                icon="person"
+                label="Characters loaded"
+                value={totals?.passAndPlay?.charactersLoaded ?? '—'}
+              />
+            </div>
+          </section>
+
           <section>
             <h2 className="text-admin-fg text-lg font-bold mb-1">Solo</h2>
             <p className="text-admin-muted text-sm mb-4">Each mode is counted on its own.</p>

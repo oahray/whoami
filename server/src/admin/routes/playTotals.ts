@@ -19,6 +19,10 @@ function present(counts: PlayCounts) {
       daily: { started: counts.soloDailyStarted, completed: counts.soloDailyCompleted },
       endurance: { started: counts.soloEnduranceStarted, completed: counts.soloEnduranceCompleted },
       review: { started: counts.soloReviewStarted, completed: counts.soloReviewCompleted }
+    },
+    passAndPlay: {
+      gamesStarted: counts.passAndPlayStarted,
+      charactersLoaded: counts.passAndPlayCharactersLoaded
     }
   }
 }

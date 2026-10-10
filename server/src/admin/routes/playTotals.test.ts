@@ -37,6 +37,7 @@ describe('GET /admin/play-totals', () => {
       abandonedBeforeStart: 0,
       playerConnections: 0
     })
+    expect(today.body.passAndPlay).toEqual({ gamesStarted: 0, charactersLoaded: 0 })
     expect(today.body.solo).toEqual({
       classic: { started: 0, completed: 0 },
       daily: { started: 0, completed: 0 },

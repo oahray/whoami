@@ -14,7 +14,9 @@ const COLUMNS: Record<PlayCountMetric, string> = {
   soloEnduranceStarted: 'solo_endurance_started',
   soloEnduranceCompleted: 'solo_endurance_completed',
   soloReviewStarted: 'solo_review_started',
-  soloReviewCompleted: 'solo_review_completed'
+  soloReviewCompleted: 'solo_review_completed',
+  passAndPlayStarted: 'pass_and_play_started',
+  passAndPlayCharactersLoaded: 'pass_and_play_characters_loaded'
 }
 
 export interface StoredPlayCountDay {
