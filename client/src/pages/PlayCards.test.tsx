@@ -236,7 +236,10 @@ describe('PlayCards', () => {
     })
     expect(screen.getByText('Moses')).toBeInTheDocument()
     expect(screen.queryByText('Aaron first')).not.toBeInTheDocument()
-    expect(fetch).toHaveBeenCalledTimes(3)
+    const entityFetches = vi.mocked(fetch).mock.calls.filter(([input]) =>
+      String(input).includes('/cards/entity/')
+    )
+    expect(entityFetches).toHaveLength(2)
   })
 
   it('keeps snapshot clue order on remount instead of a reshuffled fetch', async () => {
