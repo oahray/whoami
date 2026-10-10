@@ -6,9 +6,17 @@ const stored = vi.hoisted(() => ({
   rows: [] as Array<{ day: string; counts: ReturnType<typeof emptyPlayCounts> }>
 }))
 
+const redis = vi.hoisted(() => ({
+  hashes: new Map<string, Record<string, string>>()
+}))
+
 vi.mock('../redis/client.js', () => ({
-  isRedisConfigured: () => false,
-  getRedis: async () => null
+  isRedisConfigured: () => true,
+  getRedis: async () => ({
+    scan: async () => ['0', [...redis.hashes.keys()]] as [string, string[]],
+    hgetall: async (key: string) => redis.hashes.get(key) ?? {},
+    hincrby: async () => 1
+  })
 }))
 
 vi.mock('./playCountDays.js', () => ({
@@ -21,6 +29,7 @@ describe('play count ranges', () => {
   afterEach(() => {
     resetPlayCountsForTests()
     stored.rows = []
+    redis.hashes.clear()
   })
 
   it('uses UTC days, with Monday as the start of the week', () => {
@@ -79,6 +88,28 @@ describe('play count ranges', () => {
     const yesterdayOnly = await getPlayCountsForRange('yesterday', thursday)
     expect(yesterdayOnly.counts.soloClassicStarted).toBe(9)
     expect(yesterdayOnly.counts.multiplayerGamesCompleted).toBe(3)
+  })
+
+  it('uses the Redis hash when the stored day is lower', async () => {
+    const saved = emptyPlayCounts()
+    saved.soloDailyStarted = 2
+    saved.soloDailyCompleted = 1
+    stored.rows = [{ day: '2026-10-07', counts: saved }]
+    redis.hashes.set('whoami:play-totals:2026-10-07', {
+      multiplayerRoomsCreated: '1',
+      multiplayerAbandonedBeforeStart: '2',
+      multiplayerPlayerConnections: '6',
+      soloDailyStarted: '3',
+      soloDailyCompleted: '2'
+    })
+
+    const { counts } = await getPlayCountsForRange('yesterday', thursday)
+
+    expect(counts.multiplayerRoomsCreated).toBe(1)
+    expect(counts.multiplayerAbandonedBeforeStart).toBe(2)
+    expect(counts.multiplayerPlayerConnections).toBe(6)
+    expect(counts.soloDailyStarted).toBe(3)
+    expect(counts.soloDailyCompleted).toBe(2)
   })
 
   it('uses memory for a closed day the database does not have yet', async () => {

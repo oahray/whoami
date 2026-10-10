@@ -68,6 +68,10 @@ export function higherPlayCounts(left: PlayCounts, right: PlayCounts): PlayCount
   return merged
 }
 
+export function hasPlayCounts(counts: PlayCounts): boolean {
+  return PLAY_COUNT_METRICS.some((metric) => counts[metric] > 0)
+}
+
 /** Increment today's total. Gameplay must continue if Redis is down. */
 export function recordPlayCount(metric: PlayCountMetric, now = new Date()): void {
   const day = utcPlayCountDate(now)
@@ -89,22 +93,33 @@ async function incrementRedis(day: string, metric: PlayCountMetric): Promise<voi
 }
 
 /**
+ * Read one day's hash by its exact key.
+ * `null` means Redis is configured but the read failed — do not guess from memory.
+ * An empty total means the key is missing.
+ */
+export async function readRedisPlayCountDay(day: string): Promise<PlayCounts | null> {
+  if (!isRedisConfigured()) return emptyPlayCounts()
+  try {
+    const redis = await getRedis()
+    if (!redis) return emptyPlayCounts()
+    const raw = await redis.hgetall(redisKey(day))
+    if (!raw || Object.keys(raw).length === 0) return emptyPlayCounts()
+    return countsFor(raw)
+  } catch (error) {
+    logger.error('Failed to read play totals', error, { day })
+    return null
+  }
+}
+
+/**
  * Today's totals. Redis and this process both count the same events.
  * A partial Redis hash must not hide a total that only this process has.
  */
 export async function getPlayCountsForDay(day = utcPlayCountDate()): Promise<PlayCounts> {
   const fromMemory = { ...(memory.get(day) ?? emptyPlayCounts()) }
-  if (!isRedisConfigured()) return fromMemory
-  try {
-    const redis = await getRedis()
-    if (!redis) return fromMemory
-    const raw = await redis.hgetall(redisKey(day))
-    if (!raw || Object.keys(raw).length === 0) return fromMemory
-    return higherPlayCounts(fromMemory, countsFor(raw))
-  } catch (error) {
-    logger.error('Failed to read play totals', error, { day })
-    return fromMemory
-  }
+  const fromRedis = await readRedisPlayCountDay(day)
+  if (!fromRedis) return fromMemory
+  return higherPlayCounts(fromMemory, fromRedis)
 }
 
 export function listMemoryPlayCountDays(): Array<{ day: string; counts: PlayCounts }> {

@@ -1,12 +1,14 @@
 import { logger } from '../utils/logger.js'
-import { listPlayCountDays } from './playCountDays.js'
+import { listPlayCountDays, type StoredPlayCountDay } from './playCountDays.js'
 import {
   PLAY_COUNT_METRICS,
   emptyPlayCounts,
   getPlayCountsForDay,
+  hasPlayCounts,
   higherPlayCounts,
   listMemoryPlayCountDays,
   listRedisPlayCountDays,
+  readRedisPlayCountDay,
   utcPlayCountDate,
   type PlayCounts
 } from './playCounts.js'
@@ -60,9 +62,24 @@ function inClosedSpan(day: string, span: PlayCountSpan, today: string): boolean 
   return true
 }
 
+/** Days whose hash should be read by name, so a missed key scan cannot hide them. */
+function daysToReadFromRedis(span: PlayCountSpan, today: string, extra: string[]): string[] {
+  const days = new Set<string>(extra)
+  if (span.from) {
+    let day = span.from
+    const lastClosed = span.to < today ? span.to : shiftUtcDay(today, -1)
+    while (day <= lastClosed && days.size < 400) {
+      days.add(day)
+      day = shiftUtcDay(day, 1)
+    }
+  }
+  return [...days]
+}
+
 /**
- * Closed days come from the database. A closed day still only in Redis or
- * memory is included until the copy succeeds. Today is always the live total.
+ * Closed days come from the database. While that day's Redis hash still
+ * exists, each column uses the higher of the stored row and the hash.
+ * Today is always the live total.
  */
 export async function getPlayCountsForRange(
   range: PlayCountRangeName,
@@ -74,23 +91,41 @@ export async function getPlayCountsForRange(
 
   if (!(span.from === today && span.includesToday)) {
     const seen = new Set<string>()
+    let stored: StoredPlayCountDay[] = []
     try {
-      const stored = await listPlayCountDays(span.from, span.to)
-      for (const row of stored) {
-        if (!inClosedSpan(row.day, span, today) || seen.has(row.day)) continue
-        seen.add(row.day)
-        addCounts(counts, row.counts)
-      }
+      stored = await listPlayCountDays(span.from, span.to)
     } catch (error) {
       logger.error('Failed to read stored play totals', error)
     }
 
     const memoryByDay = new Map(listMemoryPlayCountDays().map((row) => [row.day, row.counts]))
-    for (const row of await listRedisPlayCountDays()) {
+    const redisDays = await listRedisPlayCountDays()
+    const redisByDay = new Map(redisDays.map((row) => [row.day, row.counts]))
+    for (const day of daysToReadFromRedis(span, today, [
+      ...stored.map((row) => row.day),
+      ...redisDays.map((row) => row.day)
+    ])) {
+      if (!inClosedSpan(day, span, today)) continue
+      const direct = await readRedisPlayCountDay(day)
+      if (!direct || !hasPlayCounts(direct)) continue
+      const existing = redisByDay.get(day)
+      redisByDay.set(day, existing ? higherPlayCounts(existing, direct) : direct)
+    }
+    for (const row of stored) {
       if (!inClosedSpan(row.day, span, today) || seen.has(row.day)) continue
+      let dayCounts = row.counts
+      const fromRedis = redisByDay.get(row.day)
+      const fromMemory = memoryByDay.get(row.day)
+      if (fromRedis) dayCounts = higherPlayCounts(dayCounts, fromRedis)
+      if (fromMemory) dayCounts = higherPlayCounts(dayCounts, fromMemory)
       seen.add(row.day)
-      const inMemory = memoryByDay.get(row.day)
-      addCounts(counts, inMemory ? higherPlayCounts(row.counts, inMemory) : row.counts)
+      addCounts(counts, dayCounts)
+    }
+    for (const [day, dayCounts] of redisByDay) {
+      if (!hasPlayCounts(dayCounts) || !inClosedSpan(day, span, today) || seen.has(day)) continue
+      seen.add(day)
+      const inMemory = memoryByDay.get(day)
+      addCounts(counts, inMemory ? higherPlayCounts(dayCounts, inMemory) : dayCounts)
     }
     for (const [day, dayCounts] of memoryByDay) {
       if (!inClosedSpan(day, span, today) || seen.has(day)) continue

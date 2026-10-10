@@ -1,12 +1,21 @@
 import { logger } from '../utils/logger.js'
 import { upsertPlayCountDay } from './playCountDays.js'
 import {
+  PLAY_COUNT_METRICS,
   expireRedisPlayCountDay,
   forgetMemoryPlayCountDay,
+  hasPlayCounts,
+  higherPlayCounts,
   listMemoryPlayCountDays,
   listRedisPlayCountDays,
-  utcPlayCountDate
+  readRedisPlayCountDay,
+  utcPlayCountDate,
+  type PlayCounts
 } from './playCounts.js'
+
+function metricsAheadOfRedis(redisCounts: PlayCounts, merged: PlayCounts): string[] {
+  return PLAY_COUNT_METRICS.filter((metric) => merged[metric] > redisCounts[metric])
+}
 
 /** Keep the Redis key briefly after a successful copy so a missed read can retry. */
 const RETAIN_REDIS_SECONDS = 48 * 60 * 60
@@ -29,38 +38,54 @@ export function msUntilNextUtcReconcile(now = new Date()): number {
   return Math.max(1000, next - now.getTime())
 }
 
+function previousUtcDay(day: string): string {
+  const date = new Date(`${day}T00:00:00Z`)
+  date.setUTCDate(date.getUTCDate() - 1)
+  return date.toISOString().slice(0, 10)
+}
+
 /**
  * Copy every closed UTC day into the database. Today is left open.
+ * Each day is read by its exact Redis key, then merged with this process.
  * Writing the same day again replaces the row.
  */
 export async function reconcileClosedPlayCounts(now = new Date()): Promise<number> {
   const today = utcPlayCountDate(now)
   const saved = new Set<string>()
+  const memoryByDay = new Map(listMemoryPlayCountDays().map((row) => [row.day, row.counts]))
+  const days = new Set<string>(memoryByDay.keys())
+  for (const row of await listRedisPlayCountDays()) days.add(row.day)
+  days.add(previousUtcDay(today))
 
-  for (const row of await listRedisPlayCountDays()) {
-    if (row.day >= today || saved.has(row.day)) continue
-    try {
-      await upsertPlayCountDay(row.day, row.counts)
-      try {
-        await expireRedisPlayCountDay(row.day, RETAIN_REDIS_SECONDS)
-      } catch (error) {
-        logger.error('Failed to expire copied play totals', error, { day: row.day })
+  for (const day of [...days].sort()) {
+    if (day >= today || saved.has(day)) continue
+    const fromRedis = await readRedisPlayCountDay(day)
+    const inMemory = memoryByDay.get(day)
+    if (!fromRedis) {
+      if (inMemory && hasPlayCounts(inMemory)) {
+        logger.warn('Skipped closed play totals because Redis could not be read', { day })
       }
-      forgetMemoryPlayCountDay(row.day)
-      saved.add(row.day)
-    } catch (error) {
-      logger.error('Failed to store closed play totals', error, { day: row.day })
+      continue
     }
-  }
-
-  for (const row of listMemoryPlayCountDays()) {
-    if (row.day >= today || saved.has(row.day)) continue
+    const counts = inMemory ? higherPlayCounts(fromRedis, inMemory) : fromRedis
+    if (!hasPlayCounts(counts)) continue
+    const missedByRedis = metricsAheadOfRedis(fromRedis, counts)
+    if (missedByRedis.length > 0) {
+      logger.warn('Redis play totals were behind this process', { day, metrics: missedByRedis })
+    }
     try {
-      await upsertPlayCountDay(row.day, row.counts)
-      forgetMemoryPlayCountDay(row.day)
-      saved.add(row.day)
+      await upsertPlayCountDay(day, counts)
+      if (hasPlayCounts(fromRedis)) {
+        try {
+          await expireRedisPlayCountDay(day, RETAIN_REDIS_SECONDS)
+        } catch (error) {
+          logger.error('Failed to expire copied play totals', error, { day })
+        }
+      }
+      forgetMemoryPlayCountDay(day)
+      saved.add(day)
     } catch (error) {
-      logger.error('Failed to store closed play totals', error, { day: row.day })
+      logger.error('Failed to store closed play totals', error, { day })
     }
   }
 
