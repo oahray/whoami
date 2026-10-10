@@ -520,7 +520,7 @@ function SoloSetup() {
     const session = createSoloSession(
       {
         datasetId: dailyChallenge.datasetId,
-        difficulty: [],
+        difficulty: dailyChallenge.difficulty === 'nightmare' ? ['nightmare'] : [],
         entityType: 'all',
         variation: 'daily',
         roundDurationMs: dailyChallenge.roundDurationMs,
@@ -658,6 +658,11 @@ function SoloSetup() {
                 <p className="mt-1 text-sm text-foreground-muted">
                   {dailyChallenge.entityIds.length} cards · {dailyChallenge.datasetName}
                 </p>
+                {dailyChallenge.difficulty === 'nightmare' && (
+                  <p className="mt-1 text-sm font-semibold text-foreground">
+                    Nightmare · {dailyChallenge.roundDurationMs / 1000} seconds per card
+                  </p>
+                )}
                 <div
                   aria-hidden="true"
                   className="mt-4 flex items-center gap-2 text-[0.7rem] font-bold uppercase tracking-wider text-green-700 dark:text-green-300/75"

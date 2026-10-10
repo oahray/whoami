@@ -145,6 +145,63 @@ describe('SoloSetup', () => {
     expect(loadSoloSession()?.entityIds).toHaveLength(10)
   })
 
+  it('labels a Nightmare Friday and starts it at 45 seconds', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input) => {
+      const url = String(input)
+      if (url.includes('/datasets')) {
+        return { ok: true, json: async () => [{ id: 'ds-1', name: 'Bible', is_default: true, source: null, description: null }] } as Response
+      }
+      if (url.includes('/cards/eligibility')) {
+        return { ok: true, json: async () => ({ modes: { any: 12, easy: 12, medium: 0, hard: 0, nightmare: 12 } }) } as Response
+      }
+      if (url.includes('/cards/daily-challenge')) {
+        const entityIds = ['daily-1']
+        return {
+          ok: true,
+          json: async () => ({
+            challengeId: '2026-10-16-v1-nightmare',
+            challengeVersion: 1,
+            dateKey: '2026-10-16',
+            datasetId: 'ds-1',
+            datasetName: 'Bible',
+            difficulty: 'nightmare',
+            entityType: 'all',
+            roundDurationMs: 45_000,
+            clueRevealIntervalMs: 5_000,
+            entityIds,
+            cards: {
+              'daily-1': {
+                entity: { id: 'daily-1', name: 'daily-1', type: 'character', aliases: [] },
+                clues: [{ order: 1, text: 'daily-1 clue', citations: null }]
+              }
+            },
+            scoringVersion: 1,
+            scoringRules: {
+              basePoints: 1000,
+              additionalCluePenalty: 150,
+              elapsedSecondPenalty: 10,
+              incorrectGuessPenalty: 100,
+              minimumCorrectScore: 100
+            }
+          })
+        } as Response
+      }
+      return { ok: false, status: 404, json: async () => ({}) } as Response
+    }))
+
+    renderWithPreferences(<MemoryRouter><SoloSetup /></MemoryRouter>)
+
+    expect(await screen.findByText('Nightmare · 45 seconds per card')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /play today/i }))
+    expect(loadSoloSession()).toMatchObject({
+      variation: 'daily',
+      difficulty: ['nightmare'],
+      roundDurationMs: 45_000,
+      clueRevealIntervalMs: 5_000,
+      dailyChallengeId: '2026-10-16-v1-nightmare'
+    })
+  })
+
   it('lets you download today’s completed daily result image', async () => {
     localStorage.setItem(
       'whoami-solo-daily-progress',
