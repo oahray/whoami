@@ -33,6 +33,7 @@ import {
   type EntityTypeFilter
 } from '../lib/entityTypeFilter'
 import { fetchInPersonDeck } from '../lib/inPersonDeck'
+import { reportPassAndPlayStart } from '../lib/reportSoloPlay'
 import { fadeOutMenuMusic } from '../lib/menuMusic'
 import { unlockAudio } from '../lib/sounds'
 import { useMenuMusic } from '../hooks/useMenuMusic'
@@ -204,6 +205,7 @@ function PlaySetup() {
     fadeOutMenuMusic()
     try {
       await fetchInPersonDeck(datasetId, difficulty, entityType)
+      reportPassAndPlayStart()
       const params = new URLSearchParams({
         datasetId,
         difficulty: encodeDifficultySelection(difficulty),

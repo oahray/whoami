@@ -15,7 +15,9 @@ export const PLAY_COUNT_METRICS = [
   'soloEnduranceStarted',
   'soloEnduranceCompleted',
   'soloReviewStarted',
-  'soloReviewCompleted'
+  'soloReviewCompleted',
+  'passAndPlayStarted',
+  'passAndPlayCharactersLoaded'
 ] as const
 
 export type PlayCountMetric = (typeof PLAY_COUNT_METRICS)[number]
@@ -46,7 +48,9 @@ export function emptyPlayCounts(): PlayCounts {
     soloEnduranceStarted: 0,
     soloEnduranceCompleted: 0,
     soloReviewStarted: 0,
-    soloReviewCompleted: 0
+    soloReviewCompleted: 0,
+    passAndPlayStarted: 0,
+    passAndPlayCharactersLoaded: 0
   }
 }
 
@@ -72,7 +76,7 @@ export function hasPlayCounts(counts: PlayCounts): boolean {
   return PLAY_COUNT_METRICS.some((metric) => counts[metric] > 0)
 }
 
-/** Increment today's total. Gameplay must continue if Redis is down. */
+/** Increment today's total by one. Gameplay must continue if Redis is down. */
 export function recordPlayCount(metric: PlayCountMetric, now = new Date()): void {
   const day = utcPlayCountDate(now)
   const current = memory.get(day) ?? emptyPlayCounts()

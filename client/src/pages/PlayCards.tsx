@@ -38,6 +38,7 @@ import {
   MAINTENANCE_PASS_PLAY_STUCK_COPY
 } from '../lib/maintenance'
 import { playSound, unlockAudio, warmSoundCache } from '../lib/sounds'
+import { reportPassAndPlayCharacter, reportPassAndPlayStart } from '../lib/reportSoloPlay'
 import type { InPersonCard } from '../types'
 
 function PlayCards() {
@@ -146,6 +147,7 @@ function PlayCards() {
 
       try {
         const data = await getInPersonCard(entityId, cardQuery)
+        reportPassAndPlayCharacter()
         setCard(data)
         const updated = updateCardSnapshot(session, {
           card: data,
@@ -319,6 +321,7 @@ function PlayCards() {
 
     try {
       const nextCard = await getInPersonCard(nextEntityId, cardQuery)
+      reportPassAndPlayCharacter()
       playSound('card-flip')
       const moved = { ...sessionWithSnapshot, index: nextIndex }
       const withCard = updateCardSnapshot(moved, {
@@ -386,6 +389,7 @@ function PlayCards() {
         difficulty,
         entityType
       )
+      reportPassAndPlayStart()
       setDeckSession(session)
       setDeckComplete(false)
       setSessionComplete(false)

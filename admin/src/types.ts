@@ -88,6 +88,11 @@ export interface SoloModePlayTotals {
   completed: number
 }
 
+export interface PassAndPlayTotals {
+  gamesStarted: number
+  charactersLoaded: number
+}
+
 export type PlayTotalsRange = 'today' | 'yesterday' | 'week' | 'month' | 'all'
 
 export interface PlayTotalsToday {
@@ -103,6 +108,7 @@ export interface PlayTotalsToday {
     endurance: SoloModePlayTotals
     review: SoloModePlayTotals
   }
+  passAndPlay: PassAndPlayTotals
 }
 
 export interface LiveMultiplayerStats {
