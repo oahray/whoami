@@ -11,10 +11,17 @@ import {
   type InPersonCardPayload
 } from './inPersonPlay.js'
 import { pickSeededSample } from './shuffle.js'
+import type { DifficultySelection } from './difficultySelection.js'
 import { logger } from '../utils/logger.js'
 
 export const DAILY_CHALLENGE_VERSION = 1
 export const DAILY_CHALLENGE_ROUNDS = 10
+
+const NORMAL_ROUND_MS = 30_000
+const NIGHTMARE_FRIDAY_ROUND_MS = 45_000
+const CLUE_REVEAL_MS = 5_000
+
+export type DailyDifficultyLabel = 'any' | 'nightmare'
 
 /** Keep snapshots past UTC midnight so late players / timezone edges still match. */
 const DAILY_REDIS_TTL_SECONDS = 60 * 60 * 48
@@ -25,7 +32,7 @@ export type DailyChallengePayload = {
   dateKey: string
   datasetId: string
   datasetName: string
-  difficulty: 'any'
+  difficulty: DailyDifficultyLabel
   entityType: 'all'
   roundDurationMs: number
   clueRevealIntervalMs: number
@@ -40,6 +47,39 @@ let memoryCache: { cacheKey: string; payload: DailyChallengePayload } | null = n
 
 export function dailyDateKey(now = new Date()): string {
   return now.toISOString().slice(0, 10)
+}
+
+/** Friday in UTC, the same day boundary as the rest of Daily. */
+export function isNightmareFriday(dateKey: string): boolean {
+  return new Date(`${dateKey}T00:00:00Z`).getUTCDay() === 5
+}
+
+export function dailyChallengeId(dateKey: string): string {
+  const base = `${dateKey}-v${DAILY_CHALLENGE_VERSION}`
+  return isNightmareFriday(dateKey) ? `${base}-nightmare` : base
+}
+
+/** Nightmare cards and a slightly longer clock on Friday. Other days stay as they are. */
+export function dailyChallengeRules(dateKey: string): {
+  difficulty: DailyDifficultyLabel
+  difficultySelection: DifficultySelection
+  roundDurationMs: number
+  clueRevealIntervalMs: number
+} {
+  if (isNightmareFriday(dateKey)) {
+    return {
+      difficulty: 'nightmare',
+      difficultySelection: ['nightmare'],
+      roundDurationMs: NIGHTMARE_FRIDAY_ROUND_MS,
+      clueRevealIntervalMs: CLUE_REVEAL_MS
+    }
+  }
+  return {
+    difficulty: 'any',
+    difficultySelection: [],
+    roundDurationMs: NORMAL_ROUND_MS,
+    clueRevealIntervalMs: CLUE_REVEAL_MS
+  }
 }
 
 function dailyRedisKey(challengeId: string): string {
@@ -101,8 +141,9 @@ async function buildDailyChallengePayload(dateKey: string): Promise<DailyChallen
     throw new Error('No default dataset is available')
   }
 
-  const challengeId = `${dateKey}-v${DAILY_CHALLENGE_VERSION}`
-  const eligibleIds = await getEligibleEntityIds(dataset.id, [], 'all')
+  const rules = dailyChallengeRules(dateKey)
+  const challengeId = dailyChallengeId(dateKey)
+  const eligibleIds = await getEligibleEntityIds(dataset.id, rules.difficultySelection, 'all')
   // Sort before sampling so rebuilds stay aligned when Redis is cold.
   const sortedEligible = [...eligibleIds].sort((left, right) =>
     left < right ? -1 : left > right ? 1 : 0
@@ -117,7 +158,7 @@ async function buildDailyChallengePayload(dateKey: string): Promise<DailyChallen
     cards[entityId] = await buildInPersonCardForEntity({
       datasetId: dataset.id,
       entityId,
-      difficultySelection: [],
+      difficultySelection: rules.difficultySelection,
       seed: dailyCardSeed(challengeId, entityId)
     })
   }
@@ -128,10 +169,10 @@ async function buildDailyChallengePayload(dateKey: string): Promise<DailyChallen
     dateKey,
     datasetId: dataset.id,
     datasetName: dataset.name,
-    difficulty: 'any',
+    difficulty: rules.difficulty,
     entityType: 'all',
-    roundDurationMs: 30_000,
-    clueRevealIntervalMs: 5_000,
+    roundDurationMs: rules.roundDurationMs,
+    clueRevealIntervalMs: rules.clueRevealIntervalMs,
     entityIds,
     cards,
     scoringVersion: KNOWLEDGE_SCORE_VERSION,
@@ -145,7 +186,7 @@ async function buildDailyChallengePayload(dateKey: string): Promise<DailyChallen
  */
 export async function getDailyChallenge(now = new Date()): Promise<DailyChallengePayload> {
   const dateKey = dailyDateKey(now)
-  const cacheKey = `${dateKey}-v${DAILY_CHALLENGE_VERSION}`
+  const cacheKey = dailyChallengeId(dateKey)
 
   if (memoryCache?.cacheKey === cacheKey) {
     return memoryCache.payload
@@ -179,7 +220,7 @@ export async function getDailyCardFromChallenge(
   }
 
   // Cold process / Redis down: rebuild today's challenge if the id matches.
-  const todayId = `${dailyDateKey()}-v${DAILY_CHALLENGE_VERSION}`
+  const todayId = dailyChallengeId(dailyDateKey())
   if (challengeId !== todayId) return null
   const payload = await getDailyChallenge()
   return payload.cards[entityId] ?? null

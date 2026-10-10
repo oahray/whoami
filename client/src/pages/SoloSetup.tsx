@@ -41,6 +41,7 @@ import {
   DEFAULT_ENTITY_TYPE_FILTER,
   ENTITY_TYPE_FIELD_LABEL,
   ENTITY_TYPE_OPTIONS,
+  soleCardType,
   type EntityTypeFilter
 } from '../lib/entityTypeFilter'
 import {
@@ -123,6 +124,7 @@ function SoloSetup() {
   const [offline, setOffline] = useState(!navigator.onLine)
 
   const selectionPlayable = isDifficultySelectionPlayable(eligibility, difficulty)
+  const lockedCardType = soleCardType(eligibility?.types)
   const canStart =
     Boolean(datasetId) &&
     selectionPlayable &&
@@ -416,6 +418,11 @@ function SoloSetup() {
         // Keep loading + eligibility updates in the same tick so Start isn't
         // briefly disabled after tiers already show as unavailable.
         setEligibility(data)
+        const lockedType = soleCardType(data.types)
+        if (lockedType && entityType !== lockedType) {
+          setEntityType(lockedType)
+          persistSetup({ entityType: lockedType })
+        }
         setDifficulty((current) => {
           if (!isDifficultySelectionPlayable(data, current) && (data.modes.any ?? 0) > 0) {
             return []
@@ -520,7 +527,7 @@ function SoloSetup() {
     const session = createSoloSession(
       {
         datasetId: dailyChallenge.datasetId,
-        difficulty: [],
+        difficulty: dailyChallenge.difficulty === 'nightmare' ? ['nightmare'] : [],
         entityType: 'all',
         variation: 'daily',
         roundDurationMs: dailyChallenge.roundDurationMs,
@@ -658,6 +665,11 @@ function SoloSetup() {
                 <p className="mt-1 text-sm text-foreground-muted">
                   {dailyChallenge.entityIds.length} cards · {dailyChallenge.datasetName}
                 </p>
+                {dailyChallenge.difficulty === 'nightmare' && (
+                  <p className="mt-1 text-sm font-semibold text-foreground">
+                    Nightmare · {dailyChallenge.roundDurationMs / 1000} seconds per card
+                  </p>
+                )}
                 <div
                   aria-hidden="true"
                   className="mt-4 flex items-center gap-2 text-[0.7rem] font-bold uppercase tracking-wider text-green-700 dark:text-green-300/75"
@@ -931,13 +943,14 @@ function SoloSetup() {
             <label className="block text-sm font-semibold">
               {ENTITY_TYPE_FIELD_LABEL}
               <select
-                value={entityType}
+                value={lockedCardType ?? entityType}
                 onChange={(event) => {
                   const nextEntityType = event.target.value as EntityTypeFilter
                   setEntityType(nextEntityType)
                   persistSetup({ entityType: nextEntityType })
                 }}
-                className="mt-2 w-full rounded-lg bg-surface-muted p-2.5 font-normal"
+                disabled={lockedCardType != null}
+                className="mt-2 w-full rounded-lg bg-surface-muted p-2.5 font-normal disabled:opacity-60"
               >
                 {ENTITY_TYPE_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>

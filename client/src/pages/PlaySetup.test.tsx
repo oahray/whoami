@@ -210,6 +210,102 @@ describe('PlaySetup', () => {
     })
   })
 
+  it('disables card type when the set has characters only', async () => {
+    localStorage.setItem(
+      'whoami-in-person-setup',
+      JSON.stringify({ datasetId: 'ds-1', entityType: 'place', difficulty: ['easy', 'medium'] })
+    )
+
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const url = String(input)
+      if (url.includes('/datasets')) {
+        return {
+          ok: true,
+          json: async () => [
+            {
+              id: 'ds-1',
+              name: 'Bible',
+              source: null,
+              description: null,
+              is_default: true
+            }
+          ]
+        } as Response
+      }
+      if (url.includes('/cards/eligibility')) {
+        return {
+          ok: true,
+          json: async () => ({
+            modes: { any: 292, easy: 228, medium: 257, hard: 276, nightmare: 273 },
+            types: { character: 292, place: 0 }
+          })
+        } as Response
+      }
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+
+    renderWithPreferences(
+      <MemoryRouter>
+        <PlaySetup />
+      </MemoryRouter>
+    )
+
+    const entityTypeSelect = await screen.findByLabelText(/card type/i)
+    await waitFor(() => {
+      expect(entityTypeSelect).toBeDisabled()
+    })
+    expect(entityTypeSelect).toHaveValue('character')
+    expect(screen.queryByText(/not enough clues for this card type/i)).not.toBeInTheDocument()
+  })
+
+  it('disables card type when the set has places only', async () => {
+    localStorage.setItem(
+      'whoami-in-person-setup',
+      JSON.stringify({ datasetId: 'ds-1', entityType: 'character', difficulty: ['easy', 'medium'] })
+    )
+
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const url = String(input)
+      if (url.includes('/datasets')) {
+        return {
+          ok: true,
+          json: async () => [
+            {
+              id: 'ds-1',
+              name: 'Bible',
+              source: null,
+              description: null,
+              is_default: true
+            }
+          ]
+        } as Response
+      }
+      if (url.includes('/cards/eligibility')) {
+        return {
+          ok: true,
+          json: async () => ({
+            modes: { any: 40, easy: 40, medium: 40, hard: 40, nightmare: 40 },
+            types: { character: 0, place: 40 }
+          })
+        } as Response
+      }
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+
+    renderWithPreferences(
+      <MemoryRouter>
+        <PlaySetup />
+      </MemoryRouter>
+    )
+
+    const entityTypeSelect = await screen.findByLabelText(/card type/i)
+    await waitFor(() => {
+      expect(entityTypeSelect).toBeDisabled()
+    })
+    expect(entityTypeSelect).toHaveValue('place')
+    expect(screen.queryByText(/not enough clues for this card type/i)).not.toBeInTheDocument()
+  })
+
   it('shows offline message when navigator is offline', async () => {
     Object.defineProperty(navigator, 'onLine', { value: false, configurable: true })
 

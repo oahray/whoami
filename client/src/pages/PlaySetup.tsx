@@ -30,6 +30,7 @@ import {
   ENTITY_TYPE_FIELD_LABEL,
   ENTITY_TYPE_HINT_IN_PERSON,
   ENTITY_TYPE_OPTIONS,
+  soleCardType,
   type EntityTypeFilter
 } from '../lib/entityTypeFilter'
 import { fetchInPersonDeck } from '../lib/inPersonDeck'
@@ -97,6 +98,7 @@ function PlaySetup() {
   const showDatasetPicker = datasets.length > 1
   const selectedDataset = datasets.find((d) => d.id === datasetId)
   const selectionPlayable = isDifficultySelectionPlayable(eligibility, difficulty)
+  const lockedCardType = soleCardType(eligibility?.types)
   const canStart =
     Boolean(datasetId) &&
     !offline &&
@@ -165,6 +167,11 @@ function PlaySetup() {
         // Keep loading + eligibility updates in the same tick so Start isn't
         // briefly disabled after tiers already show as unavailable.
         setEligibility(data)
+        const lockedType = soleCardType(data.types)
+        if (lockedType && entityType !== lockedType) {
+          setEntityType(lockedType)
+          persistSetup({ entityType: lockedType })
+        }
         setDifficulty((current) => {
           if (!isDifficultySelectionPlayable(data, current) && (data.modes.any ?? 0) > 0) {
             return []
@@ -318,13 +325,13 @@ function PlaySetup() {
               </label>
               <select
                 id="playEntityType"
-                value={entityType}
+                value={lockedCardType ?? entityType}
                 onChange={(e) => {
                   const nextEntityType = e.target.value as EntityTypeFilter
                   setEntityType(nextEntityType)
                   persistSetup({ entityType: nextEntityType })
                 }}
-                disabled={eligibilityLoading}
+                disabled={eligibilityLoading || lockedCardType != null}
                 className="w-full bg-surface-muted border-0 rounded-lg text-foreground focus:ring-2 focus:ring-primary py-2.5 px-3 disabled:opacity-60"
               >
                 {ENTITY_TYPE_OPTIONS.map((opt) => (

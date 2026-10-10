@@ -25,8 +25,10 @@ import {
   ENTITY_TYPE_FIELD_LABEL,
   ENTITY_TYPE_HINT_LOBBY,
   ENTITY_TYPE_OPTIONS,
-  entityTypeOptionLabel
+  entityTypeOptionLabel,
+  soleCardType
 } from '../lib/entityTypeFilter'
+import { fetchInPersonEligibility } from '../lib/inPersonEligibility'
 import AloneInRoomDialog from '../components/AloneInRoomDialog'
 import MaintenanceBanner from '../components/MaintenanceBanner'
 import { useAloneInRoomPrompt } from '../hooks/useAloneInRoomPrompt'
@@ -63,6 +65,7 @@ function Lobby() {
   const [lobbyReactions, setLobbyReactions] = useState<Record<string, ActiveLobbyReaction>>({})
   const historySheetClosedViaPopRef = useRef(false)
   const [datasets, setDatasets] = useState<PublicDataset[]>([])
+  const [cardTypes, setCardTypes] = useState<{ character: number; place: number } | null>(null)
   const {
     roomCode,
     isHost,
@@ -169,6 +172,37 @@ function Lobby() {
       cancelled = true
     }
   }, [])
+
+  const activeDatasetId =
+    settings?.datasetId ||
+    datasets.find((dataset) => dataset.is_default)?.id ||
+    datasets[0]?.id ||
+    ''
+  const lockedCardType = soleCardType(cardTypes)
+
+  useEffect(() => {
+    if (!activeDatasetId) {
+      setCardTypes(null)
+      return
+    }
+    let cancelled = false
+    fetchInPersonEligibility(activeDatasetId, 'character')
+      .then((data) => {
+        if (!cancelled) setCardTypes(data.types ?? null)
+      })
+      .catch(() => {
+        if (!cancelled) setCardTypes(null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [activeDatasetId])
+
+  useEffect(() => {
+    if (!isHost || !lockedCardType || !settings) return
+    if ((settings.entityType ?? 'character') === lockedCardType) return
+    emit('UPDATE_SETTINGS', { entityType: lockedCardType })
+  }, [emit, isHost, lockedCardType, settings])
 
   useEffect(() => {
     if (gameState && gameState.phase !== 'ended' && gameState.phase !== 'starting') {
@@ -661,9 +695,10 @@ function Lobby() {
                 {isHost ? (
                   <select
                     id="entityType"
-                    value={settings.entityType ?? 'character'}
+                    value={lockedCardType ?? settings.entityType ?? 'character'}
                     onChange={(e) => handleUpdateSetting('entityType', e.target.value)}
-                    className="w-full bg-surface-muted border-0 rounded-md text-foreground focus:ring-2 focus:ring-primary py-2.5 px-3"
+                    disabled={lockedCardType != null}
+                    className="w-full bg-surface-muted border-0 rounded-md text-foreground focus:ring-2 focus:ring-primary py-2.5 px-3 disabled:opacity-60"
                   >
                     {ENTITY_TYPE_OPTIONS.map((opt) => (
                       <option key={opt.value} value={opt.value}>
@@ -673,7 +708,7 @@ function Lobby() {
                   </select>
                 ) : (
                   <div className="py-2.5 px-3 bg-surface-muted rounded-lg text-foreground">
-                    {entityTypeOptionLabel(settings.entityType ?? 'character')}
+                    {entityTypeOptionLabel(lockedCardType ?? settings.entityType ?? 'character')}
                   </div>
                 )}
                 <p className="text-xs text-foreground-muted mt-1">{ENTITY_TYPE_HINT_LOBBY}</p>

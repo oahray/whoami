@@ -14,7 +14,7 @@ export type DailyChallenge = {
   dateKey: string
   datasetId: string
   datasetName: string
-  difficulty: 'any'
+  difficulty: 'any' | 'nightmare'
   entityType: 'all'
   roundDurationMs: number
   clueRevealIntervalMs: number

@@ -274,6 +274,7 @@ describe('GET /cards/eligibility', () => {
     expect(response.body.modes.hard).toBe(2)
     expect(response.body.modes.medium).toBe(0)
     expect(response.body.modes.nightmare).toBe(0)
+    expect(response.body.types).toEqual({ character: 2, place: 0 })
   })
 
   it('defaults to characters and excludes places', async () => {
@@ -288,6 +289,7 @@ describe('GET /cards/eligibility', () => {
 
     expect(response.status).toBe(200)
     expect(response.body.modes.any).toBe(1)
+    expect(response.body.types).toEqual({ character: 1, place: 1 })
   })
 
   it('counts only places when entityType is place', async () => {
@@ -303,6 +305,7 @@ describe('GET /cards/eligibility', () => {
 
     expect(response.status).toBe(200)
     expect(response.body.modes.any).toBe(1)
+    expect(response.body.types).toEqual({ character: 1, place: 1 })
   })
 })
 
