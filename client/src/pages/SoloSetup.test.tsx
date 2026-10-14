@@ -145,7 +145,7 @@ describe('SoloSetup', () => {
     expect(loadSoloSession()?.entityIds).toHaveLength(10)
   })
 
-  it('labels a Nightmare Friday and starts it at 45 seconds', async () => {
+  it('labels a Nightmare Friday and starts it at 30 seconds', async () => {
     vi.stubGlobal('fetch', vi.fn(async (input) => {
       const url = String(input)
       if (url.includes('/datasets')) {
@@ -166,7 +166,7 @@ describe('SoloSetup', () => {
             datasetName: 'Bible',
             difficulty: 'nightmare',
             entityType: 'all',
-            roundDurationMs: 45_000,
+            roundDurationMs: 30_000,
             clueRevealIntervalMs: 5_000,
             entityIds,
             cards: {
@@ -191,12 +191,12 @@ describe('SoloSetup', () => {
 
     renderWithPreferences(<MemoryRouter><SoloSetup /></MemoryRouter>)
 
-    expect(await screen.findByText('Nightmare · 45 seconds per card')).toBeInTheDocument()
+    expect(await screen.findByText('Nightmare · 30 seconds per card')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /play today/i }))
     expect(loadSoloSession()).toMatchObject({
       variation: 'daily',
       difficulty: ['nightmare'],
-      roundDurationMs: 45_000,
+      roundDurationMs: 30_000,
       clueRevealIntervalMs: 5_000,
       dailyChallengeId: '2026-10-16-v1-nightmare'
     })

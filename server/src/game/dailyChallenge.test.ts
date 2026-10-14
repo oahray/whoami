@@ -13,14 +13,14 @@ describe('daily challenge rules', () => {
     })
   })
 
-  it('uses nightmare clues and 45 seconds on Friday', () => {
+  it('uses nightmare clues on Friday and keeps the 30 second clock', () => {
     expect(isNightmareFriday('2026-10-09')).toBe(true)
     expect(isNightmareFriday('2026-10-16')).toBe(true)
     expect(dailyChallengeId('2026-10-16')).toBe('2026-10-16-v1-nightmare')
     expect(dailyChallengeRules('2026-10-16')).toEqual({
       difficulty: 'nightmare',
       difficultySelection: ['nightmare'],
-      roundDurationMs: 45_000,
+      roundDurationMs: 30_000,
       clueRevealIntervalMs: 5_000
     })
   })
