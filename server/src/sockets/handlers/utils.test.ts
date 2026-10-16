@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createRoom } from '../../rooms/store.js'
-import { buildReconnectPayload, findReturningPlayer, GRACE_PERIOD_MS } from './utils.js'
+import { broadcastRoundEnd, buildReconnectPayload, findReturningPlayer, GRACE_PERIOD_MS } from './utils.js'
 
 describe('socket handler utils', () => {
   describe('findReturningPlayer', () => {
@@ -208,6 +208,69 @@ describe('socket handler utils', () => {
           })
         })
       )
+    })
+  })
+})
+
+describe('broadcastRoundEnd', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  function emitRound(roundResult: {
+    answerRevealed: boolean
+    entity: { name: string; aliases?: string[] }
+    clues: Array<{ text: string; citations: string | null }>
+  }) {
+    vi.useFakeTimers()
+    const room = createRoom('host-1', 'Host')
+    const emitted: Array<{ event: string; payload: Record<string, unknown> }> = []
+    const io = {
+      to: () => ({
+        emit: (event: string, payload: Record<string, unknown>) => {
+          emitted.push({ event, payload })
+        }
+      })
+    }
+
+    broadcastRoundEnd(io as never, room, { ...roundResult, scoreboard: [] })
+    vi.clearAllTimers()
+    return emitted
+  }
+
+  it('sends the answer when nobody guessed correctly', () => {
+    const emitted = emitRound({
+      answerRevealed: false,
+      entity: { name: 'Moses', aliases: ['Moshe'] },
+      clues: [{ text: 'Led Israel out of Egypt', citations: null }]
+    })
+
+    expect(emitted).toEqual([
+      {
+        event: 'ROUND_ENDED',
+        payload: {
+          answerRevealed: false,
+          answer: 'Moses',
+          aliases: ['Moshe'],
+          clues: [{ text: 'Led Israel out of Egypt', citations: null }],
+          scoreboard: []
+        }
+      }
+    ])
+  })
+
+  it('includes the clue recap when someone guessed correctly', () => {
+    const emitted = emitRound({
+      answerRevealed: true,
+      entity: { name: 'Moses' },
+      clues: [{ text: 'Led Israel out of Egypt', citations: 'Exodus 3:1' }]
+    })
+
+    expect(emitted[0]?.payload).toMatchObject({
+      answerRevealed: true,
+      answer: 'Moses',
+      aliases: [],
+      clues: [{ text: 'Led Israel out of Egypt', citations: 'Exodus 3:1' }]
     })
   })
 })

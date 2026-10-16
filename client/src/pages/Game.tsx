@@ -894,13 +894,24 @@ function Game() {
             <div className="px-6 pt-2 pb-6 text-center">
               <h4 className="text-primary text-sm font-bold uppercase tracking-widest mb-1">Round Over!</h4>
               {!roundEndData.answerRevealed && (
-                <p className="text-foreground">Awww... Nobody guessed correctly this round.</p>
+                <p className="mb-2 text-foreground">Awww... Nobody guessed correctly this round.</p>
               )}
-              {roundEndData.answerRevealed && (
-                <h2 className="text-foreground text-3xl font-bold">Answer: {roundEndData.answer}</h2>
+              {roundEndData.answer && (
+                <>
+                  <h2 className="text-3xl text-foreground">
+                    <span className="font-medium text-foreground-muted">Answer: </span>
+                    <span className="font-bold">{roundEndData.answer}</span>
+                  </h2>
+                  {Array.isArray(roundEndData.aliases) &&
+                    roundEndData.aliases.some((alias: string) => alias.trim()) && (
+                      <p className="mt-1 text-sm font-semibold text-foreground-muted">
+                        {roundEndData.aliases.filter((alias: string) => alias.trim()).join(', ')}
+                      </p>
+                    )}
+                </>
               )}
             </div>
-            {roundEndData.answerRevealed && roundEndData.clues?.length > 0 && (
+            {roundEndData.clues?.length > 0 && (
               <div className="px-6 pb-6">
                 <div className="flex items-center gap-2 mb-3">
                   <span className="material-symbols-outlined text-primary text-xl">menu_book</span>
