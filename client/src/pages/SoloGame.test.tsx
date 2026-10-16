@@ -93,6 +93,40 @@ describe('SoloGame', () => {
     expect(screen.getByRole('heading', { name: /endurance complete/i })).toBeInTheDocument()
   })
 
+  it('shows the name after a Review timeout and still scores it as a miss', async () => {
+    saveSoloSession({
+      datasetId: 'ds-1',
+      difficulty: [],
+      entityType: 'character',
+      variation: 'review',
+      roundDurationMs: 100,
+      clueRevealIntervalMs: 100,
+      entityIds: ['ent-1'],
+      index: 0,
+      correctCount: 0,
+      activeElapsedMs: 0
+    })
+    vi.useFakeTimers()
+
+    renderSoloPlay()
+    await flushCardLoad()
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(200)
+    })
+
+    expect(screen.getByText(/time's up/i)).toBeInTheDocument()
+    expect(screen.getByText('Moses')).toBeInTheDocument()
+    expect(screen.getByText('Moshe')).toBeInTheDocument()
+    expect(screen.queryByText(/practice it in review/i)).not.toBeInTheDocument()
+    expect(screen.getByText('+0 points')).toBeInTheDocument()
+    expect(loadSoloSession()?.settledRoundPerformance).toMatchObject({
+      entityId: 'ent-1',
+      correct: false,
+      score: 0
+    })
+  })
+
   it('shows a classic score’s place in the top 10 when it is not the high score', async () => {
     saveSoloRecord({
       datasetId: 'ds-1',

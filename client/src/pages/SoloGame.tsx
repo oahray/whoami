@@ -1384,9 +1384,22 @@ function SoloGame() {
                   <p className="text-sm font-semibold text-amber-900 dark:text-amber-100">
                     Time&apos;s up
                   </p>
-                  <p className="mt-1 text-sm text-amber-900/90 dark:text-amber-100/90">
-                    Answer not shown yet so you can practice it in Review.
-                  </p>
+                  {session.variation === 'review' ? (
+                    <>
+                      <p className="mt-1 text-xl font-black text-foreground lg:text-2xl">
+                        {card.entity.name}
+                      </p>
+                      {card.entity.aliases.length > 0 && (
+                        <p className="mt-0.5 text-sm font-semibold text-foreground-muted">
+                          {card.entity.aliases.join(', ')}
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="mt-1 text-sm text-amber-900/90 dark:text-amber-100/90">
+                      Answer not shown yet so you can practice it in Review.
+                    </p>
+                  )}
                   <div className="mt-2 rounded-lg bg-surface-muted/80 px-3 py-2 dark:bg-black/15 lg:mt-3 lg:py-3">
                     <p className="text-lg font-black text-primary lg:text-2xl">+0 points</p>
                     <p className="mt-0.5 text-xs text-foreground-muted">Round timed out</p>
