@@ -71,6 +71,7 @@ describe('socket handler utils', () => {
       expect(payload.gameState.cluesRevealed).toEqual([
         { order: 1, text: 'Led Israel out of Egypt' }
       ])
+      expect(payload.gameState.entityType).toBe('character')
       expect(payload.gameState.currentScoreboard).toEqual([
         { playerId: 'host-1', nickname: 'Host', score: 150 }
       ])
@@ -125,6 +126,7 @@ describe('socket handler utils', () => {
         { order: 1, text: 'Missionary apostle' },
         { order: 2, text: 'Formerly persecuted Christians' }
       ])
+      expect(payload.gameState.entityType).toBe('character')
       expect(payload.gameState.currentScoreboard).toEqual([
         { playerId: 'p2', nickname: 'Paul', score: 200 },
         { playerId: 'host-1', nickname: 'Host', score: 50 }

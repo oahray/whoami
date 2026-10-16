@@ -37,6 +37,8 @@ interface GameState {
   isLocked: boolean
   currentScoreboard: Array<{ playerId: string; nickname: string; score: number }>
   serverStartTime?: number
+  /** Type of the card in play. The name stays hidden until the round ends. */
+  entityType?: 'character' | 'place'
 }
 
 interface GameContextType {
@@ -299,7 +301,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
         cluesRevealed: [{ order: data.clue.order, text: data.clue.text }],
         isLocked: false,
         currentScoreboard: baseScoreboard,
-        serverStartTime: data.serverStartTime
+        serverStartTime: data.serverStartTime,
+        entityType: data.entityType === 'place' ? 'place' : 'character'
       })
       setError(null)
     }

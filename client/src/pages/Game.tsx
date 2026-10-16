@@ -4,6 +4,7 @@ import AloneInRoomDialog from '../components/AloneInRoomDialog'
 import LoadingState from '../components/LoadingState'
 import PlayerAvatar from '../components/PlayerAvatar'
 import SoundToggle from '../components/SoundToggle'
+import { clueCardIcon } from '../lib/entityTypeFilter'
 import { downloadLeaderboardPng } from '../lib/exportLeaderboardPng'
 import { INTER_ROUND_DELAY_MS } from '../lib/gameTiming'
 import { playSound } from '../lib/sounds'
@@ -542,8 +543,9 @@ function Game() {
                               >
                                 <span
                                   className={`material-symbols-outlined ${isLatest ? 'text-2xl lg:text-3xl' : 'text-xl lg:text-2xl'}`}
+                                  aria-hidden="true"
                                 >
-                                  auto_stories
+                                  {clueCardIcon(gameState.entityType)}
                                 </span>
                               </div>
                               <div className="min-w-0 flex-1">
