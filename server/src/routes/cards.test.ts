@@ -311,8 +311,15 @@ describe('GET /cards/eligibility', () => {
 
 describe('GET /cards/daily-challenge', () => {
   beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    // Saturday. These fixtures have no nightmare clues, and Friday only serves those.
+    vi.setSystemTime(new Date('2026-10-10T12:00:00.000Z'))
     vi.clearAllMocks()
     resetDailyChallengeCacheForTests()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('returns a deterministic fixed challenge with frozen cards', async () => {
@@ -330,9 +337,8 @@ describe('GET /cards/daily-challenge', () => {
 
     expect(first.status).toBe(200)
     expect(first.body).toEqual(second.body)
-    expect(first.body.challengeId).toMatch(
-      new RegExp(`^\\d{4}-\\d{2}-\\d{2}-v${DAILY_CHALLENGE_VERSION}$`)
-    )
+    expect(first.body.dateKey).toBe('2026-10-10')
+    expect(first.body.challengeId).toBe(`2026-10-10-v${DAILY_CHALLENGE_VERSION}`)
     expect(first.body.challengeVersion).toBe(DAILY_CHALLENGE_VERSION)
     expect(first.body.entityIds).toHaveLength(3)
     expect(Object.keys(first.body.cards).sort()).toEqual([...first.body.entityIds].sort())
@@ -366,6 +372,30 @@ describe('GET /cards/daily-challenge', () => {
 
     expect(fetched.status).toBe(200)
     expect(fetched.body).toEqual(frozen)
+  })
+
+  it('serves nightmare cards on Friday', async () => {
+    vi.setSystemTime(new Date('2026-10-16T12:00:00.000Z'))
+    installMocks(
+      [ENTITY_A, ENTITY_B],
+      [...makeClues('ent-a', 6), ...makeClues('ent-b', 6)].map((clue) => ({
+        ...clue,
+        difficulty: 'nightmare'
+      }))
+    )
+
+    const response = await request(makeApp()).get('/cards/daily-challenge')
+
+    expect(response.status).toBe(200)
+    expect(response.body.dateKey).toBe('2026-10-16')
+    expect(response.body.challengeId).toBe(`2026-10-16-v${DAILY_CHALLENGE_VERSION}-nightmare`)
+    expect(response.body).toMatchObject({
+      difficulty: 'nightmare',
+      entityType: 'all',
+      roundDurationMs: 30_000,
+      clueRevealIntervalMs: 5_000
+    })
+    expect(response.body.entityIds.length).toBeGreaterThan(0)
   })
 })
 

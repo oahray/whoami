@@ -17,8 +17,7 @@ import { logger } from '../utils/logger.js'
 export const DAILY_CHALLENGE_VERSION = 1
 export const DAILY_CHALLENGE_ROUNDS = 10
 
-const NORMAL_ROUND_MS = 30_000
-const NIGHTMARE_FRIDAY_ROUND_MS = 45_000
+const ROUND_MS = 30_000
 const CLUE_REVEAL_MS = 5_000
 
 export type DailyDifficultyLabel = 'any' | 'nightmare'
@@ -59,7 +58,7 @@ export function dailyChallengeId(dateKey: string): string {
   return isNightmareFriday(dateKey) ? `${base}-nightmare` : base
 }
 
-/** Nightmare cards and a slightly longer clock on Friday. Other days stay as they are. */
+/** Nightmare cards on Friday. The clock stays 30 seconds every day. */
 export function dailyChallengeRules(dateKey: string): {
   difficulty: DailyDifficultyLabel
   difficultySelection: DifficultySelection
@@ -70,14 +69,14 @@ export function dailyChallengeRules(dateKey: string): {
     return {
       difficulty: 'nightmare',
       difficultySelection: ['nightmare'],
-      roundDurationMs: NIGHTMARE_FRIDAY_ROUND_MS,
+      roundDurationMs: ROUND_MS,
       clueRevealIntervalMs: CLUE_REVEAL_MS
     }
   }
   return {
     difficulty: 'any',
     difficultySelection: [],
-    roundDurationMs: NORMAL_ROUND_MS,
+    roundDurationMs: ROUND_MS,
     clueRevealIntervalMs: CLUE_REVEAL_MS
   }
 }
