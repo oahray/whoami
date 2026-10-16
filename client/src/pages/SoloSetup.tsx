@@ -654,7 +654,7 @@ function SoloSetup() {
               </span>
               <div className="min-w-0 flex-1">
                 <p className="text-[10px] font-black uppercase tracking-widest text-primary">
-                  Today&apos;s challenge
+                  {dailyChallenge.difficulty === 'nightmare' ? 'Nightmare Friday' : "Today's challenge"}
                 </p>
                 <h2 className="mt-1 text-lg font-black">
                   {new Intl.DateTimeFormat(undefined, {
@@ -665,11 +665,6 @@ function SoloSetup() {
                 <p className="mt-1 text-sm text-foreground-muted">
                   {dailyChallenge.entityIds.length} cards · {dailyChallenge.datasetName}
                 </p>
-                {dailyChallenge.difficulty === 'nightmare' && (
-                  <p className="mt-1 text-sm font-semibold text-foreground">
-                    Nightmare · {dailyChallenge.roundDurationMs / 1000} seconds per card
-                  </p>
-                )}
                 <div
                   aria-hidden="true"
                   className="mt-4 flex items-center gap-2 text-[0.7rem] font-bold uppercase tracking-wider text-green-700 dark:text-green-300/75"
