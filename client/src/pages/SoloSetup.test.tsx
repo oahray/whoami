@@ -145,7 +145,7 @@ describe('SoloSetup', () => {
     expect(loadSoloSession()?.entityIds).toHaveLength(10)
   })
 
-  it('labels a Nightmare Friday and starts it at 30 seconds', async () => {
+  it('labels Nightmare Friday and starts it at 30 seconds', async () => {
     vi.stubGlobal('fetch', vi.fn(async (input) => {
       const url = String(input)
       if (url.includes('/datasets')) {
@@ -191,7 +191,8 @@ describe('SoloSetup', () => {
 
     renderWithPreferences(<MemoryRouter><SoloSetup /></MemoryRouter>)
 
-    expect(await screen.findByText('Nightmare · 30 seconds per card')).toBeInTheDocument()
+    expect(await screen.findByText('Nightmare Friday')).toBeInTheDocument()
+    expect(screen.queryByText(/seconds per card/i)).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /play today/i }))
     expect(loadSoloSession()).toMatchObject({
       variation: 'daily',
