@@ -7,6 +7,7 @@ import { useMaintenanceStatus } from '../hooks/useMaintenanceStatus'
 import {
   coerceDifficultySelection
 } from '../lib/difficultySelection'
+import { clueCardIcon } from '../lib/entityTypeFilter'
 import {
   getInPersonCard,
   isLostCardError,
@@ -551,7 +552,9 @@ function PlayCards() {
                   >
                     <div className="flex items-start gap-2 md:gap-3">
                       <div className="size-8 md:size-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                        <span className="material-symbols-outlined text-lg md:text-xl">auto_stories</span>
+                        <span className="material-symbols-outlined text-lg md:text-xl" aria-hidden="true">
+                          {clueCardIcon(card.entity.type)}
+                        </span>
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="text-[10px] font-bold text-foreground-muted uppercase tracking-widest">

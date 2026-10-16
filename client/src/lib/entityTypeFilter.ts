@@ -25,6 +25,11 @@ export function entityTypeCountLabel(filter: EntityTypeFilter, count: number): s
   return `${count} ${noun}${count === 1 ? '' : 's'} in this deck`
 }
 
+/** Icon on a clue card. The name stays hidden; the icon only marks the type. */
+export function clueCardIcon(type: 'character' | 'place' | null | undefined): 'person' | 'location_on' {
+  return type === 'place' ? 'location_on' : 'person'
+}
+
 /** The only card type in the set, when the other type is absent. */
 export function soleCardType(
   types: { character: number; place: number } | null | undefined

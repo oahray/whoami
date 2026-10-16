@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { PreferencesProvider } from '../context/PreferencesContext'
 import Home from './Home'
 
 const mockUseGame = vi.fn()
@@ -45,9 +46,11 @@ describe('Home', () => {
 
   it('leads with create a room and reveals join when asked', () => {
     render(
-      <MemoryRouter>
-        <Home />
-      </MemoryRouter>
+      <PreferencesProvider>
+        <MemoryRouter>
+          <Home />
+        </MemoryRouter>
+      </PreferencesProvider>
     )
 
     expect(
@@ -82,9 +85,11 @@ describe('Home', () => {
 
   it('strips an invite URL pasted into the room code field', () => {
     render(
-      <MemoryRouter>
-        <Home />
-      </MemoryRouter>
+      <PreferencesProvider>
+        <MemoryRouter>
+          <Home />
+        </MemoryRouter>
+      </PreferencesProvider>
     )
 
     fireEvent.click(screen.getByRole('button', { name: /i have a code/i }))
@@ -120,9 +125,11 @@ describe('Home', () => {
     })
 
     render(
-      <MemoryRouter>
-        <Home />
-      </MemoryRouter>
+      <PreferencesProvider>
+        <MemoryRouter>
+          <Home />
+        </MemoryRouter>
+      </PreferencesProvider>
     )
 
     fireEvent.change(screen.getByPlaceholderText('e.g. Samuel'), {
@@ -155,9 +162,11 @@ describe('Home', () => {
     })
 
     render(
-      <MemoryRouter>
-        <Home />
-      </MemoryRouter>
+      <PreferencesProvider>
+        <MemoryRouter>
+          <Home />
+        </MemoryRouter>
+      </PreferencesProvider>
     )
 
     fireEvent.change(screen.getByPlaceholderText('e.g. Samuel'), {
@@ -210,9 +219,11 @@ describe('Home', () => {
 
   it('shows the brand logo in the Who Am I? lockup', () => {
     render(
-      <MemoryRouter>
-        <Home />
-      </MemoryRouter>
+      <PreferencesProvider>
+        <MemoryRouter>
+          <Home />
+        </MemoryRouter>
+      </PreferencesProvider>
     )
 
     expect(screen.getByRole('heading', { name: /who am i\?/i })).toBeInTheDocument()
@@ -223,9 +234,11 @@ describe('Home', () => {
 
   it('links to solo mode, pass & play and about', () => {
     render(
-      <MemoryRouter>
-        <Home />
-      </MemoryRouter>
+      <PreferencesProvider>
+        <MemoryRouter>
+          <Home />
+        </MemoryRouter>
+      </PreferencesProvider>
     )
 
     expect(screen.getByRole('link', { name: /^solo$/i })).toHaveAttribute('href', '/solo')
@@ -250,9 +263,11 @@ describe('Home', () => {
     )
 
     render(
-      <MemoryRouter>
-        <Home />
-      </MemoryRouter>
+      <PreferencesProvider>
+        <MemoryRouter>
+          <Home />
+        </MemoryRouter>
+      </PreferencesProvider>
     )
 
     expect(setError).toHaveBeenCalledWith(
@@ -271,9 +286,11 @@ describe('Home', () => {
     })
 
     render(
-      <MemoryRouter>
-        <Home />
-      </MemoryRouter>
+      <PreferencesProvider>
+        <MemoryRouter>
+          <Home />
+        </MemoryRouter>
+      </PreferencesProvider>
     )
 
     expect(screen.getByText(/connecting to server/i)).toBeInTheDocument()
@@ -299,9 +316,11 @@ describe('Home', () => {
     })
 
     render(
-      <MemoryRouter>
-        <Home />
-      </MemoryRouter>
+      <PreferencesProvider>
+        <MemoryRouter>
+          <Home />
+        </MemoryRouter>
+      </PreferencesProvider>
     )
 
     expect(screen.queryByText(/connecting to server/i)).not.toBeInTheDocument()
@@ -315,9 +334,11 @@ describe('Home', () => {
 
   it('opens the device history sheet with an empty state', async () => {
     render(
-      <MemoryRouter>
-        <Home />
-      </MemoryRouter>
+      <PreferencesProvider>
+        <MemoryRouter>
+          <Home />
+        </MemoryRouter>
+      </PreferencesProvider>
     )
 
     fireEvent.click(screen.getByRole('button', { name: /history/i }))

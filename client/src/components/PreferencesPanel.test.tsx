@@ -72,4 +72,15 @@ describe('PreferencesPanel', () => {
     expect(localStorage.getItem('whoami_theme')).toBe('dark')
     expect(document.documentElement.classList.contains('dark')).toBe(true)
   })
+
+  it('persists a color palette and applies it immediately', () => {
+    document.head.insertAdjacentHTML('beforeend', '<meta name="theme-color" content="#2b4bee" />')
+    renderPanel()
+    fireEvent.click(screen.getByRole('radio', { name: /^wine$/i }))
+    expect(localStorage.getItem('whoami_palette')).toBe('wine')
+    expect(document.documentElement.dataset.palette).toBe('wine')
+    expect(document.querySelector('meta[name="theme-color"]')?.getAttribute('content')).toBe(
+      '#7a2a3a'
+    )
+  })
 })

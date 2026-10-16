@@ -7,6 +7,7 @@ import { useMaintenanceStatus } from '../hooks/useMaintenanceStatus'
 import { useStickToBottom } from '../hooks/useStickToBottom'
 import { useVisualViewportLock } from '../hooks/useVisualViewportLock'
 import { encodeDifficultySelection } from '../lib/difficultySelection'
+import { clueCardIcon } from '../lib/entityTypeFilter'
 import {
   getActiveDailyStreak,
   saveDailyResult,
@@ -1282,8 +1283,9 @@ function SoloGame() {
                                 className={`material-symbols-outlined ${
                                   isLatest ? 'text-2xl lg:text-3xl' : 'text-xl lg:text-2xl'
                                 }`}
+                                aria-hidden="true"
                               >
-                                auto_stories
+                                {clueCardIcon(card.entity.type)}
                               </span>
                             </div>
                             <div className="min-w-0 flex-1">

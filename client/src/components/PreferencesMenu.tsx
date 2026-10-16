@@ -3,9 +3,11 @@ import PreferencesForm from './PreferencesForm'
 
 type PreferencesMenuProps = {
   className?: string
+  /** Light icon for the full-page color poster on Home. */
+  tone?: 'default' | 'onPoster'
 }
 
-function PreferencesMenu({ className = '' }: PreferencesMenuProps) {
+function PreferencesMenu({ className = '', tone = 'default' }: PreferencesMenuProps) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
   const menuId = useId()
@@ -35,7 +37,11 @@ function PreferencesMenu({ className = '' }: PreferencesMenuProps) {
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="flex size-9 md:size-10 items-center justify-center rounded-full text-foreground-muted hover:bg-surface-muted"
+        className={`flex size-9 md:size-10 items-center justify-center rounded-full ${
+          tone === 'onPoster'
+            ? 'text-white/90 hover:bg-white/15'
+            : 'text-foreground-muted hover:bg-surface-muted'
+        }`}
         aria-label="Your preferences"
         aria-expanded={open}
         aria-controls={menuId}

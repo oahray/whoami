@@ -51,7 +51,8 @@ export function emitRoundStarted(io: Server, room: RoomState): void {
     clue: {
       order: firstClue.order,
       text: firstClue.text
-    }
+    },
+    entityType: room.currentRound.entity.type
   })
 }
 
@@ -303,6 +304,7 @@ export function buildReconnectPayload(room: RoomState, player: Player) {
         order: c.order,
         text: c.text
       })),
+      entityType: room.currentRound.entity.type,
       isLocked: player.isLocked,
       serverStartTime: room.currentRound.serverStartTime,
       activeStartTime: room.currentRound.activeStartTime,

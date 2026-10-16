@@ -42,7 +42,10 @@ function saveTestSession(
 type InPersonCardClue = { order: number; text: string; citations: string | null }
 
 function stubEntityCards(
-  cards: Record<string, { name: string; clues: InPersonCardClue[]; aliases?: string[] }>
+  cards: Record<
+    string,
+    { name: string; clues: InPersonCardClue[]; aliases?: string[]; type?: 'character' | 'place' }
+  >
 ) {
   vi.mocked(fetch).mockImplementation(async (input) => {
     const url = String(input)
@@ -62,7 +65,7 @@ function stubEntityCards(
             entity: {
               id: entityId,
               name: card.name,
-              type: 'character',
+              type: card.type ?? 'character',
               aliases: card.aliases ?? ['Moshe']
             },
             clues: card.clues
@@ -106,6 +109,8 @@ describe('PlayCards', () => {
     await waitFor(() => {
       expect(screen.getByText('First clue')).toBeInTheDocument()
     })
+    expect(screen.getByText('person')).toBeInTheDocument()
+    expect(screen.queryByText('location_on')).not.toBeInTheDocument()
     expect(screen.queryByText('Second clue')).not.toBeInTheDocument()
     expect(screen.queryByText('Exodus 3:1')).not.toBeInTheDocument()
 
@@ -114,6 +119,25 @@ describe('PlayCards', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /reveal answer/i }))
     expect(screen.getByText('Exodus 3:1')).toBeInTheDocument()
+  })
+
+  it('uses a place icon when the card is a place', async () => {
+    stubEntityCards({
+      'ent-1': {
+        name: 'Jordan',
+        type: 'place',
+        clues: [{ order: 1, text: 'A river east of the land', citations: null }]
+      }
+    })
+
+    renderPlayCards('/play/cards?datasetId=ds-1&difficulty=any')
+
+    await waitFor(() => {
+      expect(screen.getByText('A river east of the land')).toBeInTheDocument()
+    })
+    expect(screen.getByText('location_on')).toBeInTheDocument()
+    expect(screen.queryByText('person')).not.toBeInTheDocument()
+    expect(screen.queryByText('Jordan')).not.toBeInTheDocument()
   })
 
   it('masks the character until reveal answer, then advances deck', async () => {

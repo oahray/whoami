@@ -5,6 +5,7 @@ export const STORAGE_KEY_MUSIC_VOLUME = 'whoami_music_volume'
 export const STORAGE_KEY_SFX_VOLUME_LAST = 'whoami_sfx_volume_last'
 export const STORAGE_KEY_MUSIC_VOLUME_LAST = 'whoami_music_volume_last'
 export const STORAGE_KEY_THEME = 'whoami_theme'
+export const STORAGE_KEY_PALETTE = 'whoami_palette'
 
 /** Soft default — audible without jump-scare. */
 export const DEFAULT_SFX_VOLUME = 0.7
@@ -18,9 +19,12 @@ export const MUSIC_VOLUME_MAX = 0.25
 
 export type ThemeMode = 'system' | 'light' | 'dark'
 export type ResolvedTheme = 'light' | 'dark'
+export type ColorPalette = 'blue' | 'green' | 'wine' | 'purple'
 
 const DEFAULT_THEME: ThemeMode = 'system'
 const THEME_MODES: ThemeMode[] = ['system', 'light', 'dark']
+export const DEFAULT_PALETTE: ColorPalette = 'blue'
+const COLOR_PALETTES: ColorPalette[] = ['blue', 'green', 'wine', 'purple']
 
 export function clampVolume(value: number): number {
   if (!Number.isFinite(value)) return 0
@@ -167,6 +171,27 @@ export function readTheme(): ThemeMode {
 export function writeTheme(mode: ThemeMode): void {
   try {
     localStorage.setItem(STORAGE_KEY_THEME, mode)
+  } catch {
+    // private mode / quota
+  }
+}
+
+export function readPalette(): ColorPalette {
+  if (typeof window === 'undefined') return DEFAULT_PALETTE
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_PALETTE)
+    if (raw && COLOR_PALETTES.includes(raw as ColorPalette)) {
+      return raw as ColorPalette
+    }
+    return DEFAULT_PALETTE
+  } catch {
+    return DEFAULT_PALETTE
+  }
+}
+
+export function writePalette(palette: ColorPalette): void {
+  try {
+    localStorage.setItem(STORAGE_KEY_PALETTE, palette)
   } catch {
     // private mode / quota
   }

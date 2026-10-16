@@ -18,6 +18,7 @@ import { parseRoomCodeInput, ROOM_CODE_LENGTH } from '../lib/roomCode'
 import AvatarPicker from '../components/AvatarPicker'
 import IosInstallHint from '../components/IosInstallHint'
 import FeedbackLink from '../components/FeedbackLink'
+import PreferencesMenu from '../components/PreferencesMenu'
 import LoadingState from '../components/LoadingState'
 import Logo from '../components/Logo'
 import MaintenanceBanner from '../components/MaintenanceBanner'
@@ -191,6 +192,9 @@ function Home() {
 
   return (
     <div className="relative flex min-h-screen min-h-full w-full flex-col bg-primary home-hero-pattern overflow-x-hidden font-display antialiased">
+      <div className="absolute right-4 top-[max(0.75rem,env(safe-area-inset-top))] z-30">
+        <PreferencesMenu tone="onPoster" />
+      </div>
       <IosInstallHint />
       {transportStatus === 'connecting' && (
         <div

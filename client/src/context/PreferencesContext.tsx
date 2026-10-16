@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode
 } from 'react'
-import { applyThemeMode } from '../lib/applyTheme'
+import { applyPalette, applyThemeMode } from '../lib/applyTheme'
 import {
   applyMenuMusicVolume,
   stopMenuMusic
@@ -23,11 +23,14 @@ import {
   readMusicVolumeLast,
   readSfxVolume,
   readSfxVolumeLast,
+  readPalette,
   readTheme,
   resolveTheme,
   writeMusicVolume,
+  writePalette,
   writeSfxVolume,
   writeTheme,
+  type ColorPalette,
   type ResolvedTheme,
   type ThemeMode
 } from '../lib/preferences'
@@ -66,6 +69,8 @@ type PreferencesContextValue = {
   theme: ThemeMode
   setTheme: (mode: ThemeMode) => void
   resolvedTheme: ResolvedTheme
+  palette: ColorPalette
+  setPalette: (palette: ColorPalette) => void
 }
 
 const PreferencesContext = createContext<PreferencesContextValue | null>(null)
@@ -76,6 +81,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   const [reducedMotion, setReducedMotion] = useState(prefersReducedMotion)
   const [theme, setThemeState] = useState<ThemeMode>(readTheme)
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() => resolveTheme(readTheme()))
+  const [palette, setPaletteState] = useState<ColorPalette>(readPalette)
   const muteSnapshotRef = useRef<MuteSnapshot | null>(null)
 
   useEffect(() => {
@@ -85,6 +91,10 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     mqMotion.addEventListener('change', onMotionChange)
     return () => mqMotion.removeEventListener('change', onMotionChange)
   }, [])
+
+  useEffect(() => {
+    applyPalette(palette)
+  }, [palette])
 
   useEffect(() => {
     applyThemeMode(theme)
@@ -164,6 +174,12 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     setResolvedTheme(resolveTheme(mode))
   }, [])
 
+  const setPalette = useCallback((next: ColorPalette) => {
+    setPaletteState(next)
+    writePalette(next)
+    applyPalette(next)
+  }, [])
+
   const value = useMemo(
     () => ({
       sfxVolume,
@@ -180,7 +196,9 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       musicAllowed: isMusicPlaybackAllowed(musicVolume),
       theme,
       setTheme,
-      resolvedTheme
+      resolvedTheme,
+      palette,
+      setPalette
     }),
     [
       sfxVolume,
@@ -193,7 +211,9 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       reducedMotion,
       theme,
       setTheme,
-      resolvedTheme
+      resolvedTheme,
+      palette,
+      setPalette
     ]
   )
 
