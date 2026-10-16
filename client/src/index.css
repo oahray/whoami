@@ -13,6 +13,30 @@
   --color-edge: 226 232 240;
 }
 
+html[data-palette='green'] {
+  --color-primary: 14 107 69;
+}
+
+html.dark[data-palette='green'] {
+  --color-primary: 20 122 80;
+}
+
+html[data-palette='wine'] {
+  --color-primary: 122 42 58;
+}
+
+html.dark[data-palette='wine'] {
+  --color-primary: 140 52 68;
+}
+
+html[data-palette='purple'] {
+  --color-primary: 76 42 158;
+}
+
+html.dark[data-palette='purple'] {
+  --color-primary: 98 62 184;
+}
+
 .dark {
   --color-app-bg: 16 19 34;
   --color-surface: 15 23 42;

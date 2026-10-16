@@ -14,4 +14,5 @@ beforeEach(() => {
 afterEach(() => {
   cleanup()
   document.documentElement.classList.remove('dark')
+  document.documentElement.removeAttribute('data-palette')
 })

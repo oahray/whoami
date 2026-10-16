@@ -5,6 +5,7 @@ import {
   musicVolumeToPercent,
   sfxPercentToVolume,
   sfxVolumeToPercent,
+  type ColorPalette,
   type ThemeMode
 } from '../lib/preferences'
 
@@ -18,6 +19,13 @@ const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
   { value: 'dark', label: 'Dark' },
 ]
 
+const PALETTE_OPTIONS: { value: ColorPalette; label: string; swatch: string }[] = [
+  { value: 'blue', label: 'Blue', swatch: '#2b4bee' },
+  { value: 'green', label: 'Green', swatch: '#0e6b45' },
+  { value: 'wine', label: 'Wine', swatch: '#7a2a3a' },
+  { value: 'purple', label: 'Purple', swatch: '#4c2a9e' },
+]
+
 function PreferencesForm({ idPrefix = 'pref' }: PreferencesFormProps) {
   const {
     sfxVolume,
@@ -28,11 +36,14 @@ function PreferencesForm({ idPrefix = 'pref' }: PreferencesFormProps) {
     sfxAllowed,
     sfxEnabled,
     theme,
-    setTheme
+    setTheme,
+    palette,
+    setPalette
   } = usePreferences()
   const sfxId = `${idPrefix}-sfx-volume`
   const musicId = `${idPrefix}-music-volume`
   const themeGroupId = `${idPrefix}-theme`
+  const paletteGroupId = `${idPrefix}-palette`
   const sfxPercent = sfxVolumeToPercent(sfxVolume)
   const musicPercent = musicVolumeToPercent(musicVolume)
 
@@ -74,6 +85,46 @@ function PreferencesForm({ idPrefix = 'pref' }: PreferencesFormProps) {
         <p className="text-xs text-foreground-muted">
           System follows your device light or dark setting.
         </p>
+      </fieldset>
+
+      <fieldset className="space-y-2">
+        <legend className="text-foreground text-sm font-medium">Color</legend>
+        <div className="grid grid-cols-4 gap-2" role="radiogroup" aria-labelledby={paletteGroupId}>
+          <span id={paletteGroupId} className="sr-only">
+            Color palette
+          </span>
+          {PALETTE_OPTIONS.map((option) => {
+            const id = `${idPrefix}-palette-${option.value}`
+            const selected = palette === option.value
+            return (
+              <label
+                key={option.value}
+                htmlFor={id}
+                className={`cursor-pointer rounded-lg border px-1 py-2 text-center text-xs font-semibold transition-colors ${
+                  selected
+                    ? 'border-foreground bg-surface text-foreground'
+                    : 'border-edge bg-surface-muted text-foreground-muted hover:bg-surface-elevated'
+                }`}
+              >
+                <input
+                  type="radio"
+                  id={id}
+                  name={`${idPrefix}-palette`}
+                  value={option.value}
+                  checked={selected}
+                  onChange={() => setPalette(option.value)}
+                  className="sr-only"
+                />
+                <span
+                  aria-hidden="true"
+                  className="mx-auto mb-1.5 block size-5 rounded-full border border-black/10"
+                  style={{ backgroundColor: option.swatch }}
+                />
+                {option.label}
+              </label>
+            )
+          })}
+        </div>
       </fieldset>
 
       <div className="space-y-1.5">

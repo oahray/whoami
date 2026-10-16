@@ -4,6 +4,7 @@ import {
   clampMusicVolume,
   clampVolume,
   DEFAULT_MUSIC_VOLUME,
+  DEFAULT_PALETTE,
   DEFAULT_SFX_VOLUME,
   isMusicPlaybackAllowed,
   isSfxPlaybackAllowed,
@@ -11,16 +12,19 @@ import {
   musicPercentToVolume,
   musicVolumeToPercent,
   readMusicVolume,
+  readPalette,
   readSfxVolume,
   readSfxVolumeLast,
   readTheme,
   resolveTheme,
   STORAGE_KEY_MUSIC_ENABLED,
   STORAGE_KEY_MUSIC_VOLUME,
+  STORAGE_KEY_PALETTE,
   STORAGE_KEY_SFX_ENABLED,
   STORAGE_KEY_SFX_VOLUME,
   STORAGE_KEY_THEME,
   writeMusicVolume,
+  writePalette,
   writeSfxVolume,
   writeTheme
 } from './preferences'
@@ -140,6 +144,18 @@ describe('preferences', () => {
   it('resolves explicit light and dark themes', () => {
     expect(resolveTheme('light')).toBe('light')
     expect(resolveTheme('dark')).toBe('dark')
+  })
+
+  it('defaults the color palette to blue and ignores unknown values', () => {
+    expect(readPalette()).toBe(DEFAULT_PALETTE)
+    localStorage.setItem(STORAGE_KEY_PALETTE, 'orange')
+    expect(readPalette()).toBe('blue')
+  })
+
+  it('persists a color palette', () => {
+    writePalette('green')
+    expect(localStorage.getItem(STORAGE_KEY_PALETTE)).toBe('green')
+    expect(readPalette()).toBe('green')
   })
 
   it('resolves system theme from prefers-color-scheme', () => {
