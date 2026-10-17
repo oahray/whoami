@@ -3,13 +3,11 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
-/** Splash fill behind the icon. The live status bar uses the page theme-color meta instead. */
-const SPLASH_COLOR = '#2b4bee'
 /**
- * Android navigation bar. Xiaomi keeps this on the installed manifest color
- * and does not follow palette changes. Black stays neutral beside every palette.
+ * Splash fill and the Android navigation bar.
+ * The live status bar uses the page theme-color meta instead.
  */
-const NAVIGATION_BAR_COLOR = '#000000'
+const SPLASH_COLOR = '#000000'
 
 export default defineConfig({
   plugins: [
@@ -38,7 +36,7 @@ export default defineConfig({
         name: 'Who Am I? - Bible Character Quiz',
         short_name: 'Who Am I?',
         description: 'Real-time multiplayer Bible character guessing game.',
-        theme_color: NAVIGATION_BAR_COLOR,
+        theme_color: SPLASH_COLOR,
         background_color: SPLASH_COLOR,
         display: 'standalone',
         orientation: 'portrait',
