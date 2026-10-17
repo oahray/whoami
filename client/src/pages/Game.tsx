@@ -293,124 +293,154 @@ function Game() {
       if (rank === 3) return tied ? 'Tied for 3rd' : '3rd Place'
       return null
     }
+    const downloadLabel =
+      exportState === 'working'
+        ? 'Saving leaderboard image'
+        : exportState === 'downloaded'
+          ? 'Leaderboard image saved'
+          : exportState === 'error'
+            ? 'Couldn’t save leaderboard image'
+            : 'Download leaderboard image'
+
     return (
-      <div className="min-h-screen bg-app-bg font-display text-foreground flex justify-center">
-        <div className="w-full max-w-[430px] flex flex-col bg-surface">
-          <div className="flex flex-col items-center pt-12 pb-6 px-6 bg-gradient-to-b from-primary/10 to-transparent">
-            <span className="material-symbols-outlined text-primary text-6xl mb-2">auto_awesome</span>
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">Game Over!</h1>
-            <p className="text-foreground-muted mt-1 font-medium">Final Rankings</p>
-          </div>
-          <div className="flex-1 overflow-y-auto px-4 space-y-3 pb-4">
+      <div className="flex min-h-[100dvh] flex-col overflow-y-auto bg-app-bg font-display text-foreground">
+        <main className="mx-auto my-auto w-full max-w-lg px-4 py-8">
+          <header className="text-center">
+            <p className="text-[10px] font-black uppercase tracking-widest text-primary">Final rankings</p>
+            <h1 className="mt-2 text-3xl font-black tracking-tight">Game over</h1>
+            {roomCode && (
+              <p className="mt-1 text-sm font-medium text-foreground-muted">Room {roomCode}</p>
+            )}
+          </header>
+
+          <ol className="mt-6 space-y-2">
             {ranked.map(player => {
               const isWinner = player.rank === 1 && player.score > 0
-              const isPodium = player.rank <= 3 && player.score > 0
+              const isYou = player.playerId === playerId
               const label = labelFor(player.rank, player.tied, player.score)
               return (
-                <div
+                <li
                   key={player.playerId}
-                  className={`flex items-center gap-4 p-4 rounded-lg border ${
+                  className={`flex items-center gap-3 rounded-xl border p-3 ${
                     isWinner
-                      ? 'bg-surface border-2 border-amber-400 shadow-lg shadow-amber-400/10'
-                      : isPodium
-                        ? 'bg-surface border border-edge'
-                        : 'bg-surface/50 border border-dashed border-edge'
+                      ? 'border-primary/30 bg-primary/5'
+                      : 'border-edge bg-surface'
                   }`}
                 >
-                  <div className="relative">
-                    <PlayerAvatar
-                      avatarId={players.find(p => p.id === player.playerId)?.avatarId}
-                      nickname={player.nickname || '?'}
-                      sizeClassName="size-14"
-                    />
-                    {isWinner && (
-                      <div className="absolute -top-2 -right-1 bg-amber-400 text-white rounded-full p-1 border-2 border-white">
-                        <span className="material-symbols-outlined text-sm block">military_tech</span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className={isWinner ? 'text-amber-600 font-bold' : 'text-foreground-muted font-bold'}>#{player.rank}</span>
-                      <p className="text-foreground font-bold truncate">
-                        {player.nickname}
-                        {player.playerId === playerId && (
-                          <span className="text-foreground-muted font-medium"> (You)</span>
-                        )}
-                      </p>
-                    </div>
+                  <span
+                    className={`flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-black ${
+                      isWinner
+                        ? 'bg-primary text-white'
+                        : 'bg-surface-muted text-foreground-muted'
+                    }`}
+                  >
+                    {player.rank}
+                  </span>
+                  <PlayerAvatar
+                    avatarId={players.find(p => p.id === player.playerId)?.avatarId}
+                    nickname={player.nickname || '?'}
+                    sizeClassName="size-11"
+                    className="border border-primary/15"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-bold text-foreground">
+                      {player.nickname}
+                      {isYou && (
+                        <span className="ml-1.5 align-middle text-[10px] font-bold uppercase tracking-wider text-primary">
+                          You
+                        </span>
+                      )}
+                    </p>
                     {label && (
                       <p
-                        className={
-                          isWinner
-                            ? 'text-amber-600 text-sm font-semibold mt-0.5 uppercase tracking-wider'
-                            : 'text-foreground-muted text-xs mt-0.5'
-                        }
+                        className={`mt-0.5 text-[10px] font-bold uppercase tracking-widest ${
+                          isWinner ? 'text-primary' : 'text-foreground-muted'
+                        }`}
                       >
                         {label}
                       </p>
                     )}
                   </div>
-                  <div className="text-right">
-                    <p className={isWinner ? 'text-primary font-bold text-xl' : 'text-foreground font-bold text-lg'}>{player.score}</p>
-                    <p className="text-foreground-muted text-xs font-medium">pts</p>
-                  </div>
-                </div>
+                  <p className="shrink-0 text-right">
+                    <span className={`block text-xl font-black tabular-nums leading-none ${isWinner ? 'text-primary' : 'text-foreground'}`}>
+                      {player.score}
+                    </span>
+                    <span className="mt-0.5 block text-[10px] font-bold uppercase tracking-wider text-foreground-muted">
+                      pts
+                    </span>
+                  </p>
+                </li>
               )
             })}
-          </div>
-          <div className="p-6 bg-surface border-t border-edge space-y-3">
-            {roomCode && gameHistory.length > 0 && (
+          </ol>
+
+          <div
+            className="mt-6 space-y-3"
+            style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 0px))' }}
+          >
+            <div className="flex items-center gap-2">
+              {roomCode && gameHistory.length > 0 && (
+                <button
+                  type="button"
+                  disabled={exportState === 'working'}
+                  aria-label={downloadLabel}
+                  title={downloadLabel}
+                  onClick={() => {
+                    const entry = gameHistory[gameHistory.length - 1]
+                    if (!entry) return
+                    setExportState('working')
+                    void downloadLeaderboardPng({ roomCode, entry })
+                      .then(() => {
+                        setExportState('downloaded')
+                        window.setTimeout(() => setExportState('idle'), 2200)
+                      })
+                      .catch((err) => {
+                        console.warn('Leaderboard download failed:', err)
+                        setExportState('error')
+                        window.setTimeout(() => setExportState('idle'), 2200)
+                      })
+                  }}
+                  className="flex size-12 shrink-0 items-center justify-center rounded-lg border-2 border-edge text-foreground hover:bg-surface-muted disabled:opacity-60"
+                >
+                  <span className="material-symbols-outlined text-xl" aria-hidden>
+                    {exportState === 'working'
+                      ? 'hourglass_top'
+                      : exportState === 'downloaded'
+                        ? 'check'
+                        : exportState === 'error'
+                          ? 'error'
+                          : 'download'}
+                  </span>
+                </button>
+              )}
               <button
                 type="button"
-                disabled={exportState === 'working'}
-                onClick={() => {
-                  const entry = gameHistory[gameHistory.length - 1]
-                  if (!entry) return
-                  setExportState('working')
-                  void downloadLeaderboardPng({ roomCode, entry })
-                    .then(() => {
-                      setExportState('downloaded')
-                      window.setTimeout(() => setExportState('idle'), 2200)
-                    })
-                    .catch((err) => {
-                      console.warn('Leaderboard download failed:', err)
-                      setExportState('error')
-                      window.setTimeout(() => setExportState('idle'), 2200)
-                    })
-                }}
-                className="w-full border-2 border-edge bg-surface-muted hover:bg-surface-elevated text-foreground font-bold py-3.5 rounded-lg flex items-center justify-center gap-2 transition-all disabled:opacity-60"
+                onClick={() => { setGameEndData(null); navigate('/lobby') }}
+                className="flex min-h-12 flex-1 items-center justify-center rounded-lg bg-primary py-3 font-bold text-white shadow-md shadow-primary/20 hover:bg-primary/90"
               >
-                <span className="material-symbols-outlined">
-                  {exportState === 'working' ? 'hourglass_top' : 'download'}
-                </span>
-                {exportState === 'working'
-                  ? 'Saving…'
-                  : exportState === 'downloaded'
-                    ? 'Saved!'
-                    : exportState === 'error'
-                      ? 'Couldn’t save'
-                      : 'Download leaderboard image'}
+                Back to lobby
               </button>
+            </div>
+            {exportState !== 'idle' && (
+              <p className="text-center text-xs font-medium text-foreground-muted" role="status">
+                {downloadLabel}
+              </p>
             )}
-            <button
-              type="button"
-              onClick={() => { setGameEndData(null); navigate('/lobby') }}
-              className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-4 rounded-lg shadow-lg shadow-primary/20 flex items-center justify-center gap-2 transition-all"
-            >
-              <span className="material-symbols-outlined">home</span>
-              Return to Lobby
-            </button>
             {autoReturnSeconds !== null && (
-              <div className="mt-1 flex flex-col items-center">
-                <p className="text-foreground-muted text-sm font-medium">Returning to lobby in {autoReturnSeconds}s...</p>
-                <div className="w-full h-1 bg-surface-elevated rounded-full mt-2 overflow-hidden">
-                  <div className="h-full bg-primary/40 rounded-full transition-all" style={{ width: `${((30 - autoReturnSeconds) / 30) * 100}%` }} />
+              <div>
+                <p className="text-center text-xs font-medium text-foreground-muted">
+                  Back to the lobby in {autoReturnSeconds}s
+                </p>
+                <div className="mt-2 h-1 overflow-hidden rounded-full bg-surface-elevated">
+                  <div
+                    className="h-full rounded-full bg-primary/40 transition-all"
+                    style={{ width: `${((30 - autoReturnSeconds) / 30) * 100}%` }}
+                  />
                 </div>
               </div>
             )}
           </div>
-        </div>
+        </main>
       </div>
     )
   }
@@ -894,13 +924,24 @@ function Game() {
             <div className="px-6 pt-2 pb-6 text-center">
               <h4 className="text-primary text-sm font-bold uppercase tracking-widest mb-1">Round Over!</h4>
               {!roundEndData.answerRevealed && (
-                <p className="text-foreground">Awww... Nobody guessed correctly this round.</p>
+                <p className="mb-2 text-foreground">Awww... Nobody guessed correctly this round.</p>
               )}
-              {roundEndData.answerRevealed && (
-                <h2 className="text-foreground text-3xl font-bold">Answer: {roundEndData.answer}</h2>
+              {roundEndData.answer && (
+                <>
+                  <h2 className="text-3xl text-foreground">
+                    <span className="font-medium text-foreground-muted">Answer: </span>
+                    <span className="font-bold">{roundEndData.answer}</span>
+                  </h2>
+                  {Array.isArray(roundEndData.aliases) &&
+                    roundEndData.aliases.some((alias: string) => alias.trim()) && (
+                      <p className="mt-1 text-sm font-semibold text-foreground-muted">
+                        {roundEndData.aliases.filter((alias: string) => alias.trim()).join(', ')}
+                      </p>
+                    )}
+                </>
               )}
             </div>
-            {roundEndData.answerRevealed && roundEndData.clues?.length > 0 && (
+            {roundEndData.clues?.length > 0 && (
               <div className="px-6 pb-6">
                 <div className="flex items-center gap-2 mb-3">
                   <span className="material-symbols-outlined text-primary text-xl">menu_book</span>

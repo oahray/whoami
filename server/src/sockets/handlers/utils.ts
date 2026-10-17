@@ -324,15 +324,13 @@ export function buildReconnectPayload(room: RoomState, player: Player) {
 export function broadcastRoundEnd(io: Server, room: RoomState, roundResult: any) {
   const payload: any = {
     answerRevealed: roundResult.answerRevealed,
-    scoreboard: roundResult.scoreboard
-  }
-
-  if (roundResult.answerRevealed) {
-    payload.answer = roundResult.entity.name
-    payload.clues = roundResult.clues.map((c: any) => ({
+    answer: roundResult.entity.name,
+    aliases: Array.isArray(roundResult.entity.aliases) ? roundResult.entity.aliases : [],
+    clues: (Array.isArray(roundResult.clues) ? roundResult.clues : []).map((c: any) => ({
       text: c.text,
       citations: c.citations
-    }))
+    })),
+    scoreboard: roundResult.scoreboard
   }
 
   io.to(room.code).emit('ROUND_ENDED', payload)
