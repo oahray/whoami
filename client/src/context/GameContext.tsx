@@ -4,6 +4,7 @@ import { saveSignedArchiveIfPresent } from '../lib/deviceArchive'
 import type { GameHistoryEntry } from '../lib/gameHistory'
 import { playSound } from '../lib/sounds'
 import { getErrorMessage, isFatalError } from '../utils/errorMessages'
+import { getDeviceId } from '../lib/deviceId'
 
 const RECONNECT_GRACE_MS = 5 * 60 * 1000
 
@@ -41,6 +42,12 @@ interface GameState {
   entityType?: 'character' | 'place'
 }
 
+/** A host handover the lobby hasn't shown yet (it may happen mid-game). */
+export interface HostChange {
+  nickname: string
+  at: number
+}
+
 interface GameContextType {
   roomCode: string | null
   playerId: string | null
@@ -51,6 +58,8 @@ interface GameContextType {
   gameHistory: GameHistoryEntry[]
   error: string | null
   isReconnecting: boolean
+  hostChange: HostChange | null
+  clearHostChange: () => void
   setRoomCode: (code: string | null) => void
   setPlayerId: (id: string | null) => void
   setIsHost: (host: boolean) => void
@@ -77,6 +86,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [gameHistory, setGameHistory] = useState<GameHistoryEntry[]>([])
   const [error, setError] = useState<string | null>(null)
   const [isReconnecting, setIsReconnecting] = useState(false)
+  const [hostChange, setHostChange] = useState<HostChange | null>(null)
 
   const reset = () => {
     setRoomCode(null)
@@ -88,6 +98,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setGameHistory([])
     setError(null)
     setIsReconnecting(false)
+    setHostChange(null)
     localStorage.removeItem('whoami_room')
   }
 
@@ -103,7 +114,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
             setIsReconnecting(true)
             socket.emit('JOIN_ROOM', {
               roomCode: roomData.roomCode,
-              nickname: roomData.nickname
+              nickname: roomData.nickname,
+              deviceId: getDeviceId()
             })
           }
         } catch (e) {
@@ -198,6 +210,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       if (data.newHost) {
         const myNickname = players.find((p) => p.id === playerId)?.nickname
         setIsHost(myNickname === data.newHost)
+        setHostChange({ nickname: data.newHost, at: Date.now() })
       }
       if (data.reason === 'kicked') {
         playSound('player-kick')
@@ -447,6 +460,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     gameHistory,
     error,
     isReconnecting,
+    hostChange,
+    clearHostChange: () => setHostChange(null),
     setRoomCode,
     setPlayerId,
     setIsHost,

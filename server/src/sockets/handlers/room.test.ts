@@ -513,6 +513,36 @@ describe('room socket handlers', () => {
       })
     })
 
+    it('bans by device on the second kick even after a nickname change', () => {
+      const { room, io, hostSocket, emits } = setupLobbyWithGuest()
+      room.players.get('player-2')!.deviceId = 'device-judas-0001'
+
+      handleKickPlayer(io, hostSocket, { playerId: 'player-2' })
+      expect(room.kickedDevices.get('device-judas-0001')).toBe(1)
+
+      // Sneaks back in under a new nickname from the same browser
+      room.players.set('player-3', {
+        id: 'player-3',
+        nickname: 'Thaddaeus',
+        avatarId: 'avatar-03',
+        isHost: false,
+        isConnected: true,
+        disconnectedAt: null,
+        guessCount: 0,
+        lastGuessAt: null,
+        isLocked: false,
+        deviceId: 'device-judas-0001'
+      })
+      emits.length = 0
+      handleKickPlayer(io, hostSocket, { playerId: 'player-3' })
+
+      expect(emits).toContainEqual({
+        to: room.code,
+        event: 'PLAYER_LEFT',
+        payload: { id: 'player-3', nickname: 'Thaddaeus', newHost: null, reason: 'kicked', banned: true }
+      })
+    })
+
     it('rejects kicks while a game is in progress', () => {
       const { room, io, hostSocket, emits } = setupLobbyWithGuest()
       room.status = 'in_progress'
@@ -525,6 +555,49 @@ describe('room socket handlers', () => {
       })
       expect(room.players.has('player-2')).toBe(true)
       expect(emits).toHaveLength(0)
+    })
+  })
+
+  describe('device bans on join', () => {
+    function joinAs(room: ReturnType<typeof actualStore.createRoom>, nickname: string, deviceId?: unknown) {
+      const socket = { id: `socket-${nickname}`, emit: vi.fn(), join: vi.fn(), to: vi.fn(() => ({ emit: vi.fn() })) } as any
+      vi.mocked(getRoom).mockReturnValue(room)
+      vi.mocked(findReturningPlayer).mockReturnValue(null as any)
+      handleJoinRoom({} as any, socket, { roomCode: room.code, nickname, deviceId })
+      return socket
+    }
+
+    it('rejects a banned device even under a new nickname', () => {
+      const room = actualStore.createRoom('host-dev-1', 'Peter')
+      room.kickedDevices.set('device-judas-0001', 2)
+
+      const socket = joinAs(room, 'Thaddaeus', 'device-judas-0001')
+
+      expect(socket.emit).toHaveBeenCalledWith('ROOM_ERROR', {
+        code: 'PLAYER_BANNED',
+        message: 'You have been removed from this room and cannot rejoin'
+      })
+    })
+
+    it('ignores a malformed device id instead of trusting it', () => {
+      const room = actualStore.createRoom('host-dev-2', 'Peter')
+
+      joinAs(room, 'Andrew', 'not a device id!')
+
+      const andrew = room.players.get('socket-Andrew')
+      expect(andrew).toBeDefined()
+      expect(andrew?.deviceId).toBeUndefined()
+    })
+
+    it('stores the device id but never sends it to players', () => {
+      const room = actualStore.createRoom('host-dev-3', 'Peter')
+
+      const socket = joinAs(room, 'Andrew', 'device-andrew-0001')
+
+      expect(room.players.get('socket-Andrew')?.deviceId).toBe('device-andrew-0001')
+      const joined = socket.emit.mock.calls.find(([event]: [string]) => event === 'ROOM_JOINED')
+      expect(joined).toBeDefined()
+      expect(JSON.stringify(joined[1])).not.toContain('device-andrew-0001')
     })
   })
 })

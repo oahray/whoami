@@ -443,4 +443,47 @@ describe('Lobby', () => {
       expect(screen.queryByTestId('kick-notice')).not.toBeInTheDocument()
     })
   })
+
+  describe('host change notice', () => {
+    function renderWithHostChange({ me, newHost }: { me: 'host' | 'p2'; newHost: string }) {
+      const clearHostChange = vi.fn()
+      mockUseGame.mockReturnValue({
+        ...mockUseGame(),
+        isHost: me === 'p2' ? newHost === 'Paul' : true,
+        playerId: me,
+        hostChange: { nickname: newHost, at: 1 },
+        clearHostChange
+      })
+      renderWithPreferences(
+        <MemoryRouter>
+          <Lobby />
+        </MemoryRouter>
+      )
+      return { clearHostChange }
+    }
+
+    it('tells the new host they now run the room', () => {
+      renderWithHostChange({ me: 'p2', newHost: 'Paul' })
+
+      expect(screen.getByTestId('host-notice')).toHaveTextContent(
+        "You're now the host. You can change the settings and start the game."
+      )
+    })
+
+    it('tells everyone else who the new host is', () => {
+      renderWithHostChange({ me: 'host', newHost: 'Ada' })
+
+      expect(screen.getByTestId('host-notice')).toHaveTextContent('Ada is now the host.')
+    })
+
+    it('clears the notice after a few seconds', () => {
+      const { clearHostChange } = renderWithHostChange({ me: 'p2', newHost: 'Paul' })
+
+      act(() => {
+        vi.advanceTimersByTime(7000)
+      })
+
+      expect(clearHostChange).toHaveBeenCalled()
+    })
+  })
 })

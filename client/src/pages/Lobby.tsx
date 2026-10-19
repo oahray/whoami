@@ -52,6 +52,8 @@ type ActiveLobbyReaction = {
 const COPIED_FEEDBACK_MS = 2000
 /** How long the room-wide kick notice stays up. */
 const KICK_NOTICE_MS = 5000
+/** The new host gets a little longer: they have new controls to notice. */
+const HOST_NOTICE_MS = 7000
 
 type KickNotice = { key: number; nickname: string; banned: boolean }
 const API_BASE_URL =
@@ -84,7 +86,9 @@ function Lobby() {
     setError,
     reset,
     playerId,
-    isReconnecting
+    isReconnecting,
+    hostChange,
+    clearHostChange
   } = useGame()
   const hasStoredRoom = typeof window !== 'undefined' && !!localStorage.getItem('whoami_room')
   const { alonePromptOpen, dismissAlonePrompt } = useAloneInRoomPrompt(players, playerId)
@@ -124,6 +128,16 @@ function Lobby() {
     const timer = setTimeout(() => setKickNotice(null), KICK_NOTICE_MS)
     return () => clearTimeout(timer)
   }, [kickNotice])
+
+  // Host handovers are kept in GameContext until the lobby shows them, so a
+  // handover during a game is still announced back in the lobby.
+  const myNickname = players.find((p) => p.id === playerId)?.nickname
+  const hostChangeKey = hostChange?.at
+  useEffect(() => {
+    if (hostChangeKey == null || !clearHostChange) return
+    const timer = setTimeout(() => clearHostChange(), HOST_NOTICE_MS)
+    return () => clearTimeout(timer)
+  }, [hostChangeKey, clearHostChange])
 
   useEffect(() => {
     const expiries = Object.values(lobbyReactions).map((reaction) => reaction.until)
@@ -489,6 +503,22 @@ function Lobby() {
                       : kickNotice.banned
                         ? `${kickNotice.nickname} was removed by the host and can't rejoin.`
                         : `${kickNotice.nickname} was removed by the host.`}
+                  </span>
+                </p>
+              )}
+              {hostChange && (
+                <p
+                  key={hostChange.at}
+                  data-testid="host-notice"
+                  className="mb-3 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 dark:border-amber-800/70 dark:bg-amber-950/40 dark:text-amber-100"
+                >
+                  <span className="material-symbols-outlined text-lg leading-none" aria-hidden>
+                    military_tech
+                  </span>
+                  <span className="min-w-0 break-words">
+                    {hostChange.nickname === myNickname
+                      ? "You're now the host. You can change the settings and start the game."
+                      : `${hostChange.nickname} is now the host.`}
                   </span>
                 </p>
               )}

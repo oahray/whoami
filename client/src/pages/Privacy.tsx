@@ -56,6 +56,12 @@ function Privacy() {
               connection status while an online game is in progress on our game server.
             </li>
             <li>
+              <strong>Room device ID:</strong> a random ID your browser creates and sends when you join
+              an online room. It is not based on your device or browser and is not shown to other
+              players. A room uses it only so a host&apos;s kick ban still applies if a player changes
+              nickname, and it is kept only while that room exists.
+            </li>
+            <li>
               <strong>Technical connection data:</strong> our hosting and game server may see IP
               address, browser details, and similar request metadata needed to run the service and keep
               it secure.
@@ -82,6 +88,7 @@ function Privacy() {
           </p>
           <ul className="list-disc list-inside space-y-2 text-foreground text-sm leading-relaxed">
             <li>Nickname reminder and last online room reconnect details</li>
+            <li>The random room device ID described above</li>
             <li>
               Finished online scoreboards for games you complete on this device (removed if you clear
               site data)

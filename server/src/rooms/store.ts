@@ -26,6 +26,8 @@ export interface Player {
   guessCount: number
   lastGuessAt: number | null
   isLocked: boolean
+  /** Random per-browser id sent on join; used only to make kick bans survive a nickname change. Never sent to other players. */
+  deviceId?: string
 }
 
 export interface RoomSettings {
@@ -126,6 +128,8 @@ export interface RoomState {
   /** Last N finished games in this room (newest last). Survives rematches. */
   gameHistory: GameHistoryEntry[]
   kickedPlayers: Map<string, number>
+  /** Kick counts per device id (see Player.deviceId), alongside the per-nickname counts. */
+  kickedDevices: Map<string, number>
 }
 
 const rooms = new Map<string, RoomState>()
@@ -159,7 +163,8 @@ export function createRoom(hostId: string, hostNickname: string, avatarId?: unkn
     usedEntityIds: new Set(),
     scores: new Map(),
     gameHistory: [],
-    kickedPlayers: new Map()
+    kickedPlayers: new Map(),
+    kickedDevices: new Map()
   }
 
   room.players.set(hostId, {

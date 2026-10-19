@@ -38,6 +38,8 @@ export type SerializedRoom = {
   finalScoreboard?: RoomState['finalScoreboard']
   gameHistory: GameHistoryEntry[]
   kickedPlayers: Array<[string, number]>
+  /** Absent in snapshots written before device bans existed. */
+  kickedDevices?: Array<[string, number]>
 }
 
 export function serializeRoom(room: RoomState): SerializedRoom {
@@ -71,7 +73,8 @@ export function serializeRoom(room: RoomState): SerializedRoom {
     scores: Array.from(room.scores.entries()),
     finalScoreboard: room.finalScoreboard,
     gameHistory: room.gameHistory,
-    kickedPlayers: Array.from(room.kickedPlayers.entries())
+    kickedPlayers: Array.from(room.kickedPlayers.entries()),
+    kickedDevices: Array.from(room.kickedDevices.entries())
   }
 }
 
@@ -110,7 +113,8 @@ export function deserializeRoom(raw: SerializedRoom): RoomState {
     scores: new Map(raw.scores ?? []),
     finalScoreboard: raw.finalScoreboard,
     gameHistory: Array.isArray(raw.gameHistory) ? raw.gameHistory : [],
-    kickedPlayers: new Map(raw.kickedPlayers ?? [])
+    kickedPlayers: new Map(raw.kickedPlayers ?? []),
+    kickedDevices: new Map(raw.kickedDevices ?? [])
   }
 }
 

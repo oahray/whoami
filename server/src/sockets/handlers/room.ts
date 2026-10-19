@@ -15,7 +15,9 @@ import {
   transferHost,
   buildReconnectPayload,
   toPublicPlayer,
-  GRACE_PERIOD_MS
+  GRACE_PERIOD_MS,
+  KICKS_BEFORE_BAN,
+  normalizeDeviceId
 } from './utils.js'
 import { safeTimer } from '../dispatch.js'
 import { logger } from '../../utils/logger.js'
@@ -85,6 +87,7 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
 
     const { roomCode, nickname, avatarId: rawAvatarId } = payload
     const avatarId = coerceAvatarId(rawAvatarId)
+    const deviceId = normalizeDeviceId(payload.deviceId)
 
     if (!roomCode || typeof roomCode !== 'string' || roomCode.trim().length === 0) {
       socket.emit('ROOM_ERROR', {
@@ -127,9 +130,11 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
       return
     }
 
-    // Check if player has been kicked too many times (banned from this room)
+    // Check if player has been kicked too many times (banned from this room).
+    // Counted per nickname and per device, so changing nickname doesn't lift a ban.
     const kickCount = room.kickedPlayers.get(nickname.toLowerCase()) || 0
-    if (kickCount >= 2) {
+    const deviceKickCount = deviceId ? room.kickedDevices.get(deviceId) || 0 : 0
+    if (Math.max(kickCount, deviceKickCount) >= KICKS_BEFORE_BAN) {
       socket.emit('ROOM_ERROR', {
         code: 'PLAYER_BANNED',
         message: 'You have been removed from this room and cannot rejoin'
@@ -153,6 +158,7 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
         returning.disconnectedAt = null
         migratePlayerReferences(room, oldPlayerId, socket.id)
         room.players.delete(oldPlayerId)
+        if (deviceId) returning.deviceId = deviceId
         room.players.set(socket.id, returning)
 
         socket.join(roomCode)
@@ -209,6 +215,7 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
       migratePlayerReferences(room, oldPlayerId, socket.id)
 
       room.players.delete(oldPlayerId)
+      if (deviceId) existingPlayer.deviceId = deviceId
       room.players.set(socket.id, existingPlayer)
 
       socket.join(roomCode)
@@ -248,7 +255,8 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
       disconnectedAt: null,
       guessCount: 0,
       lastGuessAt: null,
-      isLocked: false
+      isLocked: false,
+      ...(deviceId ? { deviceId } : {})
     }
 
     room.players.set(socket.id, player)
@@ -442,16 +450,20 @@ export function handleKickPlayer(io: Server, socket: Socket, payload: any) {
 
     const nickname = target.nickname
 
-    // Update kick count for this nickname (case-insensitive)
+    // Update kick counts for this nickname (case-insensitive) and, when known, this device
     const key = nickname.toLowerCase()
-    const currentCount = room.kickedPlayers.get(key) || 0
-    const newCount = currentCount + 1
+    const newCount = (room.kickedPlayers.get(key) || 0) + 1
     room.kickedPlayers.set(key, newCount)
+    let newDeviceCount = 0
+    if (target.deviceId) {
+      newDeviceCount = (room.kickedDevices.get(target.deviceId) || 0) + 1
+      room.kickedDevices.set(target.deviceId, newDeviceCount)
+    }
 
     room.players.delete(payload.playerId)
     clearLobbyReactionRateLimit(payload.playerId)
 
-    const banned = newCount >= 2
+    const banned = Math.max(newCount, newDeviceCount) >= KICKS_BEFORE_BAN
 
     // Notify the kicked player
     io.to(payload.playerId).emit('KICKED', {

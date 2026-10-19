@@ -28,6 +28,7 @@ describe('room serialize', () => {
     })
     room.scores.set('host-1', 0)
     room.kickedPlayers.set('spam', 1)
+    room.kickedDevices.set('device-spam-0001', 2)
 
     const json = serializeRoom(room)
     expect(json.currentRound).toBeNull()
@@ -40,6 +41,7 @@ describe('room serialize', () => {
     expect(restored.settings.totalRounds).toBe(7)
     expect(restored.players.get('p2')?.nickname).toBe('Paul')
     expect(restored.kickedPlayers.get('spam')).toBe(1)
+    expect(restored.kickedDevices.get('device-spam-0001')).toBe(2)
     expect(restored.currentRound).toBeNull()
   })
 

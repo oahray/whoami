@@ -15,6 +15,7 @@ import {
 } from '../lib/avatars'
 import { getErrorMessage, isFatalError } from '../utils/errorMessages'
 import { parseRoomCodeInput, ROOM_CODE_LENGTH } from '../lib/roomCode'
+import { getDeviceId } from '../lib/deviceId'
 import AvatarPicker from '../components/AvatarPicker'
 import IosInstallHint from '../components/IosInstallHint'
 import FeedbackLink from '../components/FeedbackLink'
@@ -185,7 +186,8 @@ function Home() {
     emit('JOIN_ROOM', {
       roomCode,
       nickname: nickname.trim(),
-      avatarId
+      avatarId,
+      deviceId: getDeviceId()
     })
   }
 
