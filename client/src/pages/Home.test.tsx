@@ -248,15 +248,6 @@ describe('Home', () => {
   })
 
   it('surfaces a kick message stashed in sessionStorage and clears it after showing', () => {
-    const setError = vi.fn()
-
-    mockUseGame.mockReturnValue({
-      roomCode: null,
-      error: null,
-      setError,
-      setRoomCode: vi.fn()
-    })
-
     window.sessionStorage.setItem(
       'whoami_kick_message',
       'You have been removed from the room by the host.'
@@ -270,10 +261,45 @@ describe('Home', () => {
       </PreferencesProvider>
     )
 
-    expect(setError).toHaveBeenCalledWith(
-      'You have been removed from the room by the host.'
-    )
+    expect(screen.getByRole('alert')).toHaveTextContent('You have been removed from the room by the host.')
     expect(window.sessionStorage.getItem('whoami_kick_message')).toBeNull()
+  })
+
+  it('keeps the kick message when the shared error is cleared on reconnect', () => {
+    const setError = vi.fn()
+    mockUseGame.mockReturnValue({ roomCode: null, error: null, setError, setRoomCode: vi.fn() })
+    window.sessionStorage.setItem('whoami_kick_message', 'You have been removed from this room and cannot rejoin it.')
+
+    const tree = (
+      <PreferencesProvider>
+        <MemoryRouter>
+          <Home />
+        </MemoryRouter>
+      </PreferencesProvider>
+    )
+    const { rerender } = render(tree)
+    // GameContext clears `error` when the socket (re)connects; that must not hide the kick message.
+    mockUseGame.mockReturnValue({ roomCode: null, error: null, setError, setRoomCode: vi.fn() })
+    rerender(tree)
+
+    expect(setError).not.toHaveBeenCalledWith('You have been removed from this room and cannot rejoin it.')
+    expect(screen.getByRole('alert')).toHaveTextContent('You have been removed from this room and cannot rejoin it.')
+  })
+
+  it('lets the player dismiss the kick message', () => {
+    window.sessionStorage.setItem('whoami_kick_message', 'You have been removed from the room by the host.')
+
+    render(
+      <PreferencesProvider>
+        <MemoryRouter>
+          <Home />
+        </MemoryRouter>
+      </PreferencesProvider>
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }))
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
   it('shows connecting banner only while transport is connecting', () => {
