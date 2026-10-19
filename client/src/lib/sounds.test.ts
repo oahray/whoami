@@ -91,4 +91,13 @@ describe('sounds', () => {
     playSound('go')
     expect(playMock).not.toHaveBeenCalled()
   })
+
+  it('plays the clue pop when a player joins', () => {
+    unlockAudio()
+
+    playSound('player-join')
+
+    expect(Audio).toHaveBeenCalledWith('/sounds/clue-pop.mp3')
+    expect(playMock).toHaveBeenCalledTimes(1)
+  })
 })
