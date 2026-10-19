@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { DifficultyMultiSelect } from '../components/DifficultyMultiSelect'
 import GameHistoryPanel from '../components/GameHistoryPanel'
@@ -30,6 +30,7 @@ import {
 } from '../lib/entityTypeFilter'
 import { fetchInPersonEligibility } from '../lib/inPersonEligibility'
 import AloneInRoomDialog from '../components/AloneInRoomDialog'
+import KickPlayerDialog from '../components/KickPlayerDialog'
 import MaintenanceBanner from '../components/MaintenanceBanner'
 import { useAloneInRoomPrompt } from '../hooks/useAloneInRoomPrompt'
 import { useGame } from '../hooks/useGame'
@@ -49,6 +50,12 @@ type ActiveLobbyReaction = {
 }
 
 const COPIED_FEEDBACK_MS = 2000
+/** How long the room-wide kick notice stays up. */
+const KICK_NOTICE_MS = 5000
+/** The new host gets a little longer: they have new controls to notice. */
+const HOST_NOTICE_MS = 7000
+
+type KickNotice = { key: number; nickname: string; banned: boolean }
 const API_BASE_URL =
   import.meta.env.VITE_SOCKET_URL?.replace('ws://', 'http://').replace('wss://', 'https://') ||
   'http://localhost:3001'
@@ -63,6 +70,8 @@ function Lobby() {
   const [shareFeedback, setShareFeedback] = useState<'shared' | 'copied' | null>(null)
   const [historySheetOpen, setHistorySheetOpen] = useState(false)
   const [lobbyReactions, setLobbyReactions] = useState<Record<string, ActiveLobbyReaction>>({})
+  const [kickTargetId, setKickTargetId] = useState<string | null>(null)
+  const [kickNotice, setKickNotice] = useState<KickNotice | null>(null)
   const historySheetClosedViaPopRef = useRef(false)
   const [datasets, setDatasets] = useState<PublicDataset[]>([])
   const [cardTypes, setCardTypes] = useState<{ character: number; place: number } | null>(null)
@@ -77,7 +86,9 @@ function Lobby() {
     setError,
     reset,
     playerId,
-    isReconnecting
+    isReconnecting,
+    hostChange,
+    clearHostChange
   } = useGame()
   const hasStoredRoom = typeof window !== 'undefined' && !!localStorage.getItem('whoami_room')
   const { alonePromptOpen, dismissAlonePrompt } = useAloneInRoomPrompt(players, playerId)
@@ -98,6 +109,35 @@ function Lobby() {
     on('LOBBY_REACTION', handleLobbyReaction)
     return () => off('LOBBY_REACTION', handleLobbyReaction)
   }, [on, off])
+
+  // Everyone in the room (host included) sees when a player was kicked,
+  // so a kick is not mistaken for the player simply leaving.
+  useEffect(() => {
+    const handlePlayerLeft = (...args: unknown[]) => {
+      const payload = args[0] as { nickname?: string; reason?: string; banned?: boolean } | undefined
+      if (payload?.reason !== 'kicked' || !payload.nickname) return
+      setKickNotice({ key: Date.now(), nickname: payload.nickname, banned: payload.banned === true })
+    }
+
+    on('PLAYER_LEFT', handlePlayerLeft)
+    return () => off('PLAYER_LEFT', handlePlayerLeft)
+  }, [on, off])
+
+  useEffect(() => {
+    if (!kickNotice) return
+    const timer = setTimeout(() => setKickNotice(null), KICK_NOTICE_MS)
+    return () => clearTimeout(timer)
+  }, [kickNotice])
+
+  // Host handovers are kept in GameContext until the lobby shows them, so a
+  // handover during a game is still announced back in the lobby.
+  const myNickname = players.find((p) => p.id === playerId)?.nickname
+  const hostChangeKey = hostChange?.at
+  useEffect(() => {
+    if (hostChangeKey == null || !clearHostChange) return
+    const timer = setTimeout(() => clearHostChange(), HOST_NOTICE_MS)
+    return () => clearTimeout(timer)
+  }, [hostChangeKey, clearHostChange])
 
   useEffect(() => {
     const expiries = Object.values(lobbyReactions).map((reaction) => reaction.until)
@@ -285,6 +325,21 @@ function Lobby() {
     emit('LOBBY_REACTION', { reactionId })
   }
 
+  // The dialog only stays open while the target is still a connected, non-host
+  // player and we are still the host (they may leave or host may change meanwhile).
+  const kickTarget =
+    isHost && kickTargetId
+      ? players.find((p) => p.id === kickTargetId && p.isConnected && !p.isHost) ?? null
+      : null
+  const cancelKick = useCallback(() => setKickTargetId(null), [])
+  const confirmKick = useCallback(
+    (targetId: string) => {
+      emit('KICK_PLAYER', { playerId: targetId })
+      setKickTargetId(null)
+    },
+    [emit]
+  )
+
   const handleLeaveRoom = () => {
     dismissAlonePrompt()
     emit('LEAVE_ROOM', {})
@@ -430,6 +485,44 @@ function Lobby() {
               <h2 className="text-foreground text-lg font-bold tracking-tight">Connected Players</h2>
               <span className="bg-primary/10 text-primary text-xs font-bold px-2.5 py-1 rounded-full">{connectedCount} / 10</span>
             </div>
+            <div role="status" aria-live="polite">
+              {kickNotice && (
+                <p
+                  key={kickNotice.key}
+                  data-testid="kick-notice"
+                  className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-200"
+                >
+                  <span className="material-symbols-outlined text-lg leading-none" aria-hidden>
+                    person_remove
+                  </span>
+                  <span className="min-w-0 break-words">
+                    {isHost
+                      ? kickNotice.banned
+                        ? `You removed ${kickNotice.nickname}. They can't rejoin this room.`
+                        : `You removed ${kickNotice.nickname}.`
+                      : kickNotice.banned
+                        ? `${kickNotice.nickname} was removed by the host and can't rejoin.`
+                        : `${kickNotice.nickname} was removed by the host.`}
+                  </span>
+                </p>
+              )}
+              {hostChange && (
+                <p
+                  key={hostChange.at}
+                  data-testid="host-notice"
+                  className="mb-3 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 dark:border-amber-800/70 dark:bg-amber-950/40 dark:text-amber-100"
+                >
+                  <span className="material-symbols-outlined text-lg leading-none" aria-hidden>
+                    military_tech
+                  </span>
+                  <span className="min-w-0 break-words">
+                    {hostChange.nickname === myNickname
+                      ? "You're now the host. You can change the settings and start the game."
+                      : `${hostChange.nickname} is now the host.`}
+                  </span>
+                </p>
+              )}
+            </div>
             <div className="space-y-3">
               {players.filter(p => p.isConnected).map((player) => {
                 const activeReaction = lobbyReactions[player.id]
@@ -481,7 +574,8 @@ function Lobby() {
                   {isHost && !player.isHost && (
                     <button
                       type="button"
-                      onClick={() => emit('KICK_PLAYER', { playerId: player.id })}
+                      onClick={() => setKickTargetId(player.id)}
+                      aria-label={`Kick ${player.nickname}`}
                       className="text-xs px-2 py-1 rounded-lg bg-red-100 dark:bg-red-950/50 text-red-600 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/60 font-semibold shrink-0"
                     >
                       Kick
@@ -850,6 +944,12 @@ function Lobby() {
           </div>
         </div>
       )}
+
+      <KickPlayerDialog
+        player={alonePromptOpen ? null : kickTarget}
+        onCancel={cancelKick}
+        onConfirm={confirmKick}
+      />
 
       <AloneInRoomDialog
         open={alonePromptOpen}

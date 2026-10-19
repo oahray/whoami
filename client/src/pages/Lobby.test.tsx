@@ -316,4 +316,174 @@ describe('Lobby', () => {
 
     expect(screen.queryByTestId('lobby-reaction-chip-p2')).not.toBeInTheDocument()
   })
+
+  describe('kicking a player', () => {
+    function renderAsHost() {
+      const emit = vi.fn()
+      mockUseSocket.mockReturnValue({ emit, on: vi.fn(), off: vi.fn() })
+      renderWithPreferences(
+        <MemoryRouter>
+          <Lobby />
+        </MemoryRouter>
+      )
+      const kickCalls = () => emit.mock.calls.filter(([event]) => event === 'KICK_PLAYER')
+      return { emit, kickCalls }
+    }
+
+    it('asks for confirmation instead of kicking immediately', () => {
+      const { kickCalls } = renderAsHost()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Kick Paul' }))
+
+      expect(screen.getByRole('dialog', { name: 'Kick Paul?' })).toBeInTheDocument()
+      expect(screen.getByText(/a player kicked twice can.t come back/i)).toBeInTheDocument()
+      expect(kickCalls()).toHaveLength(0)
+    })
+
+    it('kicks the player once the host confirms', () => {
+      const { emit, kickCalls } = renderAsHost()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Kick Paul' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Kick player' }))
+
+      expect(emit).toHaveBeenCalledWith('KICK_PLAYER', { playerId: 'p2' })
+      expect(kickCalls()).toHaveLength(1)
+      expect(screen.queryByRole('dialog', { name: 'Kick Paul?' })).not.toBeInTheDocument()
+    })
+
+    it('does not kick when the host cancels', () => {
+      const { kickCalls } = renderAsHost()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Kick Paul' }))
+      expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus()
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+      expect(screen.queryByRole('dialog', { name: 'Kick Paul?' })).not.toBeInTheDocument()
+      expect(kickCalls()).toHaveLength(0)
+    })
+
+    it('does not kick when the host presses Escape', () => {
+      const { kickCalls } = renderAsHost()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Kick Paul' }))
+      fireEvent.keyDown(window, { key: 'Escape' })
+
+      expect(screen.queryByRole('dialog', { name: 'Kick Paul?' })).not.toBeInTheDocument()
+      expect(kickCalls()).toHaveLength(0)
+    })
+  })
+
+  describe('kick notice', () => {
+    function renderLobby({ asHost }: { asHost: boolean }) {
+      const handlers: Record<string, (...args: unknown[]) => void> = {}
+      mockUseSocket.mockReturnValue({
+        emit: vi.fn(),
+        on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+          handlers[event] = handler
+        }),
+        off: vi.fn()
+      })
+      if (!asHost) {
+        mockUseGame.mockReturnValue({ ...mockUseGame(), isHost: false, playerId: 'p2' })
+      }
+      renderWithPreferences(
+        <MemoryRouter>
+          <Lobby />
+        </MemoryRouter>
+      )
+      const playerLeft = (payload: Record<string, unknown>) =>
+        act(() => {
+          handlers.PLAYER_LEFT?.(payload)
+        })
+      return { playerLeft }
+    }
+
+    it('tells other players that someone was kicked, not that they left', () => {
+      const { playerLeft } = renderLobby({ asHost: false })
+
+      playerLeft({ id: 'p3', nickname: 'Judas', newHost: null, reason: 'kicked', banned: false })
+
+      expect(screen.getByTestId('kick-notice')).toHaveTextContent('Judas was removed by the host.')
+    })
+
+    it('says when a kicked player can no longer rejoin', () => {
+      const { playerLeft } = renderLobby({ asHost: false })
+
+      playerLeft({ id: 'p3', nickname: 'Judas', newHost: null, reason: 'kicked', banned: true })
+
+      expect(screen.getByTestId('kick-notice')).toHaveTextContent("Judas was removed by the host and can't rejoin.")
+    })
+
+    it('confirms the kick to the host in their own words', () => {
+      const { playerLeft } = renderLobby({ asHost: true })
+
+      playerLeft({ id: 'p2', nickname: 'Paul', newHost: null, reason: 'kicked', banned: false })
+
+      expect(screen.getByTestId('kick-notice')).toHaveTextContent('You removed Paul.')
+    })
+
+    it('shows nothing when a player simply leaves', () => {
+      const { playerLeft } = renderLobby({ asHost: false })
+
+      playerLeft({ id: 'p3', nickname: 'Judas', newHost: null, reason: 'left' })
+
+      expect(screen.queryByTestId('kick-notice')).not.toBeInTheDocument()
+    })
+
+    it('clears the notice after a few seconds', () => {
+      const { playerLeft } = renderLobby({ asHost: false })
+
+      playerLeft({ id: 'p3', nickname: 'Judas', newHost: null, reason: 'kicked', banned: false })
+      expect(screen.getByTestId('kick-notice')).toBeInTheDocument()
+
+      act(() => {
+        vi.advanceTimersByTime(5000)
+      })
+
+      expect(screen.queryByTestId('kick-notice')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('host change notice', () => {
+    function renderWithHostChange({ me, newHost }: { me: 'host' | 'p2'; newHost: string }) {
+      const clearHostChange = vi.fn()
+      mockUseGame.mockReturnValue({
+        ...mockUseGame(),
+        isHost: me === 'p2' ? newHost === 'Paul' : true,
+        playerId: me,
+        hostChange: { nickname: newHost, at: 1 },
+        clearHostChange
+      })
+      renderWithPreferences(
+        <MemoryRouter>
+          <Lobby />
+        </MemoryRouter>
+      )
+      return { clearHostChange }
+    }
+
+    it('tells the new host they now run the room', () => {
+      renderWithHostChange({ me: 'p2', newHost: 'Paul' })
+
+      expect(screen.getByTestId('host-notice')).toHaveTextContent(
+        "You're now the host. You can change the settings and start the game."
+      )
+    })
+
+    it('tells everyone else who the new host is', () => {
+      renderWithHostChange({ me: 'host', newHost: 'Ada' })
+
+      expect(screen.getByTestId('host-notice')).toHaveTextContent('Ada is now the host.')
+    })
+
+    it('clears the notice after a few seconds', () => {
+      const { clearHostChange } = renderWithHostChange({ me: 'p2', newHost: 'Paul' })
+
+      act(() => {
+        vi.advanceTimersByTime(7000)
+      })
+
+      expect(clearHostChange).toHaveBeenCalled()
+    })
+  })
 })

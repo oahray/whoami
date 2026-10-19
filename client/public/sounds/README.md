@@ -11,7 +11,7 @@ Drop MP3 files below. The app loads them from `/sounds/<name>.mp3`. Missing file
 | `correct.mp3` | Your own correct guess (multiplayer self only, solo) |
 | `uh-oh.mp3` | Round miss: nobody scored (multiplayer) or timeout (solo) |
 | `card-flip.mp3` | Next / prev card actions; endurance auto-next; multiplayer later rounds at end of local inter-round countdown |
-| `player-join.mp3` | Someone joins the lobby |
+| _(reuses `clue-pop.mp3`)_ | Someone joins the lobby (other players hear it) |
 | `player-kick.mp3` | Someone is kicked from the lobby |
 | `yay.mp3` | Winners / tied winners on multiplayer results; solo finish with at least one correct |
 
@@ -39,4 +39,4 @@ Sound effects use [Pixabay](https://pixabay.com/) clips under the [Pixabay Conte
 | `go.mp3` | epic swish / 346115 (`alexis_gaming_cam-epic-swish-346115.mp3`), mixed with original audio | alexis_gaming_cam |
 | `correct.mp3` | Original mix by Oare Arene | — |
 
-Pending SFX: `player-join.mp3`, `player-kick.mp3`, `yay.mp3`.
+Pending SFX: `player-kick.mp3` (optional, may stay silent), `yay.mp3`. Joins reuse `clue-pop.mp3`.

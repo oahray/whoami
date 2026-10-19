@@ -36,6 +36,7 @@ function TestConsumer() {
           <div data-testid="error">{value?.error ?? ''}</div>
           <div data-testid="reconnecting">{value?.isReconnecting ? 'yes' : 'no'}</div>
           <div data-testid="is-host">{value?.isHost ? 'yes' : 'no'}</div>
+          <div data-testid="host-change">{value?.hostChange?.nickname ?? ''}</div>
           <div data-testid="host-nicknames">
             {(value?.players ?? []).filter((p) => p.isHost).map((p) => p.nickname).join(',')}
           </div>
@@ -75,7 +76,8 @@ describe('GameProvider', () => {
 
     expect(socket.emit).toHaveBeenCalledWith('JOIN_ROOM', {
       roomCode: 'ABC123',
-      nickname: 'Paul'
+      nickname: 'Paul',
+      deviceId: expect.stringMatching(/^[A-Za-z0-9_-]{8,64}$/)
     })
   })
 
@@ -323,5 +325,7 @@ describe('GameProvider', () => {
 
     expect(screen.getByTestId('is-host')).toHaveTextContent('yes')
     expect(screen.getByTestId('host-nicknames')).toHaveTextContent('Paul')
+    // Kept until the lobby shows it, so a handover mid-game is still announced.
+    expect(screen.getByTestId('host-change')).toHaveTextContent('Paul')
   })
 })

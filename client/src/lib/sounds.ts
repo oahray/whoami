@@ -17,7 +17,8 @@ const SOUND_PATHS: Record<SoundId, string> = {
   correct: '/sounds/correct.mp3',
   'uh-oh': '/sounds/uh-oh.mp3',
   'card-flip': '/sounds/card-flip.mp3',
-  'player-join': '/sounds/player-join.mp3',
+  // Joins reuse the clue pop: a light, familiar cue rather than a separate file.
+  'player-join': '/sounds/clue-pop.mp3',
   'player-kick': '/sounds/player-kick.mp3',
   yay: '/sounds/yay.mp3'
 }

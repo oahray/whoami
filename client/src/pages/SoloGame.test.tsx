@@ -118,6 +118,7 @@ describe('SoloGame', () => {
     expect(screen.getByText(/time's up/i)).toBeInTheDocument()
     expect(screen.getByText('Moses')).toBeInTheDocument()
     expect(screen.getByText('Moshe')).toBeInTheDocument()
+    expect(screen.getByText('Exodus 2:1')).toBeInTheDocument()
     expect(screen.queryByText(/practice it in review/i)).not.toBeInTheDocument()
     expect(screen.getByText('+0 points')).toBeInTheDocument()
     expect(loadSoloSession()?.settledRoundPerformance).toMatchObject({

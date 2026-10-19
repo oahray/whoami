@@ -15,6 +15,7 @@ import {
 } from '../lib/avatars'
 import { getErrorMessage, isFatalError } from '../utils/errorMessages'
 import { parseRoomCodeInput, ROOM_CODE_LENGTH } from '../lib/roomCode'
+import { getDeviceId } from '../lib/deviceId'
 import AvatarPicker from '../components/AvatarPicker'
 import IosInstallHint from '../components/IosInstallHint'
 import FeedbackLink from '../components/FeedbackLink'
@@ -37,6 +38,9 @@ function Home() {
   const [joinCode, setJoinCode] = useState('')
   const [showJoin, setShowJoin] = useState(() => Boolean(new URLSearchParams(location.search).get('room')))
   const [loading, setLoading] = useState(false)
+  // Kept out of the shared `error`: GameContext clears that on socket connect,
+  // which happens right after the post-kick reload and wiped this message.
+  const [kickMessage, setKickMessage] = useState<string | null>(null)
   const [historySheetOpen, setHistorySheetOpen] = useState(false)
   const [deviceHistory, setDeviceHistory] = useState<GameHistoryEntry[]>([])
   const lastPrefilledRoomParamRef = useRef<string | null>(null)
@@ -95,10 +99,10 @@ function Home() {
     if (typeof window === 'undefined') return
     const msg = window.sessionStorage.getItem('whoami_kick_message')
     if (msg) {
-      setError(msg)
+      setKickMessage(msg)
       window.sessionStorage.removeItem('whoami_kick_message')
     }
-  }, [setError])
+  }, [])
 
   useEffect(() => {
     if (!socket) return
@@ -156,6 +160,7 @@ function Home() {
     }
     setLoading(true)
     setError(null)
+    setKickMessage(null)
     unlockAudio()
     localStorage.setItem('whoami_nickname', nickname.trim())
     writeStoredAvatarId(avatarId)
@@ -174,13 +179,15 @@ function Home() {
     }
     setLoading(true)
     setError(null)
+    setKickMessage(null)
     unlockAudio()
     localStorage.setItem('whoami_nickname', nickname.trim())
     writeStoredAvatarId(avatarId)
     emit('JOIN_ROOM', {
       roomCode,
       nickname: nickname.trim(),
-      avatarId
+      avatarId,
+      deviceId: getDeviceId()
     })
   }
 
@@ -544,15 +551,15 @@ function Home() {
         </div>
       )}
 
-      {error && (
+      {(error || kickMessage) && (
         <div
           role="alert"
           className="banner-danger fixed bottom-4 left-4 right-4 z-50 mx-auto flex max-w-md items-start gap-2"
         >
-          <p className="min-w-0 flex-1">{error}</p>
+          <p className="min-w-0 flex-1">{error || kickMessage}</p>
           <button
             type="button"
-            onClick={() => setError(null)}
+            onClick={() => (error ? setError(null) : setKickMessage(null))}
             aria-label="Dismiss"
             className="shrink-0 rounded-md p-0.5 text-red-700/80 hover:bg-red-200/60 hover:text-red-900 dark:text-red-200/80 dark:hover:bg-red-900/40"
           >

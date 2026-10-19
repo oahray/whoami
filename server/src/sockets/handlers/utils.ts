@@ -256,6 +256,16 @@ export function transferHost(room: RoomState): string | null {
   return null
 }
 
+const DEVICE_ID_PATTERN = /^[A-Za-z0-9_-]{8,64}$/
+
+/** Accept a client-supplied device id only if it looks like one we generate; otherwise ignore it. */
+export function normalizeDeviceId(raw: unknown): string | null {
+  return typeof raw === 'string' && DEVICE_ID_PATTERN.test(raw) ? raw : null
+}
+
+/** Kicks before a nickname or device is banned from a room. */
+export const KICKS_BEFORE_BAN = 2
+
 export function toPublicPlayer(player: Player) {
   return {
     id: player.id,
