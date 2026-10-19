@@ -1124,6 +1124,8 @@ function SoloGame() {
   if (!session) return <LoadingState label="Loading solo mode" layout="page" />
 
   const settled = status === 'correct' || status === 'timeout'
+  const answerVisible =
+    status === 'correct' || (status === 'timeout' && session.variation === 'review')
   const isLastChallengeRound =
     (session.variation === 'challenge' ||
       session.variation === 'daily' ||
@@ -1313,7 +1315,7 @@ function SoloGame() {
                               >
                                 {clue.text}
                               </p>
-                              {status === 'correct' && clue.citations && (
+                              {answerVisible && clue.citations && (
                                 <p className="mt-1 text-xs font-medium text-foreground-muted">
                                   {clue.citations}
                                 </p>
