@@ -8,6 +8,7 @@ import { clueCardIcon } from '../lib/entityTypeFilter'
 import { downloadLeaderboardPng } from '../lib/exportLeaderboardPng'
 import { INTER_ROUND_DELAY_MS } from '../lib/gameTiming'
 import { playSound } from '../lib/sounds'
+import { standingSummary } from '../lib/standingSummary'
 import { useAloneInRoomPrompt } from '../hooks/useAloneInRoomPrompt'
 import { useGame } from '../hooks/useGame'
 import { useSocket } from '../hooks/useSocket'
@@ -282,7 +283,6 @@ function Game() {
       : players.map(p => ({ playerId: p.id, nickname: p.nickname, score: 0 })),
     p => p.score
   )
-  const yourStanding = scoreboard.find((entry) => entry.playerId === playerId)
 
   if (gameEndData) {
     const ranked = rankScoreboard<any>(gameEndData.finalScoreboard || [], p => p.score)
@@ -653,10 +653,8 @@ function Game() {
                   >
                     <span className="min-w-0">
                       <span className="block text-sm font-bold text-foreground">Standing</span>
-                      <span className="text-[11px] text-foreground-muted">
-                        {yourStanding
-                          ? `You #${yourStanding.rank}${yourStanding.tied ? ' (tied)' : ''} · ${yourStanding.score} pt${yourStanding.score === 1 ? '' : 's'}`
-                          : `${scoreboard.length} player${scoreboard.length === 1 ? '' : 's'}`}
+                      <span className="text-[11px] text-foreground-muted" data-testid="standing-summary">
+                        {standingSummary(scoreboard, playerId)}
                       </span>
                     </span>
                     <span
