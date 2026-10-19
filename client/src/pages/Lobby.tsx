@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { DifficultyMultiSelect } from '../components/DifficultyMultiSelect'
 import GameHistoryPanel from '../components/GameHistoryPanel'
@@ -30,6 +30,7 @@ import {
 } from '../lib/entityTypeFilter'
 import { fetchInPersonEligibility } from '../lib/inPersonEligibility'
 import AloneInRoomDialog from '../components/AloneInRoomDialog'
+import KickPlayerDialog from '../components/KickPlayerDialog'
 import MaintenanceBanner from '../components/MaintenanceBanner'
 import { useAloneInRoomPrompt } from '../hooks/useAloneInRoomPrompt'
 import { useGame } from '../hooks/useGame'
@@ -63,6 +64,7 @@ function Lobby() {
   const [shareFeedback, setShareFeedback] = useState<'shared' | 'copied' | null>(null)
   const [historySheetOpen, setHistorySheetOpen] = useState(false)
   const [lobbyReactions, setLobbyReactions] = useState<Record<string, ActiveLobbyReaction>>({})
+  const [kickTargetId, setKickTargetId] = useState<string | null>(null)
   const historySheetClosedViaPopRef = useRef(false)
   const [datasets, setDatasets] = useState<PublicDataset[]>([])
   const [cardTypes, setCardTypes] = useState<{ character: number; place: number } | null>(null)
@@ -285,6 +287,21 @@ function Lobby() {
     emit('LOBBY_REACTION', { reactionId })
   }
 
+  // The dialog only stays open while the target is still a connected, non-host
+  // player and we are still the host (they may leave or host may change meanwhile).
+  const kickTarget =
+    isHost && kickTargetId
+      ? players.find((p) => p.id === kickTargetId && p.isConnected && !p.isHost) ?? null
+      : null
+  const cancelKick = useCallback(() => setKickTargetId(null), [])
+  const confirmKick = useCallback(
+    (targetId: string) => {
+      emit('KICK_PLAYER', { playerId: targetId })
+      setKickTargetId(null)
+    },
+    [emit]
+  )
+
   const handleLeaveRoom = () => {
     dismissAlonePrompt()
     emit('LEAVE_ROOM', {})
@@ -481,7 +498,8 @@ function Lobby() {
                   {isHost && !player.isHost && (
                     <button
                       type="button"
-                      onClick={() => emit('KICK_PLAYER', { playerId: player.id })}
+                      onClick={() => setKickTargetId(player.id)}
+                      aria-label={`Kick ${player.nickname}`}
                       className="text-xs px-2 py-1 rounded-lg bg-red-100 dark:bg-red-950/50 text-red-600 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/60 font-semibold shrink-0"
                     >
                       Kick
@@ -850,6 +868,12 @@ function Lobby() {
           </div>
         </div>
       )}
+
+      <KickPlayerDialog
+        player={alonePromptOpen ? null : kickTarget}
+        onCancel={cancelKick}
+        onConfirm={confirmKick}
+      />
 
       <AloneInRoomDialog
         open={alonePromptOpen}

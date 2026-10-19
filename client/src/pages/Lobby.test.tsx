@@ -316,4 +316,60 @@ describe('Lobby', () => {
 
     expect(screen.queryByTestId('lobby-reaction-chip-p2')).not.toBeInTheDocument()
   })
+
+  describe('kicking a player', () => {
+    function renderAsHost() {
+      const emit = vi.fn()
+      mockUseSocket.mockReturnValue({ emit, on: vi.fn(), off: vi.fn() })
+      renderWithPreferences(
+        <MemoryRouter>
+          <Lobby />
+        </MemoryRouter>
+      )
+      const kickCalls = () => emit.mock.calls.filter(([event]) => event === 'KICK_PLAYER')
+      return { emit, kickCalls }
+    }
+
+    it('asks for confirmation instead of kicking immediately', () => {
+      const { kickCalls } = renderAsHost()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Kick Paul' }))
+
+      expect(screen.getByRole('dialog', { name: 'Kick Paul?' })).toBeInTheDocument()
+      expect(screen.getByText(/a player kicked twice can.t come back/i)).toBeInTheDocument()
+      expect(kickCalls()).toHaveLength(0)
+    })
+
+    it('kicks the player once the host confirms', () => {
+      const { emit, kickCalls } = renderAsHost()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Kick Paul' }))
+      fireEvent.click(screen.getByRole('button', { name: 'Kick player' }))
+
+      expect(emit).toHaveBeenCalledWith('KICK_PLAYER', { playerId: 'p2' })
+      expect(kickCalls()).toHaveLength(1)
+      expect(screen.queryByRole('dialog', { name: 'Kick Paul?' })).not.toBeInTheDocument()
+    })
+
+    it('does not kick when the host cancels', () => {
+      const { kickCalls } = renderAsHost()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Kick Paul' }))
+      expect(screen.getByRole('button', { name: 'Cancel' })).toHaveFocus()
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+      expect(screen.queryByRole('dialog', { name: 'Kick Paul?' })).not.toBeInTheDocument()
+      expect(kickCalls()).toHaveLength(0)
+    })
+
+    it('does not kick when the host presses Escape', () => {
+      const { kickCalls } = renderAsHost()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Kick Paul' }))
+      fireEvent.keyDown(window, { key: 'Escape' })
+
+      expect(screen.queryByRole('dialog', { name: 'Kick Paul?' })).not.toBeInTheDocument()
+      expect(kickCalls()).toHaveLength(0)
+    })
+  })
 })
