@@ -426,6 +426,15 @@ export function handleKickPlayer(io: Server, socket: Socket, payload: any) {
       return
     }
 
+    // Kick is a lobby action; the client only offers it before a game starts.
+    if (room.status === 'in_progress') {
+      socket.emit('ROOM_ERROR', {
+        code: 'GAME_IN_PROGRESS',
+        message: 'Players can only be kicked from the lobby'
+      })
+      return
+    }
+
     const target = room.players.get(payload.playerId)
     if (!target || target.isHost) {
       return
@@ -442,18 +451,22 @@ export function handleKickPlayer(io: Server, socket: Socket, payload: any) {
     room.players.delete(payload.playerId)
     clearLobbyReactionRateLimit(payload.playerId)
 
+    const banned = newCount >= 2
+
     // Notify the kicked player
     io.to(payload.playerId).emit('KICKED', {
       nickname,
-      banned: newCount >= 2
+      banned
     })
 
-    // Notify remaining players
+    // Notify remaining players (they show a kick notice, so include whether
+    // this kick means the player can no longer rejoin).
     io.to(room.code).emit('PLAYER_LEFT', {
       id: payload.playerId,
       nickname,
       newHost: null,
-      reason: 'kicked'
+      reason: 'kicked',
+      banned
     })
     persistRoom(room)
   } catch (error: any) {

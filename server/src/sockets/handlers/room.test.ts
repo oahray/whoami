@@ -34,6 +34,7 @@ import {
   handleCreateRoom,
   handleDisconnect,
   handleJoinRoom,
+  handleKickPlayer,
   handleLeaveRoom,
   handleLobbyReaction
 } from './room.js'
@@ -453,6 +454,77 @@ describe('room socket handlers', () => {
         playerId: 'player-2',
         reactionId: 'wait'
       })
+    })
+  })
+
+  describe('KICK_PLAYER', () => {
+    function setupLobbyWithGuest() {
+      const room = actualStore.createRoom('host-1', 'Host')
+      room.players.set('player-2', {
+        id: 'player-2',
+        nickname: 'Judas',
+        avatarId: 'avatar-02',
+        isHost: false,
+        isConnected: true,
+        disconnectedAt: null,
+        guessCount: 0,
+        lastGuessAt: null,
+        isLocked: false
+      })
+      vi.mocked(getRoomBySocket).mockReturnValue(room)
+      const emits: Array<{ to: string; event: string; payload: unknown }> = []
+      const io = {
+        to: vi.fn((to: string) => ({
+          emit: (event: string, payload: unknown) => emits.push({ to, event, payload })
+        }))
+      } as any
+      const hostSocket = { id: 'host-1', emit: vi.fn() } as any
+      return { room, io, hostSocket, emits }
+    }
+
+    it('tells the room the player was kicked, not banned, on a first kick', () => {
+      const { room, io, hostSocket, emits } = setupLobbyWithGuest()
+
+      handleKickPlayer(io, hostSocket, { playerId: 'player-2' })
+
+      expect(room.players.has('player-2')).toBe(false)
+      expect(emits).toContainEqual({
+        to: room.code,
+        event: 'PLAYER_LEFT',
+        payload: { id: 'player-2', nickname: 'Judas', newHost: null, reason: 'kicked', banned: false }
+      })
+      expect(emits).toContainEqual({
+        to: 'player-2',
+        event: 'KICKED',
+        payload: { nickname: 'Judas', banned: false }
+      })
+    })
+
+    it('marks the second kick of the same nickname as banned for the room', () => {
+      const { room, io, hostSocket, emits } = setupLobbyWithGuest()
+      room.kickedPlayers.set('judas', 1)
+
+      handleKickPlayer(io, hostSocket, { playerId: 'player-2' })
+
+      expect(emits).toContainEqual({
+        to: room.code,
+        event: 'PLAYER_LEFT',
+        payload: { id: 'player-2', nickname: 'Judas', newHost: null, reason: 'kicked', banned: true }
+      })
+    })
+
+    it('rejects kicks while a game is in progress', () => {
+      const { room, io, hostSocket, emits } = setupLobbyWithGuest()
+      room.status = 'in_progress'
+
+      handleKickPlayer(io, hostSocket, { playerId: 'player-2' })
+
+      expect(hostSocket.emit).toHaveBeenCalledWith('ROOM_ERROR', {
+        code: 'GAME_IN_PROGRESS',
+        message: 'Players can only be kicked from the lobby'
+      })
+      expect(room.players.has('player-2')).toBe(true)
+      expect(emits).toHaveLength(0)
     })
   })
 })

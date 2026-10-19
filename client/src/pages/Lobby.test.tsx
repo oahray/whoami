@@ -372,4 +372,75 @@ describe('Lobby', () => {
       expect(kickCalls()).toHaveLength(0)
     })
   })
+
+  describe('kick notice', () => {
+    function renderLobby({ asHost }: { asHost: boolean }) {
+      const handlers: Record<string, (...args: unknown[]) => void> = {}
+      mockUseSocket.mockReturnValue({
+        emit: vi.fn(),
+        on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+          handlers[event] = handler
+        }),
+        off: vi.fn()
+      })
+      if (!asHost) {
+        mockUseGame.mockReturnValue({ ...mockUseGame(), isHost: false, playerId: 'p2' })
+      }
+      renderWithPreferences(
+        <MemoryRouter>
+          <Lobby />
+        </MemoryRouter>
+      )
+      const playerLeft = (payload: Record<string, unknown>) =>
+        act(() => {
+          handlers.PLAYER_LEFT?.(payload)
+        })
+      return { playerLeft }
+    }
+
+    it('tells other players that someone was kicked, not that they left', () => {
+      const { playerLeft } = renderLobby({ asHost: false })
+
+      playerLeft({ id: 'p3', nickname: 'Judas', newHost: null, reason: 'kicked', banned: false })
+
+      expect(screen.getByTestId('kick-notice')).toHaveTextContent('Judas was removed by the host.')
+    })
+
+    it('says when a kicked player can no longer rejoin', () => {
+      const { playerLeft } = renderLobby({ asHost: false })
+
+      playerLeft({ id: 'p3', nickname: 'Judas', newHost: null, reason: 'kicked', banned: true })
+
+      expect(screen.getByTestId('kick-notice')).toHaveTextContent("Judas was removed by the host and can't rejoin.")
+    })
+
+    it('confirms the kick to the host in their own words', () => {
+      const { playerLeft } = renderLobby({ asHost: true })
+
+      playerLeft({ id: 'p2', nickname: 'Paul', newHost: null, reason: 'kicked', banned: false })
+
+      expect(screen.getByTestId('kick-notice')).toHaveTextContent('You removed Paul.')
+    })
+
+    it('shows nothing when a player simply leaves', () => {
+      const { playerLeft } = renderLobby({ asHost: false })
+
+      playerLeft({ id: 'p3', nickname: 'Judas', newHost: null, reason: 'left' })
+
+      expect(screen.queryByTestId('kick-notice')).not.toBeInTheDocument()
+    })
+
+    it('clears the notice after a few seconds', () => {
+      const { playerLeft } = renderLobby({ asHost: false })
+
+      playerLeft({ id: 'p3', nickname: 'Judas', newHost: null, reason: 'kicked', banned: false })
+      expect(screen.getByTestId('kick-notice')).toBeInTheDocument()
+
+      act(() => {
+        vi.advanceTimersByTime(5000)
+      })
+
+      expect(screen.queryByTestId('kick-notice')).not.toBeInTheDocument()
+    })
+  })
 })

@@ -50,6 +50,10 @@ type ActiveLobbyReaction = {
 }
 
 const COPIED_FEEDBACK_MS = 2000
+/** How long the room-wide kick notice stays up. */
+const KICK_NOTICE_MS = 5000
+
+type KickNotice = { key: number; nickname: string; banned: boolean }
 const API_BASE_URL =
   import.meta.env.VITE_SOCKET_URL?.replace('ws://', 'http://').replace('wss://', 'https://') ||
   'http://localhost:3001'
@@ -65,6 +69,7 @@ function Lobby() {
   const [historySheetOpen, setHistorySheetOpen] = useState(false)
   const [lobbyReactions, setLobbyReactions] = useState<Record<string, ActiveLobbyReaction>>({})
   const [kickTargetId, setKickTargetId] = useState<string | null>(null)
+  const [kickNotice, setKickNotice] = useState<KickNotice | null>(null)
   const historySheetClosedViaPopRef = useRef(false)
   const [datasets, setDatasets] = useState<PublicDataset[]>([])
   const [cardTypes, setCardTypes] = useState<{ character: number; place: number } | null>(null)
@@ -100,6 +105,25 @@ function Lobby() {
     on('LOBBY_REACTION', handleLobbyReaction)
     return () => off('LOBBY_REACTION', handleLobbyReaction)
   }, [on, off])
+
+  // Everyone in the room (host included) sees when a player was kicked,
+  // so a kick is not mistaken for the player simply leaving.
+  useEffect(() => {
+    const handlePlayerLeft = (...args: unknown[]) => {
+      const payload = args[0] as { nickname?: string; reason?: string; banned?: boolean } | undefined
+      if (payload?.reason !== 'kicked' || !payload.nickname) return
+      setKickNotice({ key: Date.now(), nickname: payload.nickname, banned: payload.banned === true })
+    }
+
+    on('PLAYER_LEFT', handlePlayerLeft)
+    return () => off('PLAYER_LEFT', handlePlayerLeft)
+  }, [on, off])
+
+  useEffect(() => {
+    if (!kickNotice) return
+    const timer = setTimeout(() => setKickNotice(null), KICK_NOTICE_MS)
+    return () => clearTimeout(timer)
+  }, [kickNotice])
 
   useEffect(() => {
     const expiries = Object.values(lobbyReactions).map((reaction) => reaction.until)
@@ -446,6 +470,28 @@ function Lobby() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-foreground text-lg font-bold tracking-tight">Connected Players</h2>
               <span className="bg-primary/10 text-primary text-xs font-bold px-2.5 py-1 rounded-full">{connectedCount} / 10</span>
+            </div>
+            <div role="status" aria-live="polite">
+              {kickNotice && (
+                <p
+                  key={kickNotice.key}
+                  data-testid="kick-notice"
+                  className="mb-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-200"
+                >
+                  <span className="material-symbols-outlined text-lg leading-none" aria-hidden>
+                    person_remove
+                  </span>
+                  <span className="min-w-0 break-words">
+                    {isHost
+                      ? kickNotice.banned
+                        ? `You removed ${kickNotice.nickname}. They can't rejoin this room.`
+                        : `You removed ${kickNotice.nickname}.`
+                      : kickNotice.banned
+                        ? `${kickNotice.nickname} was removed by the host and can't rejoin.`
+                        : `${kickNotice.nickname} was removed by the host.`}
+                  </span>
+                </p>
+              )}
             </div>
             <div className="space-y-3">
               {players.filter(p => p.isConnected).map((player) => {
