@@ -59,8 +59,10 @@ import {
 import { isMaintenanceBlockingNewGames } from '../lib/maintenance'
 import {
   clearMasteryForDataset,
+  collectionGroups,
   getMasterySummary,
   listEntityMastery,
+  type MasteryStage,
   applyResolveRemaps
 } from '../lib/soloMastery'
 import {
@@ -88,6 +90,12 @@ import type { PublicDataset } from '../types'
 
 const TIMER_OPTIONS = [15, 30, 45, 60]
 const CLUE_INTERVAL_OPTIONS = [5, 10, 15]
+const COLLECTION_STAGE_LABELS: Record<MasteryStage, string> = {
+  mastered: 'Mastered',
+  familiar: 'Familiar',
+  learning: 'Learning',
+  encountered: 'Not got right yet'
+}
 
 function SoloSetup() {
   const navigate = useNavigate()
@@ -130,6 +138,7 @@ function SoloSetup() {
   >('idle')
   const [masteryTick, setMasteryTick] = useState(0)
   const [clearProgressOpen, setClearProgressOpen] = useState(false)
+  const [collectionOpen, setCollectionOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [offline, setOffline] = useState(!navigator.onLine)
 
@@ -165,6 +174,11 @@ function SoloSetup() {
   const hasAnyRecords = challengeRecords.length > 0 || enduranceRecords.length > 0
   const selectedDatasetName = datasets.find((dataset) => dataset.id === datasetId)?.name
   const masterySummary = getMasterySummary(datasetId || undefined)
+  const collection = collectionOpen
+    ? collectionGroups(listEntityMastery(datasetId || undefined))
+    : []
+  const neverRightCount =
+    collection.find((group) => group.stage === 'encountered')?.entities.length ?? 0
   const todayResult = dailyChallenge
     ? dailyProgress.results[dailyChallenge.challengeId]
     : undefined
@@ -895,7 +909,8 @@ function SoloSetup() {
                     icon: 'visibility',
                     value: String(masterySummary.encountered),
                     label: 'Encountered',
-                    iconClass: 'bg-primary/10 text-primary'
+                    iconClass: 'bg-primary/10 text-primary',
+                    opensCollection: true
                   },
                   {
                     icon: 'verified',
@@ -919,10 +934,24 @@ function SoloSetup() {
                     iconClass: 'bg-primary/10 text-primary'
                   }
                 ] as const
-              ).map((stat) => (
-                <div
+              ).map((stat) => {
+                const opens =
+                  'opensCollection' in stat && stat.opensCollection && masterySummary.encountered > 0
+                const Tile = opens ? 'button' : 'div'
+                return (
+                <Tile
                   key={stat.label}
-                  className="flex min-w-0 flex-col gap-1 rounded-md border border-edge bg-surface p-3 shadow-sm"
+                  {...(opens
+                    ? {
+                        type: 'button' as const,
+                        onClick: () => setCollectionOpen(true),
+                        'aria-haspopup': 'dialog' as const,
+                        'aria-label': `Encountered: ${stat.value}. Show the cards you've met`
+                      }
+                    : {})}
+                  className={`flex min-w-0 flex-col gap-1 rounded-md border border-edge bg-surface p-3 text-left shadow-sm ${
+                    opens ? 'hover:border-primary/40 hover:bg-primary/5' : ''
+                  }`}
                 >
                   <div className="flex min-w-0 items-center gap-2">
                     <div
@@ -936,9 +965,17 @@ function SoloSetup() {
                       {stat.label}
                     </p>
                   </div>
-                  <p className="pl-10 text-xl font-bold tabular-nums text-foreground">{stat.value}</p>
-                </div>
-              ))}
+                  <p className="flex items-center justify-between pl-10 text-xl font-bold tabular-nums text-foreground">
+                    {stat.value}
+                    {opens && (
+                      <span className="material-symbols-outlined text-lg text-foreground-muted" aria-hidden>
+                        chevron_right
+                      </span>
+                    )}
+                  </p>
+                </Tile>
+                )
+              })}
             </div>
             {masterySummary.needsReview > 0 ? (
               <button
@@ -1108,6 +1145,93 @@ function SoloSetup() {
               </div>
             )}
           </section>
+        )}
+
+        {collectionOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 backdrop-blur-sm md:items-center md:p-6"
+            role="presentation"
+            onClick={() => setCollectionOpen(false)}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="collection-title"
+              className="flex max-h-[85vh] w-full max-w-md flex-col rounded-t-2xl border border-edge bg-surface shadow-2xl md:rounded-2xl"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="shrink-0 px-6 pt-6">
+                <h3 id="collection-title" className="text-lg font-black text-foreground">
+                  Cards you&apos;ve met
+                </h3>
+                <p className="mt-1 text-sm text-foreground-muted">
+                  {selectedDatasetName ? `${selectedDatasetName}, on this device.` : 'On this device.'}
+                  {masterySummary.needsReview > 0 && (
+                    <>
+                      {' '}
+                      <span className="material-symbols-outlined align-[-3px] text-base text-amber-700 dark:text-amber-300" aria-hidden>
+                        replay
+                      </span>{' '}
+                      Blurred names are waiting in Review.
+                    </>
+                  )}
+                </p>
+              </div>
+              <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
+                {collection
+                  .filter((group) => group.stage !== 'encountered')
+                  .map((group) => (
+                  <section key={group.stage} aria-labelledby={`collection-${group.stage}`}>
+                    <h4
+                      id={`collection-${group.stage}`}
+                      className="text-[10px] font-bold uppercase tracking-widest text-foreground-muted"
+                    >
+                      {COLLECTION_STAGE_LABELS[group.stage]} · {group.entities.length}
+                    </h4>
+                    <ul className="mt-2 flex flex-wrap gap-2">
+                      {group.entities.map((entity) => (
+                        <li
+                          key={entity.entityId}
+                          className="flex items-center gap-1 rounded-full border border-edge bg-surface-muted px-3 py-1 text-sm font-medium text-foreground"
+                        >
+                          {entity.state === 'needs_review' ? (
+                            <>
+                              <span className="material-symbols-outlined text-sm text-amber-700 dark:text-amber-300" aria-hidden>
+                                replay
+                              </span>
+                              {/* Same placeholder for every card, so neither the name nor its length shows before Review. */}
+                              <span className="select-none blur-sm" aria-hidden>
+                                Hidden card
+                              </span>
+                              <span className="sr-only">A card waiting in Review</span>
+                            </>
+                          ) : (
+                            entity.entityName
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ))}
+                {neverRightCount > 0 && (
+                  <p className="rounded-lg border border-dashed border-edge px-3 py-3 text-center text-sm text-foreground-muted">
+                    {neverRightCount === 1
+                      ? "1 card you've missed every time so far. Get it right in Review to add it here."
+                      : `${neverRightCount} cards you've missed every time so far. Get one right in Review to add it here.`}
+                  </p>
+                )}
+              </div>
+              <div className="shrink-0 border-t border-edge px-6 py-4" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 0px))' }}>
+                <button
+                  type="button"
+                  onClick={() => setCollectionOpen(false)}
+                  className="w-full rounded-lg border-2 border-edge py-3 font-semibold hover:bg-surface-muted"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
         {clearProgressOpen && (
