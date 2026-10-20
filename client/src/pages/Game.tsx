@@ -9,6 +9,7 @@ import { downloadLeaderboardPng } from '../lib/exportLeaderboardPng'
 import { playSound } from '../lib/sounds'
 import { closenessMessage, type GuessCloseness } from '../lib/guessValidation'
 import { standingSummary } from '../lib/standingSummary'
+import { stumpedRoundsLine } from '../lib/stumpedRounds'
 import { useAloneInRoomPrompt } from '../hooks/useAloneInRoomPrompt'
 import { useGame } from '../hooks/useGame'
 import { useSocket } from '../hooks/useSocket'
@@ -311,6 +312,7 @@ function Game() {
 
   if (gameEndData) {
     const ranked = rankScoreboard<any>(gameEndData.finalScoreboard || [], p => p.score)
+    const stumpedLine = stumpedRoundsLine(gameEndData.stumpedRounds)
     const labelFor = (rank: number, tied: boolean, score: number): string | null => {
       if (score <= 0) return null
       if (rank === 1) return tied ? 'Tied for 1st' : 'Champion'
@@ -398,6 +400,16 @@ function Game() {
               )
             })}
           </ol>
+
+          {stumpedLine && (
+            <p
+              data-testid="stumped-rounds"
+              className="mt-4 text-balance text-center text-sm font-semibold text-foreground-muted"
+            >
+              <span aria-hidden="true" className="material-symbols-outlined mr-1 align-[-4px] text-[18px]">psychology_alt</span>
+              {stumpedLine}
+            </p>
+          )}
 
           <div
             className="mt-6 space-y-3"

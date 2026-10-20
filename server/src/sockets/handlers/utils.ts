@@ -7,6 +7,7 @@ import {
   CLUE_REVEAL_ROUND_TAIL_BUFFER_MS
 } from '../../game/multiplayerDefaults.js'
 import { signHistoryArchive } from '../../game/historyArchive.js'
+import { findStumpedRounds } from '../../game/stumpedRounds.js'
 import { safeTimer } from '../dispatch.js'
 import { logger } from '../../utils/logger.js'
 
@@ -280,7 +281,8 @@ export function emitGameEnded(io: Server, room: RoomState): void {
   const latest = room.gameHistory[room.gameHistory.length - 1]
   const base = {
     finalScoreboard: room.finalScoreboard,
-    gameHistory: room.gameHistory
+    gameHistory: room.gameHistory,
+    stumpedRounds: findStumpedRounds(room.roundHistory)
   }
   for (const player of room.players.values()) {
     if (!player.isConnected) continue
