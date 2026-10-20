@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { INTER_ROUND_DELAY_MS } from '../../game/multiplayerDefaults.js'
 import { createRoom } from '../../rooms/store.js'
 import { broadcastRoundEnd, buildReconnectPayload, findReturningPlayer, GRACE_PERIOD_MS } from './utils.js'
 
@@ -253,7 +254,8 @@ describe('broadcastRoundEnd', () => {
           answer: 'Moses',
           aliases: ['Moshe'],
           clues: [{ text: 'Led Israel out of Egypt', citations: null }],
-          scoreboard: []
+          scoreboard: [],
+          interRoundDelayMs: INTER_ROUND_DELAY_MS
         }
       }
     ])

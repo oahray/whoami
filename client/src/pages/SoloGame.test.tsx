@@ -318,6 +318,8 @@ describe('SoloGame', () => {
       } as Response
     })
 
+    // A slow run otherwise spends a second and the time penalty drops +1,000 to +990.
+    vi.useFakeTimers({ toFake: ['Date'] })
     renderSoloPlay()
     await flushCardLoad()
 
@@ -353,6 +355,8 @@ describe('SoloGame', () => {
       activeElapsedMs: 0
     })
 
+    // A slow run otherwise spends a second and the time penalty drops +900 to +890.
+    vi.useFakeTimers({ toFake: ['Date'] })
     renderSoloPlay()
     await flushCardLoad()
 
