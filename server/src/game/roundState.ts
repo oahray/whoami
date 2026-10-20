@@ -2,7 +2,7 @@ import { getCluesForEntity, getDataset, getDefaultEnabledDataset } from '../db/e
 import { buildEntityPool } from './entityPool.js'
 import { parseDifficultySelection } from './difficultySelection.js'
 import { calculateScore } from './scoring.js'
-import { validateGuess } from './validation.js'
+import { guessCloseness, validateGuess, type GuessCloseness } from './validation.js'
 import { isRateLimited, hasExceededMaxGuesses } from './rateLimit.js'
 import { shuffle } from './shuffle.js'
 import type { RoomState } from '../rooms/store.js'
@@ -165,6 +165,8 @@ function allPlayersLocked(room: RoomState): boolean {
 
 interface GuessResult {
   correct: boolean
+  /** Wrong guesses only: private closeness hint for the guesser. */
+  closeness?: GuessCloseness
   position?: number
   timeElapsedMs?: number
   pointsEarned?: number
@@ -252,7 +254,13 @@ export function processGuess(room: RoomState, playerId: string, guess: string): 
 
   persistRoom(room)
   return {
-    correct: false
+    correct: false,
+    closeness: guessCloseness(
+      guess,
+      room.currentRound.entity.name,
+      room.settings.strictMode,
+      room.currentRound.entity.aliases ?? []
+    )
   }
 }
 

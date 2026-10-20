@@ -90,6 +90,21 @@ function dayNumber(dateKey: string): number {
   return Math.floor(Date.parse(`${dateKey}T00:00:00Z`) / 86_400_000)
 }
 
+/** Milliseconds until the Daily after `dateKey` unlocks (the next UTC midnight). */
+export function msUntilNextDaily(dateKey: string, now = Date.now()): number {
+  return Math.max(0, Date.parse(`${dateKey}T00:00:00Z`) + 86_400_000 - now)
+}
+
+/** Short countdown label: "3h 12m", "3h", "42m" or "under a minute". */
+export function formatDailyCountdown(ms: number): string {
+  if (ms < 60_000) return 'under a minute'
+  const totalMinutes = Math.ceil(ms / 60_000)
+  const hours = Math.floor(totalMinutes / 60)
+  const minutes = totalMinutes % 60
+  if (hours === 0) return `${minutes}m`
+  return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}m`
+}
+
 /** UTC date key, matching the server Daily challenge day. */
 export function dailyDateKey(now = new Date()): string {
   return now.toISOString().slice(0, 10)

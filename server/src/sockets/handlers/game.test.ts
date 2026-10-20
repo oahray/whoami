@@ -138,10 +138,10 @@ describe('game socket handlers', () => {
     handleSubmitGuess(io, socket, { guess: 'Moses' })
 
     const hostAvatarId = room.players.get('host-socket')?.avatarId
+    // The answer's text isn't sent to the room, even in full transparency.
     expect(roomEmit).toHaveBeenCalledWith('GUESS_BROADCAST', {
       nickname: 'Host',
       avatarId: hostAvatarId,
-      guess: 'Moses',
       correct: true
     })
     expect(roomEmit).toHaveBeenCalledWith('PLAYER_CORRECT', {
@@ -200,6 +200,38 @@ describe('game socket handlers', () => {
     expect(socket.emit).toHaveBeenCalledWith('ROOM_ERROR', {
       code: 'PLAYER_LOCKED',
       message: 'You have already guessed correctly this round'
+    })
+  })
+
+  describe('closeness feedback', () => {
+    function setup() {
+      const room = actualStore.createRoom('host-socket', 'Host')
+      room.currentRound = { phase: 'active' } as any
+      const roomEmit = vi.fn()
+      const socket = { id: 'host-socket', emit: vi.fn() } as any
+      const io = { to: vi.fn(() => ({ emit: roomEmit })) } as any
+      vi.mocked(getRoomBySocket).mockReturnValue(room)
+      return { room, roomEmit, socket, io }
+    }
+
+    it('tells only the guesser that a wrong guess was close', () => {
+      const { roomEmit, socket, io } = setup()
+      vi.mocked(processGuess).mockReturnValue({ correct: false, closeness: 'close' })
+
+      handleSubmitGuess(io, socket, { guess: 'Nebuchadnezer' })
+
+      expect(socket.emit).toHaveBeenCalledWith('GUESS_FEEDBACK', { closeness: 'close' })
+      expect(roomEmit).not.toHaveBeenCalledWith('GUESS_FEEDBACK', expect.anything())
+      expect(JSON.stringify(roomEmit.mock.calls)).not.toContain('closeness')
+    })
+
+    it('sends no feedback for ordinary misses', () => {
+      const { socket, io } = setup()
+      vi.mocked(processGuess).mockReturnValue({ correct: false, closeness: null })
+
+      handleSubmitGuess(io, socket, { guess: 'Goliath' })
+
+      expect(socket.emit).not.toHaveBeenCalledWith('GUESS_FEEDBACK', expect.anything())
     })
   })
 })

@@ -161,11 +161,18 @@ export function handleSubmitGuess(io: Server, socket: Socket, payload: any) {
       return
     }
 
-    const broadcastPayload = room.settings.transparencyMode === 'full'
+    // Guess text goes to the room only for wrong guesses in full transparency:
+    // a correct guess's text is the answer, even though clients don't display it.
+    const broadcastPayload = room.settings.transparencyMode === 'full' && !result.correct
       ? { nickname: player.nickname, avatarId: player.avatarId, guess: guessValue, correct: result.correct }
       : { nickname: player.nickname, avatarId: player.avatarId, correct: result.correct }
 
     io.to(room.code).emit('GUESS_BROADCAST', broadcastPayload)
+
+    // Closeness is private: only the guesser hears how near they were.
+    if (!result.correct && result.closeness) {
+      socket.emit('GUESS_FEEDBACK', { closeness: result.closeness })
+    }
 
     if (result.correct) {
       io.to(room.code).emit('PLAYER_CORRECT', {

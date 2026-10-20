@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateGuess } from './validation.js'
+import { guessCloseness, validateGuess } from './validation.js'
 
 describe('validateGuess', () => {
   const answer = 'Moses'
@@ -229,5 +229,33 @@ describe('validateGuess', () => {
       expect(validateGuess('Peter', 'Peter')).toBe(true)
       expect(validateGuess('Simon', 'Peter')).toBe(false)
     })
+  })
+})
+
+describe('guessCloseness', () => {
+  it('flags a Strict-mode spelling slip that lenient mode would accept', () => {
+    expect(validateGuess('Pharoah', 'Pharaoh', true)).toBe(false)
+    expect(guessCloseness('Pharoah', 'Pharaoh', true)).toBe('spelling')
+  })
+
+  it('calls one-letter misses on short names close (any mode)', () => {
+    expect(guessCloseness('Mark', 'Mary', false)).toBe('close')
+    expect(guessCloseness('Saul', 'Paul', true)).toBe('close')
+  })
+
+  it('allows two letters off on longer names', () => {
+    expect(validateGuess('Nebuchadnezer', 'Nebuchadnezzar', false)).toBe(false)
+    expect(guessCloseness('Nebuchadnezer', 'Nebuchadnezzar', false)).toBe('close')
+  })
+
+  it('checks aliases too', () => {
+    expect(validateGuess('Simun Petr', 'Peter', false, ['Simon Peter'])).toBe(false)
+    expect(guessCloseness('Simun Petr', 'Peter', false, ['Simon Peter'])).toBe('close')
+  })
+
+  it('gives nothing for very short names or distant guesses', () => {
+    expect(guessCloseness('Lop', 'Lot', false)).toBeNull()
+    expect(guessCloseness('Goliath', 'Moses', false)).toBeNull()
+    expect(guessCloseness('Marks', 'Mary', false)).toBeNull()
   })
 })

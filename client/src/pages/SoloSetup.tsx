@@ -9,10 +9,12 @@ import { API_BASE_URL } from '../lib/apiBase'
 import { reportSoloPlay } from '../lib/reportSoloPlay'
 import {
   fetchDailyChallenge,
+  formatDailyCountdown,
   getActiveDailyStreak,
   getDailyBestScore,
   hydrateDailyCardCache,
   loadDailyProgress,
+  msUntilNextDaily,
   type DailyChallenge
 } from '../lib/dailySolo'
 import {
@@ -34,6 +36,8 @@ import {
 import {
   coerceDifficultySelection,
   encodeDifficultySelection,
+  formatDifficultySelection,
+  isAnyDifficultySelection,
   DEFAULT_DIFFICULTY_SELECTION,
   type DifficultySelection
 } from '../lib/difficultySelection'
@@ -41,6 +45,7 @@ import {
   DEFAULT_ENTITY_TYPE_FILTER,
   ENTITY_TYPE_FIELD_LABEL,
   ENTITY_TYPE_OPTIONS,
+  entityTypeOptionLabel,
   soleCardType,
   type EntityTypeFilter
 } from '../lib/entityTypeFilter'
@@ -109,6 +114,9 @@ function SoloSetup() {
   const [starting, setStarting] = useState(false)
   const [dailyChallenge, setDailyChallenge] = useState<DailyChallenge | null>(null)
   const [dailyLoading, setDailyLoading] = useState(true)
+  // Bumped when the next Daily unlocks so it loads without a manual refresh.
+  const [dailyReloadKey, setDailyReloadKey] = useState(0)
+  const [nowMs, setNowMs] = useState(() => Date.now())
   const [dailyError, setDailyError] = useState<string | null>(null)
   const [dailyProgress] = useState(loadDailyProgress)
   const [dailyShareState, setDailyShareState] = useState<
@@ -133,6 +141,11 @@ function SoloSetup() {
     !offline &&
     !maintenanceBlocking
 
+  // Shown above the pinned Start button so it's clear it starts the custom game
+  // (not today's challenge), even when the setup controls are scrolled away.
+  const customStartSummary = `Custom game: ${entityTypeOptionLabel(lockedCardType ?? entityType)}, ${isAnyDifficultySelection(difficulty) ? 'All difficulties' : formatDifficultySelection(difficulty).replace(/ · /g, ' + ')},`
+  const customStartTiming = `${roundSeconds}s per card, new clue every ${clueIntervalSeconds}s`
+
   const currentConfig: SoloConfig | null = datasetId
     ? {
       datasetId,
@@ -154,6 +167,25 @@ function SoloSetup() {
     ? dailyProgress.results[dailyChallenge.challengeId]
     : undefined
   const dailyBestScore = getDailyBestScore(dailyProgress)
+  // While today's challenge is unplayed, the pinned custom-game Start is outlined
+  // so "Play today" stays the obvious first choice.
+  const dailyStillToPlay = !dailyLoading && dailyChallenge != null && !todayResult
+
+  // Countdown on the completed Daily card, measured from the challenge's own UTC day
+  // so it matches when the server switches challenges, whatever the player's time zone.
+  const completedDailyKey = todayResult && dailyChallenge ? dailyChallenge.dateKey : null
+  const msToNextDaily = completedDailyKey ? msUntilNextDaily(completedDailyKey, nowMs) : null
+  useEffect(() => {
+    if (!completedDailyKey) return
+    setNowMs(Date.now())
+    const id = window.setInterval(() => setNowMs(Date.now()), 30_000)
+    return () => window.clearInterval(id)
+  }, [completedDailyKey])
+  const nextDailyReady = msToNextDaily === 0
+  useEffect(() => {
+    // Once per finished day: fetch the new challenge when it unlocks.
+    if (nextDailyReady) setDailyReloadKey((key) => key + 1)
+  }, [nextDailyReady, completedDailyKey])
   const dailyStreak = getActiveDailyStreak(
     dailyProgress,
     dailyChallenge?.dateKey
@@ -375,7 +407,7 @@ function SoloSetup() {
     return () => {
       cancelled = true
     }
-  }, [offline])
+  }, [offline, dailyReloadKey])
 
   useEffect(() => {
     let cancelled = false
@@ -764,6 +796,11 @@ function SoloSetup() {
                     </button>
                   </div>
                 </div>
+                {msToNextDaily != null && msToNextDaily > 0 && (
+                  <p className="text-center text-sm font-semibold text-foreground" data-testid="next-daily-countdown">
+                    Next challenge in {formatDailyCountdown(msToNextDaily)}
+                  </p>
+                )}
                 <p className="text-center text-xs text-foreground-muted">
                   Save or share the image if you want to keep today&apos;s result.
                 </p>
@@ -1049,18 +1086,6 @@ function SoloSetup() {
                 </p>
               </div>
             )}
-            <button
-              type="button"
-              onClick={() => void start()}
-              disabled={!canStart}
-              className="w-full rounded-lg bg-primary py-3 font-bold text-white disabled:opacity-50"
-            >
-              {starting
-                ? 'Starting…'
-                : variation === 'challenge'
-                  ? 'Start Classic'
-                  : 'Start Endurance'}
-            </button>
           </section>
         )}
 
@@ -1131,6 +1156,38 @@ function SoloSetup() {
           </section>
         )}
       </main>
+
+      {!loading && datasets.length > 0 && (
+        <div className="sticky bottom-0 z-10 border-t border-edge bg-surface/80 p-2 backdrop-blur-md pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+          <div className="setup-shell flex flex-col gap-1.5 px-1 md:px-2">
+            <p
+              id="solo-custom-start-summary"
+              className="text-center text-[11px] font-medium leading-snug text-foreground-muted"
+            >
+              {customStartSummary}{' '}
+              {/* Kept together so a narrow screen breaks before the timing, not mid-phrase. */}
+              <span className="whitespace-nowrap">{customStartTiming}</span>
+            </p>
+            <button
+              type="button"
+              onClick={() => void start()}
+              disabled={!canStart}
+              aria-describedby="solo-custom-start-summary"
+              className={`w-full rounded-lg py-3 font-bold disabled:opacity-50 ${
+                dailyStillToPlay
+                  ? 'border-2 border-primary bg-primary/10 text-primary hover:bg-primary/20'
+                  : 'bg-primary text-white shadow-lg shadow-primary/20'
+              }`}
+            >
+              {starting
+                ? 'Starting…'
+                : variation === 'challenge'
+                  ? 'Start Classic'
+                  : 'Start Endurance'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

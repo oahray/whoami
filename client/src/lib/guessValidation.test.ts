@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { validateGuess } from './guessValidation'
+import { closenessMessage, guessCloseness, validateGuess } from './guessValidation'
 
 describe('validateGuess', () => {
   it('matches names case-insensitively', () => {
@@ -41,5 +41,22 @@ describe('validateGuess', () => {
     expect(validateGuess('the Moses', 'Moses', [], true)).toBe(false)
     expect(validateGuess('Pharoah', 'Pharaoh', [], true)).toBe(false)
     expect(validateGuess('John Baptist', 'John the Baptist', [], true)).toBe(false)
+  })
+})
+
+describe('guessCloseness', () => {
+  it('matches the server rules', () => {
+    expect(guessCloseness('Pharoah', 'Pharaoh', [], true)).toBe('spelling')
+    expect(guessCloseness('Mark', 'Mary')).toBe('close')
+    expect(guessCloseness('Nebuchadnezer', 'Nebuchadnezzar')).toBe('close')
+    expect(guessCloseness('Simun Petr', 'Peter', ['Simon Peter'])).toBe('close')
+    expect(guessCloseness('Lop', 'Lot')).toBeNull()
+    expect(guessCloseness('Goliath', 'Moses')).toBeNull()
+  })
+
+  it('has player-facing messages', () => {
+    expect(closenessMessage('spelling')).toBe('Right person, check the spelling.')
+    expect(closenessMessage('close')).toBe('So close. Keep trying.')
+    expect(closenessMessage(null)).toBeNull()
   })
 })

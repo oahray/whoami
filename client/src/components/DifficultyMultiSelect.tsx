@@ -3,6 +3,7 @@ import {
   DIFFICULTY_TIER_OPTIONS,
   formatDifficultySelection,
   isAnyDifficultySelection,
+  normalizeDifficultySelection,
   type DifficultySelection,
   type DifficultyTier
 } from '../lib/difficultySelection'
@@ -35,7 +36,9 @@ export function DifficultyMultiSelect({
       ? value.filter((value) => value !== tier)
       : [...value, tier]
 
-    onChange(next.length === 0 ? [] : DIFFICULTY_TIERS.filter((value) => next.includes(value)))
+    // Ticking every tier back on means "all", stored as [] like after a refresh,
+    // so labels, the encoded setting and personal-best keys stay consistent.
+    onChange(next.length === 0 ? [] : normalizeDifficultySelection(next) ?? [])
   }
 
   return (
