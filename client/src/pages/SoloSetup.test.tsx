@@ -110,6 +110,37 @@ describe('SoloSetup', () => {
     }))
   })
 
+  it('pins the start button with a summary of the custom game it will start', async () => {
+    renderWithPreferences(<MemoryRouter><SoloSetup /></MemoryRouter>)
+
+    const start = await waitFor(
+      () => {
+        const button = screen.getByRole('button', { name: /start classic/i })
+        expect(button).toBeEnabled()
+        return button
+      },
+      { timeout: 5000 }
+    )
+    // One start button for the custom game, described by the setup it will use.
+    expect(screen.getAllByRole('button', { name: /start (classic|endurance)/i })).toHaveLength(1)
+    const summary = screen.getByText(/^Custom game: /)
+    expect(start).toHaveAttribute('aria-describedby', summary.id)
+    expect(summary.textContent).toMatch(/s per card, new clue every \d+s$/)
+
+    fireEvent.change(screen.getByLabelText(/card timer/i), { target: { value: '45' } })
+    fireEvent.change(screen.getByLabelText(/new clue every/i), { target: { value: '10' } })
+    expect(screen.getByText(/^Custom game: /).textContent).toMatch(/, 45s per card, new clue every 10s$/)
+  })
+
+  it('outlines the custom Start while today\'s challenge is still unplayed', async () => {
+    renderWithPreferences(<MemoryRouter><SoloSetup /></MemoryRouter>)
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /play today/i })).toBeInTheDocument(), {
+      timeout: 5000
+    })
+    expect(screen.getByRole('button', { name: /start classic/i }).className).toContain('border-primary')
+  })
+
   it('starts a ten-round challenge session with the selected timing', async () => {
     renderWithPreferences(<MemoryRouter><SoloSetup /></MemoryRouter>)
 

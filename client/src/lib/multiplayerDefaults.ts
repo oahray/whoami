@@ -4,7 +4,7 @@ export type MultiplayerTransparencyMode = 'full' | 'minimal'
 export type MultiplayerEntityType = 'character' | 'place' | 'all'
 
 /** Pause after ROUND_ENDED before the next round starts (must match server). */
-export const INTER_ROUND_DELAY_MS = 10_000
+export const INTER_ROUND_DELAY_MS = 6_000
 
 /** Finished games kept in this browser's device archive. */
 export const DEVICE_ARCHIVE_MAX = 50

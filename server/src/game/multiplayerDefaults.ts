@@ -7,7 +7,7 @@ export type MultiplayerEntityType = 'character' | 'place' | 'all'
 export const ROUND_START_DELAY_MS = 3000
 
 /** Pause after ROUND_ENDED before the next round starts. */
-export const INTER_ROUND_DELAY_MS = 10_000
+export const INTER_ROUND_DELAY_MS = 6_000
 
 /** Finished games kept on a live room (session lifetime only). */
 export const GAME_HISTORY_MAX = 10
