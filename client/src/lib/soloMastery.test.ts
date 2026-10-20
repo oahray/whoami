@@ -10,7 +10,9 @@ import {
   masterySettleCue,
   rekeyMasteryToCatalog,
   summarizeMasteryRun,
-  pruneAppliedEvents
+  pruneAppliedEvents,
+  collectionGroups,
+  type EntityMastery
 } from './soloMastery'
 
 const NOW = Date.now()
@@ -356,5 +358,37 @@ describe('soloMastery', () => {
         now
       )
     ).toEqual({ [`bible:ruth:${now - 6 * day}`]: true, [`bible:abel:${now}`]: true })
+  })
+
+  it('groups met cards by stage, keeping review cards at their stage', () => {
+    const entity = (entityName: string, correctCount: number, firstClueCorrectCount = 0, lastCorrect = true): EntityMastery => ({
+      datasetId: 'bible',
+      entityId: entityName.toLowerCase(),
+      entityName,
+      encounters: correctCount + 1,
+      correctCount,
+      firstClueCorrectCount,
+      missCount: 1,
+      lastCorrect,
+      lastEncounteredAt: '2026-10-20T12:00:00Z',
+      state: lastCorrect ? 'learning' : 'needs_review'
+    })
+    const groups = collectionGroups([
+      entity('Ruth', 5, 1),
+      entity('Abel', 0, 0, false),
+      entity('Moses', 3),
+      entity('Aaron', 5, 1, false),
+      entity('Eve', 1)
+    ])
+    expect(groups.map((group) => [group.stage, group.entities.map((e) => e.entityName)])).toEqual([
+      ['mastered', ['Aaron', 'Ruth']],
+      ['familiar', ['Moses']],
+      ['learning', ['Eve']],
+      ['encountered', ['Abel']]
+    ])
+  })
+
+  it('leaves out empty stages', () => {
+    expect(collectionGroups([]).length).toBe(0)
   })
 })
