@@ -29,23 +29,110 @@ export type DailyResult = {
   challengeId: string
   dateKey: string
   completedAt: string
+  scoringVersion?: number
   record: SoloRecord
+}
+
+/** One played Daily, kept forever. Full round detail is only kept for recent days. */
+export type DailySummary = {
+  v: 1
+  challengeId: string
+  dateKey: string
+  completedAt: string
+  /** Minutes ahead of UTC on the device when the Daily was finished. */
+  tzOffsetMin: number
+  scoringVersion: number
+  score: number | null
+  cardCount: number
+  correctCount: number
+  /** Index 0 counts cards solved on clue 1, index 1 on clue 2, and so on. */
+  solvedOnClue: number[]
+  wrongGuesses: number
+  timeMs: number
+  fastestSolveMs: number | null
+  byType: { character: [correct: number, total: number]; place: [correct: number, total: number] }
 }
 
 export type DailyProgress = {
   currentStreak: number
   bestStreak: number
   lastCompletedDate: string | null
+  /** Full results for the last {@link DAILY_DETAIL_DAYS} days only. */
   results: Record<string, DailyResult>
+  summaries: Record<string, DailySummary>
 }
+
+/** Today's share image needs the rounds; nothing reads older round detail. */
+export const DAILY_DETAIL_DAYS = 30
 
 function emptyProgress(): DailyProgress {
   return {
     currentStreak: 0,
     bestStreak: 0,
     lastCompletedDate: null,
-    results: {}
+    results: {},
+    summaries: {}
   }
+}
+
+export function summarizeDailyResult(result: DailyResult): DailySummary {
+  const rounds = result.record.rounds ?? []
+  const solvedOnClue: number[] = []
+  const byType: DailySummary['byType'] = { character: [0, 0], place: [0, 0] }
+  let wrongGuesses = 0
+  let fastestSolveMs: number | null = null
+  for (const round of rounds) {
+    // Rounds saved before entityType existed are all characters; places came later.
+    const tally = byType[round.entityType ?? 'character']
+    tally[1] += 1
+    wrongGuesses += round.incorrectGuessCount
+    if (!round.correct) continue
+    tally[0] += 1
+    const clueIndex = Math.max(0, round.revealedClueCount - 1)
+    while (solvedOnClue.length <= clueIndex) solvedOnClue.push(0)
+    solvedOnClue[clueIndex] += 1
+    fastestSolveMs = fastestSolveMs == null ? round.elapsedMs : Math.min(fastestSolveMs, round.elapsedMs)
+  }
+  const score = result.record.score
+  return {
+    v: 1,
+    challengeId: result.challengeId,
+    dateKey: result.dateKey,
+    completedAt: result.completedAt,
+    tzOffsetMin: -new Date(result.completedAt).getTimezoneOffset(),
+    // Version 1 is the only scoring there has been, so older days without it used it.
+    scoringVersion: result.scoringVersion ?? 1,
+    score: typeof score === 'number' && Number.isFinite(score) ? score : null,
+    cardCount: rounds.length,
+    correctCount: result.record.correctCount,
+    solvedOnClue,
+    wrongGuesses,
+    timeMs: result.record.activeElapsedMs,
+    fastestSolveMs,
+    byType
+  }
+}
+
+/** Fills summaries for results saved before summaries existed. */
+function withSummaries(progress: DailyProgress): DailyProgress {
+  const missing = Object.values(progress.results).filter(
+    (result) => !progress.summaries[result.challengeId]
+  )
+  if (missing.length === 0) return progress
+  const summaries = { ...progress.summaries }
+  for (const result of missing) summaries[result.challengeId] = summarizeDailyResult(result)
+  return { ...progress, summaries }
+}
+
+function trimDetail(
+  results: Record<string, DailyResult>,
+  latestDateKey: string,
+  keepDays: number
+): Record<string, DailyResult> {
+  const oldest = dayNumber(latestDateKey) - keepDays + 1
+  return Object.fromEntries(
+    Object.entries(results).filter(([, result]) => dayNumber(result.dateKey) >= oldest)
+  )
 }
 
 /** Seed the Daily card cache from the challenge snapshot so play never reshuffles. */
@@ -72,7 +159,7 @@ export function loadDailyProgress(): DailyProgress {
   try {
     const raw = localStorage.getItem(DAILY_PROGRESS_KEY)
     if (!raw) return emptyProgress()
-    return { ...emptyProgress(), ...(JSON.parse(raw) as DailyProgress) }
+    return withSummaries({ ...emptyProgress(), ...(JSON.parse(raw) as Partial<DailyProgress>) })
   } catch {
     return emptyProgress()
   }
@@ -80,9 +167,9 @@ export function loadDailyProgress(): DailyProgress {
 
 /** Highest completed Daily score on this device. */
 export function getDailyBestScore(progress: DailyProgress): number | null {
-  const scores = Object.values(progress.results)
-    .map((result) => result.record.score)
-    .filter((score): score is number => typeof score === 'number' && Number.isFinite(score))
+  const scores = Object.values(progress.summaries)
+    .map((summary) => summary.score)
+    .filter((score): score is number => score != null)
   return scores.length > 0 ? Math.max(...scores) : null
 }
 
@@ -183,7 +270,7 @@ export function computeDailyStreaks(dateKeys: string[], todayKey = dailyDateKey(
 
 function streaksFor(progress: DailyProgress, todayKey: string): DailyStreakInfo {
   return computeDailyStreaks(
-    Object.values(progress.results).map((result) => result.dateKey),
+    Object.values(progress.summaries).map((summary) => summary.dateKey),
     todayKey
   )
 }
@@ -210,19 +297,33 @@ export function getDailyRestDay(
 
 export function saveDailyResult(result: DailyResult): DailyProgress {
   const current = loadDailyProgress()
-  if (current.results[result.challengeId]) return current
+  if (current.summaries[result.challengeId]) return current
 
-  const results = { ...current.results, [result.challengeId]: result }
+  const summaries = { ...current.summaries, [result.challengeId]: summarizeDailyResult(result) }
   const streaks = computeDailyStreaks(
-    Object.values(results).map((entry) => entry.dateKey),
+    Object.values(summaries).map((entry) => entry.dateKey),
     result.dateKey
   )
   const next: DailyProgress = {
     currentStreak: streaks.current,
     bestStreak: Math.max(current.bestStreak, streaks.best),
     lastCompletedDate: result.dateKey,
-    results
+    results: trimDetail(
+      { ...current.results, [result.challengeId]: result },
+      result.dateKey,
+      DAILY_DETAIL_DAYS
+    ),
+    summaries
   }
-  localStorage.setItem(DAILY_PROGRESS_KEY, JSON.stringify(next))
+  // If storage is full, drop older round detail before giving up; the summaries
+  // are what streaks and stats need.
+  for (const results of [next.results, trimDetail(next.results, result.dateKey, 1)]) {
+    try {
+      localStorage.setItem(DAILY_PROGRESS_KEY, JSON.stringify({ ...next, results }))
+      return { ...next, results }
+    } catch {
+      // try the smaller version
+    }
+  }
   return next
 }

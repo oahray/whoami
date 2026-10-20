@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
   computeDailyStreaks,
+  DAILY_DETAIL_DAYS,
   getActiveDailyStreak,
   getBestDailyStreak,
   getDailyBestScore,
@@ -9,13 +10,14 @@ import {
   loadDailyProgress,
   msUntilNextDaily,
   saveDailyResult,
+  summarizeDailyResult,
   type DailyChallenge
 } from './dailySolo'
 import {
   peekCachedDailyCard,
   resetInPersonCardCacheForTests
 } from './inPersonCardFetch'
-import type { SoloRecord } from './soloSession'
+import type { SoloRecord, SoloRoundPerformance } from './soloSession'
 
 function record(): SoloRecord {
   return {
@@ -196,5 +198,115 @@ describe('Daily rest days', () => {
   it('never lowers a best streak stored before rest days existed', () => {
     const progress = { ...loadDailyProgress(), bestStreak: 12 }
     expect(getBestDailyStreak(progress, oct(9))).toBe(12)
+  })
+})
+
+describe('Daily summaries', () => {
+  beforeEach(() => localStorage.clear())
+
+  const round = (over: Partial<SoloRoundPerformance>): SoloRoundPerformance => ({
+    entityId: 'x',
+    entityType: 'character',
+    correct: true,
+    revealedClueCount: 1,
+    incorrectGuessCount: 0,
+    elapsedMs: 10_000,
+    score: 0,
+    breakdown: { score: 0, basePoints: 0, cluePenalty: 0, timePenalty: 0, incorrectGuessPenalty: 0, bonusPoints: 0 },
+    ...over
+  })
+
+  const resultOn = (dateKey: string, rounds: SoloRoundPerformance[] = [round({})]) => ({
+    challengeId: `${dateKey}-v1`,
+    dateKey,
+    completedAt: `${dateKey}T12:00:00Z`,
+    scoringVersion: 1,
+    record: { ...record(), rounds }
+  })
+
+  it('summarises a played day', () => {
+    const summary = summarizeDailyResult(
+      resultOn('2026-10-01', [
+        round({ revealedClueCount: 1, elapsedMs: 6_000 }),
+        round({ revealedClueCount: 3, elapsedMs: 15_000, incorrectGuessCount: 2 }),
+        round({ correct: false, revealedClueCount: 6, incorrectGuessCount: 1, entityType: 'place' }),
+        round({ revealedClueCount: 1, elapsedMs: 4_000, entityType: 'place' })
+      ])
+    )
+    expect(summary).toMatchObject({
+      v: 1,
+      dateKey: '2026-10-01',
+      scoringVersion: 1,
+      score: 6400,
+      cardCount: 4,
+      correctCount: 8,
+      wrongGuesses: 3,
+      timeMs: 100_000,
+      fastestSolveMs: 4_000,
+      byType: { character: [2, 2], place: [1, 2] }
+    })
+    expect(summary.solvedOnClue).toEqual([2, 0, 1])
+  })
+
+  it('treats rounds saved before entity types as characters', () => {
+    const summary = summarizeDailyResult(resultOn('2026-10-01', [round({ entityType: undefined })]))
+    expect(summary.byType).toEqual({ character: [1, 1], place: [0, 0] })
+  })
+
+  it('treats days saved before the scoring version as version 1', () => {
+    const { scoringVersion: _, ...older } = resultOn('2026-10-01')
+    expect(summarizeDailyResult(older).scoringVersion).toBe(1)
+  })
+
+  it('keeps round detail for 30 days and a summary forever', () => {
+    saveDailyResult(resultOn('2026-08-01'))
+    saveDailyResult(resultOn('2026-09-01'))
+    saveDailyResult(resultOn('2026-09-30'))
+    const progress = saveDailyResult(resultOn('2026-10-01'))
+
+    expect(DAILY_DETAIL_DAYS).toBe(30)
+    expect(Object.keys(progress.results).sort()).toEqual(['2026-09-30-v1', '2026-10-01-v1'])
+    expect(Object.keys(progress.summaries).sort()).toEqual([
+      '2026-08-01-v1',
+      '2026-09-01-v1',
+      '2026-09-30-v1',
+      '2026-10-01-v1'
+    ])
+    expect(Object.keys(loadDailyProgress().summaries)).toHaveLength(4)
+  })
+
+  it('backfills summaries for history saved before they existed', () => {
+    localStorage.setItem(
+      'whoami-solo-daily-progress',
+      JSON.stringify({
+        currentStreak: 2,
+        bestStreak: 2,
+        lastCompletedDate: '2026-10-02',
+        results: { '2026-10-01-v1': resultOn('2026-10-01'), '2026-10-02-v1': resultOn('2026-10-02') }
+      })
+    )
+    const progress = loadDailyProgress()
+    expect(Object.keys(progress.summaries)).toHaveLength(2)
+    expect(getActiveDailyStreak(progress, '2026-10-02')).toBe(2)
+  })
+
+  it('does not save the same Daily twice after its detail is trimmed', () => {
+    saveDailyResult(resultOn('2026-08-01'))
+    saveDailyResult(resultOn('2026-10-01'))
+    const again = saveDailyResult({ ...resultOn('2026-08-01'), record: { ...record(), score: 9999 } })
+    expect(again.summaries['2026-08-01-v1'].score).toBe(6400)
+  })
+
+  it('still returns the new progress when storage is full', () => {
+    const setItem = localStorage.setItem
+    localStorage.setItem = () => {
+      throw new Error('QuotaExceededError')
+    }
+    try {
+      const progress = saveDailyResult(resultOn('2026-10-01'))
+      expect(progress.summaries['2026-10-01-v1'].dateKey).toBe('2026-10-01')
+    } finally {
+      localStorage.setItem = setItem
+    }
   })
 })

@@ -48,6 +48,8 @@ export type KnowledgeScoreRules = {
 
 export type SoloRoundPerformance = {
   entityId: string
+  /** Missing on rounds played before it was recorded. */
+  entityType?: 'character' | 'place'
   correct: boolean
   revealedClueCount: number
   incorrectGuessCount: number

@@ -9,15 +9,18 @@ import {
   listEntityMastery,
   masterySettleCue,
   rekeyMasteryToCatalog,
-  summarizeMasteryRun
+  summarizeMasteryRun,
+  pruneAppliedEvents
 } from './soloMastery'
+
+const NOW = Date.now()
 
 describe('soloMastery', () => {
   beforeEach(() => localStorage.clear())
 
   it('applies a settled round only once', () => {
     const outcome = {
-      eventId: 'run-1:0',
+      eventId: `run-1:${NOW}`,
       datasetId: 'bible',
       entityId: 'moses',
       entityName: 'Moses',
@@ -37,7 +40,7 @@ describe('soloMastery', () => {
 
   it('marks a miss for review and softens it after successful recall', () => {
     const missed = applyMasteryOutcome({
-      eventId: 'run-1:0',
+      eventId: `run-1:${NOW}`,
       datasetId: 'bible',
       entityId: 'abel',
       entityName: 'Abel',
@@ -48,7 +51,7 @@ describe('soloMastery', () => {
     expect(getNeedsReviewEntityIds('bible')).toEqual(['abel'])
 
     const recalled = applyMasteryOutcome({
-      eventId: 'run-2:0',
+      eventId: `run-2:${NOW}`,
       datasetId: 'bible',
       entityId: 'abel',
       entityName: 'Abel',
@@ -66,7 +69,7 @@ describe('soloMastery', () => {
   it('marks an entity familiar after three correct answers', () => {
     for (let index = 0; index < 3; index += 1) {
       applyMasteryOutcome({
-        eventId: `run-${index}:0`,
+        eventId: `run-${index}:${NOW}`,
         datasetId: 'bible',
         entityId: 'ruth',
         entityName: 'Ruth',
@@ -87,7 +90,7 @@ describe('soloMastery', () => {
   it('masters an entity after five correct answers including a first-clue answer', () => {
     for (let index = 0; index < 5; index += 1) {
       applyMasteryOutcome({
-        eventId: `run-${index}:0`,
+        eventId: `run-${index}:${NOW}`,
         datasetId: 'bible',
         entityId: 'ruth',
         entityName: 'Ruth',
@@ -103,7 +106,7 @@ describe('soloMastery', () => {
   it('stays familiar at five correct answers when none used the first clue', () => {
     for (let index = 0; index < 5; index += 1) {
       applyMasteryOutcome({
-        eventId: `run-${index}:0`,
+        eventId: `run-${index}:${NOW}`,
         datasetId: 'bible',
         entityId: 'esther',
         entityName: 'Esther',
@@ -147,7 +150,7 @@ describe('soloMastery', () => {
 
   it('summarizes stage changes from one run', () => {
     const missed = applyMasteryOutcome({
-      eventId: 'run-1:0',
+      eventId: `run-1:${NOW}`,
       datasetId: 'bible',
       entityId: 'adam',
       entityName: 'Adam',
@@ -182,7 +185,7 @@ describe('soloMastery', () => {
     }
     changes.push(
       applyMasteryOutcome({
-        eventId: 'run-1:0',
+        eventId: `run-1:${NOW}`,
         datasetId: 'bible',
         entityId: 'ruth',
         entityName: 'Ruth',
@@ -224,7 +227,7 @@ describe('soloMastery', () => {
 
   it('only shows a settle cue when mastery state changes', () => {
     const first = applyMasteryOutcome({
-      eventId: 'run-1:0',
+      eventId: `run-1:${NOW}`,
       datasetId: 'bible',
       entityId: 'joseph',
       entityName: 'Joseph',
@@ -237,7 +240,7 @@ describe('soloMastery', () => {
     })
 
     const second = applyMasteryOutcome({
-      eventId: 'run-2:0',
+      eventId: `run-2:${NOW}`,
       datasetId: 'bible',
       entityId: 'joseph',
       entityName: 'Joseph',
@@ -274,7 +277,7 @@ describe('soloMastery', () => {
 
   it('applies resolve remaps and drops unresolved review ids', () => {
     applyMasteryOutcome({
-      eventId: 'run-1:0',
+      eventId: `run-1:${NOW}`,
       datasetId: 'bible',
       entityId: 'old-moses',
       entityName: 'Moses',
@@ -338,5 +341,20 @@ describe('soloMastery', () => {
       encountered: 1,
       needsReview: 0
     })
+  })
+
+  it('forgets applied events after a week but keeps recent ones', () => {
+    const day = 86_400_000
+    const now = Date.parse('2026-10-20T12:00:00Z')
+    expect(
+      pruneAppliedEvents(
+        {
+          [`bible:moses:${now - 8 * day}`]: true,
+          [`bible:ruth:${now - 6 * day}`]: true,
+          [`bible:abel:${now}`]: true
+        },
+        now
+      )
+    ).toEqual({ [`bible:ruth:${now - 6 * day}`]: true, [`bible:abel:${now}`]: true })
   })
 })

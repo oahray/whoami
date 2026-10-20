@@ -131,9 +131,30 @@ function migrateStoredStates(store: MasteryStore): MasteryStore {
   return next
 }
 
+/**
+ * Applied event ids only guard against counting a round twice when an open game is
+ * restored, so they don't need to outlive the game. Ids end in the round's start time.
+ */
+const APPLIED_EVENT_TTL_MS = 7 * 86_400_000
+
+export function pruneAppliedEvents(
+  events: Record<string, true>,
+  now = Date.now()
+): Record<string, true> {
+  const next: Record<string, true> = {}
+  for (const eventId of Object.keys(events)) {
+    const startedAt = Number(eventId.slice(eventId.lastIndexOf(':') + 1))
+    if (!Number.isFinite(startedAt) || now - startedAt < APPLIED_EVENT_TTL_MS) next[eventId] = true
+  }
+  return next
+}
+
 function saveStore(store: MasteryStore): void {
   try {
-    localStorage.setItem(MASTERY_KEY, JSON.stringify(store))
+    localStorage.setItem(
+      MASTERY_KEY,
+      JSON.stringify({ ...store, appliedEvents: pruneAppliedEvents(store.appliedEvents) })
+    )
   } catch {
     // Progress is device-local; gameplay should continue if storage is unavailable.
   }
