@@ -6,7 +6,10 @@ export type MultiplayerEntityType = 'character' | 'place' | 'all'
 /** Pre-round countdown before guessing opens (server activateRound). */
 export const ROUND_START_DELAY_MS = 3000
 
-/** Pause after ROUND_ENDED before the next round starts. */
+/**
+ * Pause after ROUND_ENDED before the next round starts.
+ * Sent on ROUND_ENDED so the client countdown uses this same value.
+ */
 export const INTER_ROUND_DELAY_MS = 6_000
 
 /** Finished games kept on a live room (session lifetime only). */

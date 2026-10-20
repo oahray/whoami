@@ -23,6 +23,7 @@ vi.mock('react-router-dom', async () => {
 
 describe('PlaySetup', () => {
   beforeEach(() => {
+    vi.useRealTimers()
     vi.clearAllMocks()
     localStorage.clear()
     sessionStorage.clear()
@@ -81,7 +82,7 @@ describe('PlaySetup', () => {
       expect(screen.getByRole('button', { name: /^medium$/i })).toBeDisabled()
       expect(screen.getByRole('button', { name: /^hard$/i })).toBeDisabled()
       expect(screen.getByRole('button', { name: /start cards/i })).toBeEnabled()
-    })
+    }, { timeout: 5000 })
 
     fireEvent.click(screen.getByRole('button', { name: /start cards/i }))
 

@@ -235,6 +235,10 @@ describe('SoloSetup', () => {
   })
 
   it('lets you download today’s completed daily result image', async () => {
+    // Fixture day is 2 Oct. On a later real day the card refetches as soon as it
+    // paints, which detaches "Completed today" before the assertion reads it.
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-10-02T18:00:00.000Z'))
     localStorage.setItem(
       'whoami-solo-daily-progress',
       JSON.stringify({
@@ -264,23 +268,27 @@ describe('SoloSetup', () => {
       })
     )
 
-    renderWithPreferences(<MemoryRouter><SoloSetup /></MemoryRouter>)
+    try {
+      renderWithPreferences(<MemoryRouter><SoloSetup /></MemoryRouter>)
 
-    expect(await screen.findByText(/completed today/i)).toBeInTheDocument()
-    expect(screen.getByText(/current streak: 3/i)).toBeInTheDocument()
-    expect(screen.getByText(/best streak: 5/i, { hidden: true })).toBeInTheDocument()
-    expect(screen.getByText(/high score: 6,400/i, { hidden: true })).toBeInTheDocument()
-    expect(screen.getByText(/save or share the image if you want to keep/i)).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: /download daily result image/i }))
-    await waitFor(() => expect(downloadSoloDailyPng).toHaveBeenCalled())
-    expect(downloadSoloDailyPng).toHaveBeenCalledWith(
-      expect.objectContaining({
-        dateKey: '2026-10-02',
-        datasetName: 'Bible',
-        currentStreak: 3,
-        bestStreak: 5
-      })
-    )
+      expect(await screen.findByText(/completed today/i)).toBeInTheDocument()
+      expect(screen.getByText(/current streak: 3/i)).toBeInTheDocument()
+      expect(screen.getByText(/best streak: 5/i, { hidden: true })).toBeInTheDocument()
+      expect(screen.getByText(/high score: 6,400/i, { hidden: true })).toBeInTheDocument()
+      expect(screen.getByText(/save or share the image if you want to keep/i)).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: /download daily result image/i }))
+      await waitFor(() => expect(downloadSoloDailyPng).toHaveBeenCalled())
+      expect(downloadSoloDailyPng).toHaveBeenCalledWith(
+        expect.objectContaining({
+          dateKey: '2026-10-02',
+          datasetName: 'Bible',
+          currentStreak: 3,
+          bestStreak: 5
+        })
+      )
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('shows progress and starts Review with eligible missed entities only', async () => {

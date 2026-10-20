@@ -6,7 +6,6 @@ import PlayerAvatar from '../components/PlayerAvatar'
 import SoundToggle from '../components/SoundToggle'
 import { clueCardIcon } from '../lib/entityTypeFilter'
 import { downloadLeaderboardPng } from '../lib/exportLeaderboardPng'
-import { INTER_ROUND_DELAY_MS } from '../lib/gameTiming'
 import { playSound } from '../lib/sounds'
 import { closenessMessage, type GuessCloseness } from '../lib/guessValidation'
 import { standingSummary } from '../lib/standingSummary'
@@ -66,8 +65,9 @@ function Game() {
   const guessInputRef = useRef<HTMLInputElement | null>(null)
   const gameStateRef = useRef(gameState)
   const settingsRef = useRef(settings)
-  const gameEndedRef = useRef(false)
   const goHandledRef = useRef(false)
+  const roundEndDataRef = useRef<any>(null)
+  roundEndDataRef.current = roundEndData
   const viewportStyle = useVisualViewportLock()
   const isFinalScoresView = gameState?.roundNumber === 0
   const cluesRevealedCount = gameState?.cluesRevealed.length ?? 0
@@ -152,8 +152,13 @@ function Game() {
     if (gameState) {
       setCurrentPhase(gameState.phase)
       if (gameState.phase === 'starting') {
+        if (roundEndDataRef.current) {
+          playSound('card-flip')
+          roundEndDataRef.current = null
+        }
         setGuessFeed([])
         setRoundEndData(null)
+        setAwaitingNextRound(false)
         setStandingOpen(false)
       }
     }
@@ -171,7 +176,13 @@ function Game() {
       return
     }
 
-    const endsAt = Date.now() + INTER_ROUND_DELAY_MS
+    const delayMs = roundEndData.interRoundDelayMs
+    if (typeof delayMs !== 'number' || !Number.isFinite(delayMs) || delayMs <= 0) {
+      setNextRoundSeconds(0)
+      return
+    }
+
+    const endsAt = Date.now() + delayMs
     const tick = () => {
       setNextRoundSeconds(Math.max(0, Math.ceil((endsAt - Date.now()) / 1000)))
     }
@@ -188,17 +199,11 @@ function Game() {
       const totalRounds = settingsRef.current?.totalRounds ?? 0
       const moreRounds = roundNumber > 0 && roundNumber < totalRounds
       setAwaitingNextRound(moreRounds)
-
-      window.setTimeout(() => {
-        setRoundEndData(null)
-        setNextRoundSeconds(null)
-        setAwaitingNextRound(false)
-        // Local countdown end = next-round cue (not waiting on ROUND_STARTED).
-        if (moreRounds && !gameEndedRef.current) playSound('card-flip')
-      }, INTER_ROUND_DELAY_MS)
     }
     const handleGameEnded = (data: any) => {
-      gameEndedRef.current = true
+      roundEndDataRef.current = null
+      setRoundEndData(null)
+      setAwaitingNextRound(false)
       setGameEndData(data)
     }
     const handleGuessBroadcast = (data: { nickname: string; avatarId?: string; guess?: string; correct: boolean }) => {
@@ -943,11 +948,11 @@ function Game() {
 
       {roundEndData && (
         <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-slate-900/60 backdrop-blur-sm md:p-6">
-          <div className="w-full bg-surface rounded-t-lg md:rounded-2xl overflow-hidden shadow-2xl max-h-[90vh] md:max-w-2xl overflow-y-auto">
-            <div className="flex h-6 w-full items-center justify-center md:hidden">
+          <div className="flex w-full max-h-[90vh] flex-col overflow-hidden bg-surface rounded-t-lg shadow-2xl md:max-w-2xl md:rounded-2xl">
+            <div className="flex h-6 w-full shrink-0 items-center justify-center md:hidden">
               <div className="h-1.5 w-12 rounded-full bg-surface-elevated" />
             </div>
-            <div className="px-6 pt-2 pb-6 text-center">
+            <div className="shrink-0 px-6 pt-2 pb-4 text-center">
               <h4 className="text-primary text-sm font-bold uppercase tracking-widest mb-1">Round Over!</h4>
               {!roundEndData.answerRevealed && (
                 <p className="mb-2 text-foreground">Awww... Nobody guessed correctly this round.</p>
@@ -967,6 +972,7 @@ function Game() {
                 </>
               )}
             </div>
+            <div className="min-h-0 flex-1 overflow-y-auto">
             {roundEndData.clues?.length > 0 && (
               <div className="px-6 pb-6">
                 <div className="flex items-center gap-2 mb-3">
@@ -1028,9 +1034,10 @@ function Game() {
                 <p className="text-foreground-muted text-sm">No one got it this round.</p>
               )}
             </div>
+            </div>
             {awaitingNextRound && (
-            <div className="pb-8 text-center">
-              <p className="text-foreground-muted text-xs font-medium italic">
+            <div className="shrink-0 border-t border-edge px-6 pt-3 text-center pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+              <p className="text-foreground-muted text-sm font-medium">
                 {nextRoundSeconds !== null && nextRoundSeconds > 0
                   ? `Next round starting in ${nextRoundSeconds}s…`
                   : 'Next round starting…'}

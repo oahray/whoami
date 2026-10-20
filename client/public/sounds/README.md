@@ -10,7 +10,7 @@ Drop MP3 files below. The app loads them from `/sounds/<name>.mp3`. Missing file
 | `clue-pop.mp3` | New clue revealed (multiplayer, solo, pass & play) |
 | `correct.mp3` | Your own correct guess (multiplayer self only, solo) |
 | `uh-oh.mp3` | Round miss: nobody scored (multiplayer) or timeout (solo) |
-| `card-flip.mp3` | Next / prev card actions; endurance auto-next; multiplayer later rounds at end of local inter-round countdown |
+| `card-flip.mp3` | Next / prev card actions; endurance auto-next; multiplayer when the next round actually starts |
 | _(reuses `clue-pop.mp3`)_ | Someone joins the lobby (other players hear it) |
 | `player-kick.mp3` | Someone is kicked from the lobby |
 | _(reuses `correct.mp3`)_ | Winners / tied winners on multiplayer results; solo finish with at least one correct. Point `yay` in `lib/sounds.ts` at `yay.mp3` once it exists |

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, expect } from 'vitest'
+import { afterEach, beforeEach, expect, vi } from 'vitest'
 import { cleanup } from '@testing-library/react'
 import * as matchers from '@testing-library/jest-dom/matchers'
 import { stubMatchMedia } from './matchMedia'
@@ -13,6 +13,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
+  vi.useRealTimers()
   document.documentElement.classList.remove('dark')
   document.documentElement.removeAttribute('data-palette')
 })

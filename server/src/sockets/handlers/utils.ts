@@ -340,7 +340,8 @@ export function broadcastRoundEnd(io: Server, room: RoomState, roundResult: any)
       text: c.text,
       citations: c.citations
     })),
-    scoreboard: roundResult.scoreboard
+    scoreboard: roundResult.scoreboard,
+    interRoundDelayMs: INTER_ROUND_DELAY_MS
   }
 
   io.to(room.code).emit('ROUND_ENDED', payload)
