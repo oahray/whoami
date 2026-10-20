@@ -186,8 +186,9 @@ function About() {
           </div>
           <p className="text-foreground text-sm leading-relaxed">
             Clues in the default content set (Bible characters and places) are written in first person
-            and tied to Scripture. Most clues include citation references for study. When more than one
-            content set is published, you can choose which to use in setup or in the lobby.
+            and tied to Scripture. Most clues include citation references for study. Clue wording and
+            name spellings follow the New World Translation, but the references work in any Bible. When
+            more than one content set is published, you can choose which to use in setup or in the lobby.
           </p>
           <p className="text-foreground text-sm leading-relaxed">
             Nicknames are not accounts. They only identify you in the current room. No password is
