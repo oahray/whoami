@@ -11,7 +11,9 @@ import {
   fetchDailyChallenge,
   formatDailyCountdown,
   getActiveDailyStreak,
+  getBestDailyStreak,
   getDailyBestScore,
+  getDailyRestDay,
   hydrateDailyCardCache,
   loadDailyProgress,
   msUntilNextDaily,
@@ -190,6 +192,20 @@ function SoloSetup() {
     dailyProgress,
     dailyChallenge?.dateKey
   )
+  const bestDailyStreak = getBestDailyStreak(dailyProgress, dailyChallenge?.dateKey)
+  const dailyRestDay = getDailyRestDay(dailyProgress, dailyChallenge?.dateKey)
+  const shortDay = (dateKey: string) =>
+    new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' }).format(
+      new Date(`${dateKey}T00:00:00Z`)
+    )
+  const dailyRestDayNote =
+    dailyStreak === 0
+      ? null
+      : dailyRestDay == null
+        ? 'Rest day available: miss one day and your streak survives.'
+        : dailyRestDay.coversYesterday
+          ? 'Yesterday was your rest day. Play today to keep the streak.'
+          : `Rest day used ${shortDay(dailyRestDay.usedOn)}. Next one from ${shortDay(dailyRestDay.nextAvailableOn)}.`
 
   const renderRecordRow = (record: SoloRecord, opts?: { highlightCurrent?: boolean }) => {
     const isCurrent =
@@ -701,7 +717,7 @@ function SoloSetup() {
                   aria-hidden="true"
                   className="mt-4 flex items-center gap-2 text-[0.7rem] font-bold uppercase tracking-wider text-green-700 dark:text-green-300/75"
                 >
-                  <span>Best streak: {dailyProgress.bestStreak}</span>
+                  <span>Best streak: {bestDailyStreak}</span>
                   <span className="size-1 rounded-full bg-amber-300" />
                   High score: {dailyBestScore == null ? '—' : formatSoloScore(dailyBestScore)}
                 </div>
@@ -709,6 +725,11 @@ function SoloSetup() {
                 <p className="mt-2 text-sm font-semibold">
                   Current streak: {dailyStreak}
                 </p>
+                {dailyRestDayNote && (
+                  <p data-testid="daily-rest-day" className="mt-1 text-xs text-foreground-muted">
+                    {dailyRestDayNote}
+                  </p>
+                )}
               </div>
             </div>
             {todayResult ? (
@@ -728,7 +749,7 @@ function SoloSetup() {
                             datasetName: dailyChallenge.datasetName,
                             record: todayResult.record,
                             currentStreak: dailyStreak,
-                            bestStreak: dailyProgress.bestStreak
+                            bestStreak: bestDailyStreak
                           })
                             .then(() => {
                               setDailyShareState('shared')
@@ -768,7 +789,7 @@ function SoloSetup() {
                           datasetName: dailyChallenge.datasetName,
                           record: todayResult.record,
                           currentStreak: dailyStreak,
-                          bestStreak: dailyProgress.bestStreak
+                          bestStreak: bestDailyStreak
                         })
                           .then(() => {
                             setDailyShareState('downloaded')

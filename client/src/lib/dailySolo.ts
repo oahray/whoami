@@ -110,38 +110,118 @@ export function dailyDateKey(now = new Date()): string {
   return now.toISOString().slice(0, 10)
 }
 
+function dateKeyFromDay(day: number): string {
+  return new Date(day * 86_400_000).toISOString().slice(0, 10)
+}
+
+/** A missed day only counts as a rest day if no other rest day falls within the 7 days before it. */
+const REST_DAY_SPACING = 7
+
+export type DailyStreakInfo = {
+  current: number
+  best: number
+  /** Missed days bridged between two played days, across all history. */
+  restDaysUsed: number
+  /** Most recent rest day still blocking another one, if any. */
+  restDay: { usedOn: string; nextAvailableOn: string; coversYesterday: boolean } | null
+}
+
 /**
- * Streak still showing on `todayKey`. Stored `currentStreak` is only rewritten
- * when a Daily is completed, so a missed day is applied here.
- * Alive when the last completion was today or yesterday.
+ * Streaks from the full Daily history, so rule changes apply retroactively.
+ * One missed day keeps a streak alive when it's at least 7 days after the
+ * previous rest day (at most one rest day in any 7 days). Rest days don't
+ * add to the count.
  */
+export function computeDailyStreaks(dateKeys: string[], todayKey = dailyDateKey()): DailyStreakInfo {
+  const days = [...new Set(dateKeys.map(dayNumber))].sort((a, b) => a - b)
+  let count = 0
+  let best = 0
+  let restDaysUsed = 0
+  let lastRest = Number.NEGATIVE_INFINITY
+  let prev: number | null = null
+  for (const day of days) {
+    const gap = prev == null ? Number.POSITIVE_INFINITY : day - prev
+    if (gap === 1) {
+      count += 1
+    } else if (gap === 2 && day - 1 - lastRest >= REST_DAY_SPACING) {
+      count += 1
+      lastRest = day - 1
+      restDaysUsed += 1
+    } else {
+      count = 1
+      lastRest = Number.NEGATIVE_INFINITY
+    }
+    best = Math.max(best, count)
+    prev = day
+  }
+
+  const today = dayNumber(todayKey)
+  let current = 0
+  let coversYesterday = false
+  if (prev != null) {
+    const gap = today - prev
+    if (gap === 0 || gap === 1) {
+      current = count
+    } else if (gap === 2 && today - 1 - lastRest >= REST_DAY_SPACING) {
+      current = count
+      lastRest = today - 1
+      coversYesterday = true
+    }
+  }
+
+  const restDay =
+    current > 0 && today - lastRest < REST_DAY_SPACING
+      ? {
+          usedOn: dateKeyFromDay(lastRest),
+          nextAvailableOn: dateKeyFromDay(lastRest + REST_DAY_SPACING),
+          coversYesterday
+        }
+      : null
+
+  return { current, best, restDaysUsed, restDay }
+}
+
+function streaksFor(progress: DailyProgress, todayKey: string): DailyStreakInfo {
+  return computeDailyStreaks(
+    Object.values(progress.results).map((result) => result.dateKey),
+    todayKey
+  )
+}
+
+/** Streak still showing on `todayKey`, with at most one rest day in any 7 days. */
 export function getActiveDailyStreak(
   progress: DailyProgress,
   todayKey = dailyDateKey()
 ): number {
-  if (!progress.lastCompletedDate || progress.currentStreak <= 0) return 0
-  const gap = dayNumber(todayKey) - dayNumber(progress.lastCompletedDate)
-  return gap === 0 || gap === 1 ? progress.currentStreak : 0
+  return streaksFor(progress, todayKey).current
+}
+
+/** Best streak, never lower than what was stored before rest days existed. */
+export function getBestDailyStreak(progress: DailyProgress, todayKey = dailyDateKey()): number {
+  return Math.max(progress.bestStreak, streaksFor(progress, todayKey).best)
+}
+
+export function getDailyRestDay(
+  progress: DailyProgress,
+  todayKey = dailyDateKey()
+): DailyStreakInfo['restDay'] {
+  return streaksFor(progress, todayKey).restDay
 }
 
 export function saveDailyResult(result: DailyResult): DailyProgress {
   const current = loadDailyProgress()
   if (current.results[result.challengeId]) return current
 
-  const previousDay =
-    current.lastCompletedDate == null
-      ? null
-      : dayNumber(current.lastCompletedDate)
-  const completedDay = dayNumber(result.dateKey)
-  const currentStreak =
-    previousDay != null && completedDay - previousDay === 1
-      ? current.currentStreak + 1
-      : 1
+  const results = { ...current.results, [result.challengeId]: result }
+  const streaks = computeDailyStreaks(
+    Object.values(results).map((entry) => entry.dateKey),
+    result.dateKey
+  )
   const next: DailyProgress = {
-    currentStreak,
-    bestStreak: Math.max(current.bestStreak, currentStreak),
+    currentStreak: streaks.current,
+    bestStreak: Math.max(current.bestStreak, streaks.best),
     lastCompletedDate: result.dateKey,
-    results: { ...current.results, [result.challengeId]: result }
+    results
   }
   localStorage.setItem(DAILY_PROGRESS_KEY, JSON.stringify(next))
   return next

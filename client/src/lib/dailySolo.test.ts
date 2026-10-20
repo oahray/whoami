@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
+  computeDailyStreaks,
   getActiveDailyStreak,
+  getBestDailyStreak,
   getDailyBestScore,
   hydrateDailyCardCache,
   formatDailyCountdown,
@@ -71,7 +73,7 @@ describe('dailySolo', () => {
     expect(getDailyBestScore(progress)).toBe(7200)
   })
 
-  it('keeps yesterday’s streak alive and clears a missed day', () => {
+  it('keeps yesterday’s streak alive, covers one missed day, and clears two', () => {
     const progress = saveDailyResult({
       challengeId: '2026-10-01-v1',
       dateKey: '2026-10-01',
@@ -81,7 +83,8 @@ describe('dailySolo', () => {
 
     expect(getActiveDailyStreak(progress, '2026-10-01')).toBe(1)
     expect(getActiveDailyStreak(progress, '2026-10-02')).toBe(1)
-    expect(getActiveDailyStreak(progress, '2026-10-03')).toBe(0)
+    expect(getActiveDailyStreak(progress, '2026-10-03')).toBe(1)
+    expect(getActiveDailyStreak(progress, '2026-10-04')).toBe(0)
     expect(progress.bestStreak).toBe(1)
   })
 
@@ -132,5 +135,66 @@ describe('next Daily countdown', () => {
     expect(formatDailyCountdown(42 * 60_000)).toBe('42m')
     expect(formatDailyCountdown(41 * 60_000 + 1)).toBe('42m')
     expect(formatDailyCountdown(30_000)).toBe('under a minute')
+  })
+})
+
+describe('Daily rest days', () => {
+  const oct = (day: number) => `2026-10-${String(day).padStart(2, '0')}`
+  const days = (...list: number[]) => list.map(oct)
+
+  it('counts consecutive days', () => {
+    expect(computeDailyStreaks(days(1, 2, 3), oct(3))).toMatchObject({ current: 3, best: 3, restDay: null })
+  })
+
+  it('bridges one missed day without counting it', () => {
+    expect(computeDailyStreaks(days(1, 2, 4), oct(4))).toEqual({
+      current: 3,
+      best: 3,
+      restDaysUsed: 1,
+      restDay: { usedOn: oct(3), nextAvailableOn: oct(10), coversYesterday: false }
+    })
+  })
+
+  it('restores a 7-day streak broken by one missed day', () => {
+    const history = days(1, 2, 3, 4, 5, 6, 7, 9)
+    expect(computeDailyStreaks(history, oct(9)).current).toBe(8)
+  })
+
+  it('keeps the streak alive today when only yesterday was missed', () => {
+    expect(computeDailyStreaks(days(1, 2), oct(4))).toEqual({
+      current: 2,
+      best: 2,
+      restDaysUsed: 0,
+      restDay: { usedOn: oct(3), nextAvailableOn: oct(10), coversYesterday: true }
+    })
+  })
+
+  it('allows only one rest day in any 7 days', () => {
+    // Missed the 3rd and the 6th: the second miss is too soon.
+    const info = computeDailyStreaks(days(1, 2, 4, 5, 7), oct(7))
+    expect(info.current).toBe(1)
+    expect(info.best).toBe(4)
+  })
+
+  it('allows another rest day 7 days after the last one', () => {
+    // Missed the 3rd and the 10th.
+    expect(computeDailyStreaks(days(1, 2, 4, 5, 6, 7, 8, 9, 11), oct(11))).toMatchObject({
+      current: 9,
+      restDaysUsed: 2
+    })
+  })
+
+  it('never bridges two missed days in a row', () => {
+    expect(computeDailyStreaks(days(1, 2, 5), oct(5)).current).toBe(1)
+    expect(computeDailyStreaks(days(1, 2), oct(5)).current).toBe(0)
+  })
+
+  it('stops reporting the rest day once another one is available', () => {
+    expect(computeDailyStreaks(days(1, 2, 4, 5, 6, 7, 8, 9, 10), oct(10)).restDay).toBeNull()
+  })
+
+  it('never lowers a best streak stored before rest days existed', () => {
+    const progress = { ...loadDailyProgress(), bestStreak: 12 }
+    expect(getBestDailyStreak(progress, oct(9))).toBe(12)
   })
 })
