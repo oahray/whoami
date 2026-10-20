@@ -20,7 +20,8 @@ const SOUND_PATHS: Record<SoundId, string> = {
   // Joins reuse the clue pop: a light, familiar cue rather than a separate file.
   'player-join': '/sounds/clue-pop.mp3',
   'player-kick': '/sounds/player-kick.mp3',
-  yay: '/sounds/yay.mp3'
+  // Winners reuse the correct-answer sound until a dedicated yay.mp3 exists.
+  yay: '/sounds/correct.mp3'
 }
 
 const THROTTLE_MS: Partial<Record<SoundId, number>> = {

@@ -100,4 +100,13 @@ describe('sounds', () => {
     expect(Audio).toHaveBeenCalledWith('/sounds/clue-pop.mp3')
     expect(playMock).toHaveBeenCalledTimes(1)
   })
+
+  it('plays the correct-answer sound for winners', () => {
+    unlockAudio()
+
+    playSound('yay')
+
+    expect(Audio).toHaveBeenCalledWith('/sounds/correct.mp3')
+    expect(playMock).toHaveBeenCalledTimes(1)
+  })
 })

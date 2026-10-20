@@ -21,7 +21,7 @@ import {
   downloadSoloDailyPng,
   shareSoloDailyPng
 } from '../lib/exportSoloDailyPng'
-import { validateGuess } from '../lib/guessValidation'
+import { closenessMessage, guessCloseness, validateGuess } from '../lib/guessValidation'
 import {
   getInPersonCard,
   isLostCardError,
@@ -665,7 +665,10 @@ function SoloGame() {
   const submitGuess = () => {
     if (!card || status !== 'active' || !guess.trim()) return
     if (!validateGuess(guess, card.entity.name, card.entity.aliases)) {
-      setFeedback('Not quite. Keep trying.')
+      setFeedback(
+        closenessMessage(guessCloseness(guess, card.entity.name, card.entity.aliases)) ??
+          'Not quite. Keep trying.'
+      )
       setGuess('')
       const current = activeSession.current
       if (current) {

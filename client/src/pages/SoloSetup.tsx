@@ -9,10 +9,12 @@ import { API_BASE_URL } from '../lib/apiBase'
 import { reportSoloPlay } from '../lib/reportSoloPlay'
 import {
   fetchDailyChallenge,
+  formatDailyCountdown,
   getActiveDailyStreak,
   getDailyBestScore,
   hydrateDailyCardCache,
   loadDailyProgress,
+  msUntilNextDaily,
   type DailyChallenge
 } from '../lib/dailySolo'
 import {
@@ -112,6 +114,9 @@ function SoloSetup() {
   const [starting, setStarting] = useState(false)
   const [dailyChallenge, setDailyChallenge] = useState<DailyChallenge | null>(null)
   const [dailyLoading, setDailyLoading] = useState(true)
+  // Bumped when the next Daily unlocks so it loads without a manual refresh.
+  const [dailyReloadKey, setDailyReloadKey] = useState(0)
+  const [nowMs, setNowMs] = useState(() => Date.now())
   const [dailyError, setDailyError] = useState<string | null>(null)
   const [dailyProgress] = useState(loadDailyProgress)
   const [dailyShareState, setDailyShareState] = useState<
@@ -165,6 +170,22 @@ function SoloSetup() {
   // While today's challenge is unplayed, the pinned custom-game Start is outlined
   // so "Play today" stays the obvious first choice.
   const dailyStillToPlay = !dailyLoading && dailyChallenge != null && !todayResult
+
+  // Countdown on the completed Daily card, measured from the challenge's own UTC day
+  // so it matches when the server switches challenges, whatever the player's time zone.
+  const completedDailyKey = todayResult && dailyChallenge ? dailyChallenge.dateKey : null
+  const msToNextDaily = completedDailyKey ? msUntilNextDaily(completedDailyKey, nowMs) : null
+  useEffect(() => {
+    if (!completedDailyKey) return
+    setNowMs(Date.now())
+    const id = window.setInterval(() => setNowMs(Date.now()), 30_000)
+    return () => window.clearInterval(id)
+  }, [completedDailyKey])
+  const nextDailyReady = msToNextDaily === 0
+  useEffect(() => {
+    // Once per finished day: fetch the new challenge when it unlocks.
+    if (nextDailyReady) setDailyReloadKey((key) => key + 1)
+  }, [nextDailyReady, completedDailyKey])
   const dailyStreak = getActiveDailyStreak(
     dailyProgress,
     dailyChallenge?.dateKey
@@ -386,7 +407,7 @@ function SoloSetup() {
     return () => {
       cancelled = true
     }
-  }, [offline])
+  }, [offline, dailyReloadKey])
 
   useEffect(() => {
     let cancelled = false
@@ -775,6 +796,11 @@ function SoloSetup() {
                     </button>
                   </div>
                 </div>
+                {msToNextDaily != null && msToNextDaily > 0 && (
+                  <p className="text-center text-sm font-semibold text-foreground" data-testid="next-daily-countdown">
+                    Next challenge in {formatDailyCountdown(msToNextDaily)}
+                  </p>
+                )}
                 <p className="text-center text-xs text-foreground-muted">
                   Save or share the image if you want to keep today&apos;s result.
                 </p>

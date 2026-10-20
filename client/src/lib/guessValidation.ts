@@ -105,3 +105,49 @@ export function validateGuess(
   if (matches(input, answer, strict)) return true
   return aliases.some((alias) => typeof alias === 'string' && matches(input, alias, strict))
 }
+
+export type GuessCloseness = 'spelling' | 'close' | null
+
+/** Comparable core for closeness: no parentheticals, articles, case or separators. */
+function closenessCore(value: string): string {
+  return compact(stripArticles(normalizePunctuation(stripParentheticals(value))))
+}
+
+/** Typos still counted as "close": none for names under 4 letters, 1 up to 7, 2 from 8. */
+function closeDistanceAllowed(length: number): number {
+  if (length < 4) return 0
+  return length >= 8 ? 2 : 1
+}
+
+/**
+ * How close a wrong guess was; shown only to the guesser. Mirrors the server's
+ * `guessCloseness` so Solo and multiplayer hint the same way.
+ * - 'spelling': Strict mode rejected it, but it would count with Strict mode off.
+ * - 'close': within the allowed typos of the answer or an alias.
+ */
+export function guessCloseness(
+  input: string,
+  answer: string,
+  aliases: string[] = [],
+  strict = false
+): GuessCloseness {
+  if (!input || !input.trim()) return null
+  if (strict && validateGuess(input, answer, aliases, false)) return 'spelling'
+  const guess = closenessCore(input)
+  if (!guess) return null
+  for (const target of [answer, ...aliases]) {
+    if (typeof target !== 'string' || target.trim() === '') continue
+    const core = closenessCore(target)
+    const allowed = closeDistanceAllowed(core.length)
+    if (allowed === 0 || Math.abs(core.length - guess.length) > allowed) continue
+    if (damerauLevenshtein(guess, core) <= allowed) return 'close'
+  }
+  return null
+}
+
+/** Player-facing text for a closeness hint. */
+export function closenessMessage(closeness: GuessCloseness): string | null {
+  if (closeness === 'spelling') return 'Right person, check the spelling.'
+  if (closeness === 'close') return 'So close. Keep trying.'
+  return null
+}

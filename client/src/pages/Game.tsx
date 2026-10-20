@@ -8,6 +8,7 @@ import { clueCardIcon } from '../lib/entityTypeFilter'
 import { downloadLeaderboardPng } from '../lib/exportLeaderboardPng'
 import { INTER_ROUND_DELAY_MS } from '../lib/gameTiming'
 import { playSound } from '../lib/sounds'
+import { closenessMessage, type GuessCloseness } from '../lib/guessValidation'
 import { standingSummary } from '../lib/standingSummary'
 import { useAloneInRoomPrompt } from '../hooks/useAloneInRoomPrompt'
 import { useGame } from '../hooks/useGame'
@@ -48,6 +49,8 @@ function Game() {
   const { emit, on, off } = useSocket()
   const { roomCode, playerId, gameState, settings, error, players, isReconnecting, gameHistory, setError, reset } = useGame()
   const [guess, setGuess] = useState('')
+  // Private closeness hint for this player's last wrong guess.
+  const [guessHint, setGuessHint] = useState<string | null>(null)
   const [timeRemaining, setTimeRemaining] = useState(0)
   const [roundEndData, setRoundEndData] = useState<any>(null)
   const [gameEndData, setGameEndData] = useState<any>(null)
@@ -202,6 +205,11 @@ function Game() {
       setGuessFeed(prev => [...prev.slice(-14), data])
     }
     const handlePlayerCorrect = () => {}
+    const handleGuessFeedback = (...args: unknown[]) => {
+      const payload = args[0] as { closeness?: GuessCloseness } | undefined
+      setGuessHint(closenessMessage(payload?.closeness ?? null))
+    }
+    on('GUESS_FEEDBACK', handleGuessFeedback)
     on('ROUND_ENDED', handleRoundEnded)
     on('GAME_ENDED', handleGameEnded)
     on('GUESS_BROADCAST', handleGuessBroadcast)
@@ -211,6 +219,7 @@ function Game() {
       off('GAME_ENDED', handleGameEnded)
       off('GUESS_BROADCAST', handleGuessBroadcast)
       off('PLAYER_CORRECT', handlePlayerCorrect)
+      off('GUESS_FEEDBACK', handleGuessFeedback)
     }
   }, [on, off])
 
@@ -261,9 +270,20 @@ function Game() {
     return () => clearTimeout(id)
   }, [autoReturnSeconds, navigate])
 
+  useEffect(() => {
+    if (!guessHint) return
+    const timer = window.setTimeout(() => setGuessHint(null), 4000)
+    return () => window.clearTimeout(timer)
+  }, [guessHint])
+
+  useEffect(() => {
+    setGuessHint(null)
+  }, [gameState?.roundNumber])
+
   const handleSubmitGuess = () => {
     if (!guess.trim() || !gameState || gameState.isLocked) return
     emit('SUBMIT_GUESS', { guess: guess.trim() })
+    setGuessHint(null)
     setGuess('')
     // Keep focus so the mobile keyboard stays open for the next try.
     guessInputRef.current?.focus({ preventScroll: true })
@@ -829,6 +849,14 @@ function Game() {
             className="shrink-0 bg-surface border-t border-edge px-3 py-2 lg:px-8 lg:py-4"
             style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom, 0px))' }}
           >
+            <p
+              role="status"
+              aria-live="polite"
+              data-testid="guess-hint"
+              className={`max-w-7xl mx-auto text-xs font-semibold text-amber-700 dark:text-amber-300 ${guessHint ? 'mb-1.5' : 'sr-only'}`}
+            >
+              {guessHint}
+            </p>
             <form
               className="flex gap-2 lg:gap-3 max-w-7xl mx-auto"
               onSubmit={(event) => {

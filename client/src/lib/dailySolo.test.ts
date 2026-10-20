@@ -3,7 +3,9 @@ import {
   getActiveDailyStreak,
   getDailyBestScore,
   hydrateDailyCardCache,
+  formatDailyCountdown,
   loadDailyProgress,
+  msUntilNextDaily,
   saveDailyResult,
   type DailyChallenge
 } from './dailySolo'
@@ -114,5 +116,21 @@ describe('dailySolo', () => {
     hydrateDailyCardCache(challenge)
 
     expect(peekCachedDailyCard('2026-10-02-v1', 'ent-1')?.clues[0]?.text).toBe('Frozen clue')
+  })
+})
+
+describe('next Daily countdown', () => {
+  it('counts down to the next UTC midnight after the challenge day', () => {
+    const now = Date.parse('2026-10-20T20:48:00Z')
+    expect(msUntilNextDaily('2026-10-20', now)).toBe((3 * 60 + 12) * 60_000)
+    expect(msUntilNextDaily('2026-10-19', now)).toBe(0)
+  })
+
+  it('formats short, readable labels', () => {
+    expect(formatDailyCountdown((3 * 60 + 12) * 60_000)).toBe('3h 12m')
+    expect(formatDailyCountdown(3 * 3_600_000)).toBe('3h')
+    expect(formatDailyCountdown(42 * 60_000)).toBe('42m')
+    expect(formatDailyCountdown(41 * 60_000 + 1)).toBe('42m')
+    expect(formatDailyCountdown(30_000)).toBe('under a minute')
   })
 })

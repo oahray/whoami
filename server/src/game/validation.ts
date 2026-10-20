@@ -119,3 +119,42 @@ export function validateGuess(
   }
   return false
 }
+
+export type GuessCloseness = 'spelling' | 'close' | null
+
+/** Comparable core for closeness: no parentheticals, articles, case or separators. */
+function closenessCore(value: string): string {
+  return compact(stripArticles(normalizePunctuation(stripParentheticals(value))))
+}
+
+/** Typos still counted as "close": none for names under 4 letters, 1 up to 7, 2 from 8. */
+function closeDistanceAllowed(length: number): number {
+  if (length < 4) return 0
+  return length >= 8 ? 2 : 1
+}
+
+/**
+ * How close a wrong guess was. Only ever told to the guesser, never to the room.
+ * - 'spelling': Strict mode rejected it, but it would count with Strict mode off.
+ * - 'close': within the allowed typos of the answer or an alias.
+ * Call only for guesses that `validateGuess` rejected.
+ */
+export function guessCloseness(
+  input: string,
+  answer: string,
+  strictMode = false,
+  aliases: string[] = []
+): GuessCloseness {
+  if (!input || !input.trim()) return null
+  if (strictMode && validateGuess(input, answer, false, aliases)) return 'spelling'
+  const guess = closenessCore(input)
+  if (!guess) return null
+  for (const target of [answer, ...aliases]) {
+    if (typeof target !== 'string' || target.trim() === '') continue
+    const core = closenessCore(target)
+    const allowed = closeDistanceAllowed(core.length)
+    if (allowed === 0 || Math.abs(core.length - guess.length) > allowed) continue
+    if (damerauLevenshtein(guess, core) <= allowed) return 'close'
+  }
+  return null
+}
