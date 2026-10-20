@@ -245,6 +245,10 @@ describe('SoloSetup', () => {
         currentStreak: 3,
         bestStreak: 5,
         lastCompletedDate: '2026-10-02',
+        summaries: {
+          '2026-09-30-v1': { v: 1, challengeId: '2026-09-30-v1', dateKey: '2026-09-30', score: 5100 },
+          '2026-10-01-v1': { v: 1, challengeId: '2026-10-01-v1', dateKey: '2026-10-01', score: 4800 }
+        },
         results: {
           '2026-10-02-v1': {
             challengeId: '2026-10-02-v1',

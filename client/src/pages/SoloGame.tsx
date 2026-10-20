@@ -317,6 +317,7 @@ function SoloGame() {
             challengeId: completed.dailyChallengeId,
             dateKey: completed.dailyDateKey,
             completedAt: record.achievedAt,
+            scoringVersion: completed.scoringVersion,
             record
           })
         : undefined
@@ -344,6 +345,7 @@ function SoloGame() {
     const performance: SoloRoundPerformance =
       current.settledRoundPerformance ?? {
         entityId: current.entityIds[current.index] ?? '',
+        entityType: current.currentCard?.entity.type,
         correct,
         revealedClueCount: current.currentCard
           ? revealedCluesAt(current, current.currentCard, elapsed)
@@ -446,6 +448,7 @@ function SoloGame() {
       if (current) {
         const performance: SoloRoundPerformance = {
           entityId: card.entity.id,
+          entityType: card.entity.type,
           correct: false,
           revealedClueCount: revealedCluesAt(
             current,
@@ -721,6 +724,7 @@ function SoloGame() {
 
       const performance: SoloRoundPerformance = {
         entityId: card.entity.id,
+        entityType: card.entity.type,
         correct: true,
         revealedClueCount: revealedCluesAt(current, card, elapsedMs),
         incorrectGuessCount: current.currentIncorrectGuessCount ?? 0,
