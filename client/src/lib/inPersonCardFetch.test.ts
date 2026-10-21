@@ -5,7 +5,8 @@ import {
   CardFetchError,
   peekCachedCard,
   peekCachedDailyCard,
-  resetInPersonCardCacheForTests
+  resetInPersonCardCacheForTests,
+  startFreshCardRun
 } from './inPersonCardFetch'
 
 const CLASSIC = { datasetId: 'ds-1', difficulty: 'any', entityType: 'character' }
@@ -42,7 +43,7 @@ describe('inPersonCardFetch', () => {
     expect(first.entity.name).toBe('Moses')
     expect(second).toBe(first)
     expect(fetch).toHaveBeenCalledTimes(1)
-    expect(peekCachedCard('ds-1', 'ent-1')?.clues[0]?.text).toBe('Classic clue')
+    expect(peekCachedCard(CLASSIC, 'ent-1')?.clues[0]?.text).toBe('Classic clue')
   })
 
   it('keeps Daily and Classic caches isolated for the same entity', async () => {
@@ -63,8 +64,8 @@ describe('inPersonCardFetch', () => {
     expect(daily.clues[0]?.text).toBe('Daily clue')
     expect(classic.clues[0]?.text).toBe('Classic clue')
     expect(peekCachedDailyCard('2026-10-02-v3', 'ent-1')?.clues[0]?.text).toBe('Daily clue')
-    expect(peekCachedCard('ds-1', 'ent-1')?.clues[0]?.text).toBe('Classic clue')
-    expect(peekCachedDailyCard('2026-10-02-v3', 'ent-1')).not.toBe(peekCachedCard('ds-1', 'ent-1'))
+    expect(peekCachedCard(CLASSIC, 'ent-1')?.clues[0]?.text).toBe('Classic clue')
+    expect(peekCachedDailyCard('2026-10-02-v3', 'ent-1')).not.toBe(peekCachedCard(CLASSIC, 'ent-1'))
 
     await getInPersonCard('ent-1', DAILY)
     await getInPersonCard('ent-1', CLASSIC)
@@ -101,5 +102,38 @@ describe('inPersonCardFetch', () => {
     expect(isLostCardError(new CardFetchError('gone', 404, 'ENTITY_NOT_FOUND'))).toBe(true)
     expect(isLostCardError(new CardFetchError('paused', 503, 'MAINTENANCE_ACTIVE'))).toBe(true)
     expect(isLostCardError(new CardFetchError('oops', 500))).toBe(false)
+  })
+
+  describe('fresh clues each game', () => {
+    let served = 0
+    beforeEach(() => {
+      served = 0
+      vi.mocked(fetch).mockImplementation(async () => {
+        served += 1
+        return { ok: true, status: 200, json: async () => cardBody('Moses', `Shuffle ${served}`) } as Response
+      })
+    })
+
+    it('fetches a newly shuffled card once a new game starts', async () => {
+      const first = await getInPersonCard('ent-1', CLASSIC)
+      expect((await getInPersonCard('ent-1', CLASSIC)).clues[0]?.text).toBe(first.clues[0]?.text)
+
+      startFreshCardRun()
+      expect((await getInPersonCard('ent-1', CLASSIC)).clues[0]?.text).toBe('Shuffle 2')
+    })
+
+    it('never shares a card between difficulties or card types', async () => {
+      await getInPersonCard('ent-1', CLASSIC)
+      await getInPersonCard('ent-1', { ...CLASSIC, difficulty: 'easy' })
+      await getInPersonCard('ent-1', { ...CLASSIC, entityType: 'all' })
+      expect(fetch).toHaveBeenCalledTimes(3)
+    })
+
+    it('keeps the Daily card fixed across games', async () => {
+      const daily = await getInPersonCard('ent-1', DAILY)
+      startFreshCardRun()
+      expect(await getInPersonCard('ent-1', DAILY)).toBe(daily)
+      expect(fetch).toHaveBeenCalledTimes(1)
+    })
   })
 })

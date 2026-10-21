@@ -1,4 +1,5 @@
 import { API_BASE_URL } from './apiBase'
+import { startFreshCardRun } from './inPersonCardFetch'
 import {
   coerceDifficultySelection,
   difficultySelectionEquals,
@@ -179,6 +180,7 @@ export async function fetchInPersonDeck(
     throw new Error(body.error ?? `Failed to load deck (${res.status})`)
   }
   const { entityIds } = (await res.json()) as { entityIds: string[] }
+  startFreshCardRun()
   const session: InPersonDeckSession = {
     datasetId,
     difficulty: selection,

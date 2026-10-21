@@ -27,6 +27,7 @@ import {
   isLostCardError,
   prefetchInPersonCard,
   rememberCard,
+  startFreshCardRun,
   rememberDailyCard
 } from '../lib/inPersonCardFetch'
 import {
@@ -183,12 +184,13 @@ function SoloGame() {
     lastClueCountRef.current = 0
     try {
       const query = cardQuery(nextSession)
+      if (freshRound && nextSession.index === 0 && !nextSession.rounds?.length) startFreshCardRun()
       const storedCard = cardForCurrentSoloRound(nextSession)
       const loadedCard = storedCard ?? await getInPersonCard(entityId, query)
       if (query.dailyChallengeId) {
         rememberDailyCard(query.dailyChallengeId, entityId, loadedCard)
       } else {
-        rememberCard(nextSession.datasetId, entityId, loadedCard)
+        rememberCard(query, entityId, loadedCard)
       }
       setCard(loadedCard)
 

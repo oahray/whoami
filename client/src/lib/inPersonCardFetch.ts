@@ -30,7 +30,10 @@ export type CardQuery = {
   dailyChallengeId?: string
 }
 
-/** Separate stores so Daily and Classic cannot share entries. */
+/**
+ * Separate stores so Daily and Classic cannot share entries. The Classic store only
+ * lives for one Solo run or one Pass & play game; see {@link startFreshCardRun}.
+ */
 const classicCache = new Map<string, InPersonCard>()
 const classicInflight = new Map<string, Promise<InPersonCard>>()
 const dailyCache = new Map<string, InPersonCard>()
@@ -42,16 +45,16 @@ function isDailyQuery(
   return typeof query.dailyChallengeId === 'string' && query.dailyChallengeId.length > 0
 }
 
-function classicCacheKey(datasetId: string, entityId: string): string {
-  return `${datasetId}:${entityId}`
+function classicCacheKey(query: CardQuery, entityId: string): string {
+  return [query.datasetId, query.difficulty, query.entityType, entityId].join('|')
 }
 
 function dailyCacheKey(dailyChallengeId: string, entityId: string): string {
   return `${dailyChallengeId}:${entityId}`
 }
 
-export function peekCachedCard(datasetId: string, entityId: string): InPersonCard | null {
-  return classicCache.get(classicCacheKey(datasetId, entityId)) ?? null
+export function peekCachedCard(query: CardQuery, entityId: string): InPersonCard | null {
+  return classicCache.get(classicCacheKey(query, entityId)) ?? null
 }
 
 export function peekCachedDailyCard(
@@ -61,8 +64,17 @@ export function peekCachedDailyCard(
   return dailyCache.get(dailyCacheKey(dailyChallengeId, entityId)) ?? null
 }
 
-export function rememberCard(datasetId: string, entityId: string, card: InPersonCard): void {
-  classicCache.set(classicCacheKey(datasetId, entityId), card)
+export function rememberCard(query: CardQuery, entityId: string, card: InPersonCard): void {
+  classicCache.set(classicCacheKey(query, entityId), card)
+}
+
+/**
+ * Forget Classic, Endurance and Pass & play cards from earlier games, so a new game gets
+ * freshly shuffled clues. Without this, an app left open replays the same clue order.
+ */
+export function startFreshCardRun(): void {
+  classicCache.clear()
+  classicInflight.clear()
 }
 
 export function rememberDailyCard(
@@ -88,7 +100,7 @@ export async function getInPersonCard(entityId: string, query: CardQuery): Promi
 }
 
 async function getClassicCard(entityId: string, query: CardQuery): Promise<InPersonCard> {
-  const key = classicCacheKey(query.datasetId, entityId)
+  const key = classicCacheKey(query, entityId)
   const cached = classicCache.get(key)
   if (cached) return cached
 
