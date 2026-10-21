@@ -68,6 +68,8 @@ import {
   summarizeMasteryRun,
   type MasteryChange
 } from '../lib/soloMastery'
+import { pickMoment, takeMomentSnapshot, type Moment } from '../lib/soloMoments'
+import { recordTrendRun } from '../lib/soloTrends'
 import { reportSoloPlay } from '../lib/reportSoloPlay'
 import { playSound } from '../lib/sounds'
 import { API_BASE_URL } from '../lib/apiBase'
@@ -124,6 +126,7 @@ function SoloGame() {
     endedByMaintenance?: boolean
     dailyProgress?: DailyProgress
     masteryChanges?: MasteryChange[]
+    moment?: Moment | null
   } | null>(null)
   const [restarting, setRestarting] = useState(false)
   const [reviewing, setReviewing] = useState(false)
@@ -220,7 +223,8 @@ function SoloGame() {
             entityId: loadedCard.entity.id,
             entityName: loadedCard.entity.name,
             correct: false,
-            revealedClueCount: restoredTimeoutPerformance.revealedClueCount
+            revealedClueCount: restoredTimeoutPerformance.revealedClueCount,
+            practice: nextSession.variation === 'review'
           })
         : null
       setRemainingMs(remaining)
@@ -266,7 +270,12 @@ function SoloGame() {
           : (nextSession.settledMasteryChange ?? restoredMasteryChange),
         masteryChanges: restoredMasteryChange
           ? recordMasteryChange(nextSession.masteryChanges, restoredMasteryChange)
-          : (nextSession.masteryChanges ?? [])
+          : (nextSession.masteryChanges ?? []),
+        momentsBefore:
+          nextSession.momentsBefore ??
+          (freshRound && nextSession.index === 0 && !nextSession.rounds?.length
+            ? takeMomentSnapshot(nextSession.datasetId)
+            : undefined)
       }
       activeSession.current = withRound
       setSession(withRound)
@@ -309,6 +318,8 @@ function SoloGame() {
       completed.variation === 'review'
         ? { record, isPersonalBest: false }
         : saveSoloRecord(record)
+    // A run cut short by maintenance would drag the trends down.
+    if (!opts?.endedByMaintenance) recordTrendRun(record)
     const dailyProgress =
       completed.variation === 'daily' &&
       completed.dailyChallengeId &&
@@ -321,6 +332,14 @@ function SoloGame() {
             record
           })
         : undefined
+    const moment = completed.momentsBefore
+      ? pickMoment(completed.momentsBefore, takeMomentSnapshot(completed.datasetId), {
+          perfectDaily:
+            dailyProgress != null &&
+            completed.entityIds.length > 0 &&
+            completed.correctCount === completed.entityIds.length
+        })
+      : null
     clearSoloSession()
     reportSoloPlay(completed.variation, 'completed')
     setError(null)
@@ -330,7 +349,8 @@ function SoloGame() {
       isPersonalBest: saved.isPersonalBest,
       endedByMaintenance: opts?.endedByMaintenance,
       dailyProgress,
-      masteryChanges: completed.masteryChanges ?? []
+      masteryChanges: completed.masteryChanges ?? [],
+      moment
     })
     if (record.correctCount > 0) playSound('yay')
   }, [])
@@ -466,7 +486,8 @@ function SoloGame() {
           entityId: card.entity.id,
           entityName: card.entity.name,
           correct: false,
-          revealedClueCount: performance.revealedClueCount
+          revealedClueCount: performance.revealedClueCount,
+          practice: current.variation === 'review'
         })
         const settled = {
           ...current,
@@ -738,7 +759,8 @@ function SoloGame() {
         entityId: card.entity.id,
         entityName: card.entity.name,
         correct: true,
-        revealedClueCount: performance.revealedClueCount
+        revealedClueCount: performance.revealedClueCount,
+        practice: current.variation === 'review'
       })
       const settled = {
         ...pending,
@@ -921,10 +943,28 @@ function SoloGame() {
           )}
           {result.dailyProgress && (
             <p role="status" className="banner-success mt-4 font-semibold">
+              {result.moment?.kind === 'streak' && (
+                <span className="material-symbols-outlined mr-1 align-[-4px] text-lg" aria-hidden>
+                  celebration
+                </span>
+              )}
               {activeDailyStreak}-day daily streak
+              {result.moment?.kind === 'streak' ? '!' : ''}
               {result.dailyProgress.bestStreak > activeDailyStreak
                 ? ` · Best ${result.dailyProgress.bestStreak}`
                 : ''}
+            </p>
+          )}
+          {result.moment && result.moment.kind !== 'streak' && (
+            <p
+              role="status"
+              data-testid="solo-moment"
+              className="mt-4 text-base font-black text-primary"
+            >
+              <span className="material-symbols-outlined mr-1 align-[-4px] text-xl" aria-hidden>
+                celebration
+              </span>
+              {result.moment.text}
             </p>
           )}
           {masteryDeltaLabel && (

@@ -1,5 +1,6 @@
 import type { InPersonCard } from '../types'
 import type { MasteryChange } from './soloMastery'
+import type { MomentSnapshot } from './soloMoments'
 import type { EntityTypeFilter } from './entityTypeFilter'
 import {
   coerceDifficultySelection,
@@ -81,6 +82,8 @@ export type SoloSession = SoloConfig & {
   settledMasteryChange?: MasteryChange | null
   /** Mastery moves from this run, one entry per card. */
   masteryChanges?: MasteryChange[]
+  /** Milestone counts when the run started; missing on runs started before moments existed. */
+  momentsBefore?: MomentSnapshot
   scoringVersion?: number
   scoringRules?: KnowledgeScoreRules
 }

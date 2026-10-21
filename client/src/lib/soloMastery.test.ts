@@ -391,4 +391,48 @@ describe('soloMastery', () => {
   it('leaves out empty stages', () => {
     expect(collectionGroups([]).length).toBe(0)
   })
+
+  describe('Review runs', () => {
+    const outcome = (eventId: string, correct: boolean, practice = false) => ({
+      eventId: `${eventId}:${NOW}`,
+      datasetId: 'bible',
+      entityId: 'abel',
+      entityName: 'Abel',
+      correct,
+      revealedClueCount: 1,
+      practice
+    })
+
+    it('clears Needs review on a correct answer without counting it', () => {
+      applyMasteryOutcome(outcome('run-1', true))
+      applyMasteryOutcome(outcome('run-2', false))
+      const before = listEntityMastery('bible')[0]
+      const change = applyMasteryOutcome(outcome('review-1', true, true))
+
+      expect(change).toMatchObject({ previousState: 'needs_review', state: 'learning', changed: true })
+      expect(listEntityMastery('bible')[0]).toMatchObject({
+        encounters: before.encounters,
+        correctCount: before.correctCount,
+        firstClueCorrectCount: before.firstClueCorrectCount,
+        missCount: before.missCount,
+        state: 'learning'
+      })
+      expect(getNeedsReviewEntityIds('bible')).toEqual([])
+    })
+
+    it('changes nothing on a miss', () => {
+      applyMasteryOutcome(outcome('run-1', false))
+      const before = listEntityMastery('bible')[0]
+      const change = applyMasteryOutcome(outcome('review-1', false, true))
+      expect(change.changed).toBe(false)
+      expect(listEntityMastery('bible')[0]).toEqual(before)
+    })
+
+    it('leaves a never-right card at zero correct after clearing it', () => {
+      applyMasteryOutcome(outcome('run-1', false))
+      applyMasteryOutcome(outcome('review-1', true, true))
+      expect(listEntityMastery('bible')[0]).toMatchObject({ correctCount: 0, state: 'encountered' })
+      expect(getNeedsReviewEntityIds('bible')).toEqual([])
+    })
+  })
 })

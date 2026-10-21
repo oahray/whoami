@@ -70,13 +70,13 @@ function fillStar(
   ctx.closePath()
 }
 
-function resolveAppOrigin(origin?: string): string {
+export function resolveAppOrigin(origin?: string): string {
   if (origin) return origin.replace(/\/$/, '')
   if (typeof window !== 'undefined') return window.location.origin
   return ''
 }
 
-function roundRect(
+export function roundRect(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,

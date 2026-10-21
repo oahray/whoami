@@ -8,6 +8,7 @@ import PlaySetup from './pages/PlaySetup'
 import PlayCards from './pages/PlayCards'
 import SoloSetup from './pages/SoloSetup'
 import SoloGame from './pages/SoloGame'
+import SoloStats from './pages/SoloStats'
 import Lobby from './pages/Lobby'
 import Game from './pages/Game'
 import AdminLegacyRedirect from './components/AdminLegacyRedirect'
@@ -32,6 +33,7 @@ function App() {
                 <Route path="/play/cards" element={<PlayCards />} />
                 <Route path="/solo" element={<SoloSetup />} />
                 <Route path="/solo/play" element={<SoloGame />} />
+                <Route path="/solo/stats" element={<SoloStats />} />
                 <Route path="/lobby" element={<Lobby />} />
                 <Route path="/game" element={<Game />} />
                 <Route path="/admin/*" element={<AdminLegacyRedirect />} />
