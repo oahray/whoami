@@ -1,7 +1,8 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import PreferencesMenu from '../components/PreferencesMenu'
-import { loadDailyProgress } from '../lib/dailySolo'
+import { dailyDateKey, loadDailyProgress } from '../lib/dailySolo'
+import { shareOrDownloadSoloStatsPng } from '../lib/exportSoloStatsPng'
 import { listEntityMastery, masteryStage } from '../lib/soloMastery'
 import { formatSoloScore, formatSoloTime } from '../lib/soloSession'
 import {
@@ -255,6 +256,43 @@ function SoloStats() {
   const nemesis = findNemesis(entities)
   const current = MODES.find((entry) => entry.id === mode)!
   const enough = mode === 'daily' ? stats.daysPlayed >= STATS_MIN_DAYS : stats.runs >= STATS_MIN_DAYS
+  const foundCount = entities.filter((entity) => entity.correctCount > 0).length
+  const masteredCount = entities.filter(
+    (entity) => masteryStage(entity.correctCount, entity.firstClueCorrectCount) === 'mastered'
+  ).length
+  const [shareState, setShareState] = useState<'idle' | 'working' | 'shared' | 'downloaded' | 'error'>('idle')
+
+  const shareStats = () => {
+    const favourite = stats.favouriteSetup ? parseSetupKey(stats.favouriteSetup.key) : null
+    const usual = favourite ? describeSoloSetup(favourite) : null
+    setShareState('working')
+    shareOrDownloadSoloStatsPng(
+      {
+        mode,
+        stats,
+        daily: mode === 'daily' ? dailyExtras : undefined,
+        firstDateKey: days[mode].map((day) => day.dateKey).sort()[0],
+        found: foundCount,
+        mastered: masteredCount,
+        usualSetup: usual ?? undefined
+      },
+      dailyDateKey()
+    )
+      .then((outcome) => {
+        setShareState(outcome)
+        window.setTimeout(() => setShareState('idle'), 2200)
+      })
+      .catch((err) => {
+        // Closing the share sheet is not a failure.
+        if (err instanceof Error && err.name === 'AbortError') {
+          setShareState('idle')
+          return
+        }
+        console.warn('Stats share failed:', err)
+        setShareState('error')
+        window.setTimeout(() => setShareState('idle'), 2200)
+      })
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-app-bg font-display text-foreground">
@@ -271,6 +309,34 @@ function SoloStats() {
             <h1 className="text-lg font-bold">Stats for nerds</h1>
             <p className="text-xs text-foreground-muted">Saved on this device</p>
           </div>
+          {enough && (
+            <button
+              type="button"
+              onClick={shareStats}
+              disabled={shareState === 'working'}
+              aria-label={`Share your ${current.label} stats as an image`}
+              title={
+                shareState === 'shared'
+                  ? 'Shared!'
+                  : shareState === 'downloaded'
+                    ? 'Saved!'
+                    : shareState === 'error'
+                      ? 'Failed'
+                      : 'Share image'
+              }
+              className="flex size-10 items-center justify-center rounded-full text-foreground-muted hover:bg-surface-elevated disabled:opacity-60"
+            >
+              <span className="material-symbols-outlined" aria-hidden>
+                {shareState === 'working'
+                  ? 'hourglass_top'
+                  : shareState === 'shared' || shareState === 'downloaded'
+                    ? 'check'
+                    : shareState === 'error'
+                      ? 'error'
+                      : 'ios_share'}
+              </span>
+            </button>
+          )}
           <PreferencesMenu />
         </div>
       </header>
@@ -341,15 +407,8 @@ function SoloStats() {
         <Section title="Learning, all modes" icon="school">
           <Tiles
             items={[
-              { label: 'Cards found', value: String(entities.filter((entity) => entity.correctCount > 0).length) },
-              {
-                label: 'Mastered',
-                value: String(
-                  entities.filter(
-                    (entity) => masteryStage(entity.correctCount, entity.firstClueCorrectCount) === 'mastered'
-                  ).length
-                )
-              },
+              { label: 'Cards found', value: String(foundCount) },
+              { label: 'Mastered', value: String(masteredCount) },
               {
                 label: 'First-clue solves',
                 value: String(entities.reduce((total, entity) => total + entity.firstClueCorrectCount, 0))
