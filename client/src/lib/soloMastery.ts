@@ -37,6 +37,8 @@ export type MasteryOutcome = {
   correct: boolean
   revealedClueCount: number
   settledAt?: string
+  /** Review runs are practice: a correct answer only clears Needs review. */
+  practice?: boolean
 }
 
 export type MasteryChange = {
@@ -234,6 +236,31 @@ export function applyMasteryOutcome(outcome: MasteryOutcome): MasteryChange {
       state: existing.state,
       previousState: existing.state,
       changed: false,
+      entityId: existing.entityId,
+      entityName: existing.entityName
+    }
+  }
+
+  if (outcome.practice) {
+    store.appliedEvents[outcome.eventId] = true
+    if (!existing || !outcome.correct || existing.state !== 'needs_review') {
+      saveStore(store)
+      const state = existing?.state ?? 'encountered'
+      return {
+        state,
+        previousState: existing?.state ?? 'new',
+        changed: false,
+        entityId: outcome.entityId,
+        entityName: existing?.entityName ?? outcome.entityName
+      }
+    }
+    const state = masteryStage(existing.correctCount, existing.firstClueCorrectCount)
+    store.entities[key(outcome.datasetId, outcome.entityId)] = { ...existing, lastCorrect: true, state }
+    saveStore(store)
+    return {
+      state,
+      previousState: 'needs_review',
+      changed: true,
       entityId: existing.entityId,
       entityName: existing.entityName
     }

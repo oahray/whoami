@@ -38,8 +38,6 @@ import {
 import {
   coerceDifficultySelection,
   encodeDifficultySelection,
-  formatDifficultySelection,
-  isAnyDifficultySelection,
   DEFAULT_DIFFICULTY_SELECTION,
   type DifficultySelection
 } from '../lib/difficultySelection'
@@ -47,7 +45,6 @@ import {
   DEFAULT_ENTITY_TYPE_FILTER,
   ENTITY_TYPE_FIELD_LABEL,
   ENTITY_TYPE_OPTIONS,
-  entityTypeOptionLabel,
   soleCardType,
   type EntityTypeFilter
 } from '../lib/entityTypeFilter'
@@ -57,6 +54,7 @@ import {
   type InPersonEligibility
 } from '../lib/inPersonEligibility'
 import { isMaintenanceBlockingNewGames } from '../lib/maintenance'
+import { describeSoloSetup } from '../lib/soloTrends'
 import {
   clearMasteryForDataset,
   collectionGroups,
@@ -154,8 +152,14 @@ function SoloSetup() {
 
   // Shown above the pinned Start button so it's clear it starts the custom game
   // (not today's challenge), even when the setup controls are scrolled away.
-  const customStartSummary = `Custom game: ${entityTypeOptionLabel(lockedCardType ?? entityType)}, ${isAnyDifficultySelection(difficulty) ? 'All difficulties' : formatDifficultySelection(difficulty).replace(/ · /g, ' + ')},`
-  const customStartTiming = `${roundSeconds}s per card, new clue every ${clueIntervalSeconds}s`
+  const startSetup = describeSoloSetup({
+    difficulty,
+    entityType: lockedCardType ?? entityType,
+    roundDurationMs: roundSeconds * 1000,
+    clueRevealIntervalMs: clueIntervalSeconds * 1000
+  })
+  const customStartSummary = `Custom game: ${startSetup.what},`
+  const customStartTiming = startSetup.timing
 
   const currentConfig: SoloConfig | null = datasetId
     ? {
@@ -1216,8 +1220,8 @@ function SoloSetup() {
                 {neverRightCount > 0 && (
                   <p className="rounded-lg border border-dashed border-edge px-3 py-3 text-center text-sm text-foreground-muted">
                     {neverRightCount === 1
-                      ? "1 card you've missed every time so far. Get it right in Review to add it here."
-                      : `${neverRightCount} cards you've missed every time so far. Get one right in Review to add it here.`}
+                      ? "1 card you haven't got right yet. Get it in a Daily, Classic or Endurance game to add it here."
+                      : `${neverRightCount} cards you haven't got right yet. Get one in a Daily, Classic or Endurance game to add it here.`}
                   </p>
                 )}
               </div>
@@ -1300,6 +1304,15 @@ function SoloSetup() {
             )}
           </section>
         )}
+        <Link
+          to="/solo/stats"
+          className="flex items-center justify-center gap-1.5 py-2 text-sm font-semibold text-foreground-muted underline-offset-2 hover:text-foreground hover:underline"
+        >
+          <span className="material-symbols-outlined text-lg" aria-hidden>
+            query_stats
+          </span>
+          Stats for nerds
+        </Link>
       </main>
 
       {!loading && datasets.length > 0 && (

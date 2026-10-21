@@ -2,7 +2,8 @@ import { API_BASE_URL } from './apiBase'
 import { rememberDailyCard } from './inPersonCardFetch'
 import type {
   KnowledgeScoreRules,
-  SoloRecord
+  SoloRecord,
+  SoloRoundPerformance
 } from './soloSession'
 import type { InPersonCard } from '../types'
 
@@ -50,7 +51,7 @@ export type DailySummary = {
   wrongGuesses: number
   timeMs: number
   fastestSolveMs: number | null
-  byType: { character: [correct: number, total: number]; place: [correct: number, total: number] }
+  byType: RoundTally['byType']
 }
 
 export type DailyProgress = {
@@ -75,10 +76,17 @@ function emptyProgress(): DailyProgress {
   }
 }
 
-export function summarizeDailyResult(result: DailyResult): DailySummary {
-  const rounds = result.record.rounds ?? []
+export type RoundTally = {
+  solvedOnClue: number[]
+  wrongGuesses: number
+  fastestSolveMs: number | null
+  byType: { character: [correct: number, total: number]; place: [correct: number, total: number] }
+}
+
+/** Per-clue solves, wrong guesses, fastest solve and type split from a run's rounds. */
+export function tallyRounds(rounds: SoloRoundPerformance[]): RoundTally {
   const solvedOnClue: number[] = []
-  const byType: DailySummary['byType'] = { character: [0, 0], place: [0, 0] }
+  const byType: RoundTally['byType'] = { character: [0, 0], place: [0, 0] }
   let wrongGuesses = 0
   let fastestSolveMs: number | null = null
   for (const round of rounds) {
@@ -93,6 +101,12 @@ export function summarizeDailyResult(result: DailyResult): DailySummary {
     solvedOnClue[clueIndex] += 1
     fastestSolveMs = fastestSolveMs == null ? round.elapsedMs : Math.min(fastestSolveMs, round.elapsedMs)
   }
+  return { solvedOnClue, wrongGuesses, fastestSolveMs, byType }
+}
+
+export function summarizeDailyResult(result: DailyResult): DailySummary {
+  const rounds = result.record.rounds ?? []
+  const { solvedOnClue, wrongGuesses, fastestSolveMs, byType } = tallyRounds(rounds)
   const score = result.record.score
   return {
     v: 1,
