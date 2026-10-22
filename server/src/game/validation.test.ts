@@ -194,6 +194,44 @@ describe('validateGuess', () => {
     })
   })
 
+  describe('qualifiers, titles, accents and commas', () => {
+    it('accepts qualifiers without brackets, in any order, only when they are right', () => {
+      expect(validateGuess('Simon the Zealot', 'Simon (the Zealot)', false)).toBe(true)
+      expect(validateGuess('Zealot Simon', 'Simon (the Zealot)', false)).toBe(true)
+      expect(validateGuess('Joseph of Arimathea', 'Joseph (of Arimathea)', false)).toBe(true)
+      expect(validateGuess('Simon the Zealot', 'Simon (the Zealot)', true)).toBe(true)
+      expect(validateGuess('Simon Zealot', 'Simon (the Zealot)', true)).toBe(false)
+      expect(validateGuess('Simon the Zelot', 'Simon (the Zealot)', false)).toBe(true)
+      expect(validateGuess('John the Baptist', 'John (the apostle)', false)).toBe(false)
+      expect(validateGuess('Herod Antipas', 'Herod (the Great)', false, ['Antipas'])).toBe(false)
+      expect(validateGuess('Herod Antipas', 'Herod (Antipas)', false)).toBe(true)
+    })
+
+    it('accepts titles in front of a name', () => {
+      expect(validateGuess('King David', 'David', false)).toBe(true)
+      expect(validateGuess('King David', 'David', true)).toBe(true)
+      expect(validateGuess('Prophet Elijah', 'Elijah', false)).toBe(true)
+      expect(validateGuess('St. Peter', 'Peter', false)).toBe(true)
+      expect(validateGuess('Saint Peter', 'Peter', false)).toBe(true)
+      expect(validateGuess('High Priest Eli', 'Eli', false)).toBe(true)
+      expect(validateGuess('Apostle John', 'John (the apostle)', false)).toBe(true)
+      expect(validateGuess('Prophet Nathan', 'Nathan (the prophet)', false)).toBe(true)
+      expect(validateGuess('King Saul', 'David', false)).toBe(false)
+      expect(validateGuess('King', 'David', false)).toBe(false)
+      expect(validateGuess('Pharaoh', 'Pharaoh (the plagues)', false)).toBe(true)
+    })
+
+    it('ignores accents', () => {
+      expect(validateGuess('Élijah', 'Elijah', false)).toBe(true)
+      expect(validateGuess('Élijah', 'Elijah', true)).toBe(true)
+    })
+
+    it('treats a comma like brackets', () => {
+      expect(validateGuess('Abimelech, king of Gerar', 'Abimelech (king of Gerar)', false)).toBe(true)
+      expect(validateGuess('Abimelech, son of Gideon', 'Abimelech (king of Gerar)', false)).toBe(false)
+    })
+  })
+
   describe('aliases', () => {
     it('matches the canonical answer when aliases are present', () => {
       expect(validateGuess('Peter', 'Peter', false, ['Simon', 'Cephas'])).toBe(true)
@@ -233,6 +271,12 @@ describe('validateGuess', () => {
 })
 
 describe('guessCloseness', () => {
+  it('ignores titles and commas like validateGuess does', () => {
+    expect(guessCloseness('King Davd', 'David', false)).toBe('close')
+    expect(guessCloseness('King Davd', 'David', true)).toBe('close')
+    expect(guessCloseness('Simon, the Zelot', 'Simon (the Zealot)', true)).toBe('spelling')
+  })
+
   it('flags a Strict-mode spelling slip that lenient mode would accept', () => {
     expect(validateGuess('Pharoah', 'Pharaoh', true)).toBe(false)
     expect(guessCloseness('Pharoah', 'Pharaoh', true)).toBe('spelling')
