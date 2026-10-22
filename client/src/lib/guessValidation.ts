@@ -10,6 +10,8 @@ function hasParenthetical(value: string): boolean {
 /** Casefold + treat apostrophes/dashes as spaces. Keeps parenthetical text. */
 function normalizePunctuation(value: string): string {
   return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .trim()
     .replace(/['\u2019\-–—]/g, ' ')
@@ -34,11 +36,13 @@ function normalizeForGuess(input: string, answer: string): { left: string; right
   }
 }
 
+const ARTICLES = new Set(['the', 'a', 'an'])
+
 /** Drop optional articles — lenient mode only. */
 function stripArticles(value: string): string {
   return value
     .split(/\s+/)
-    .filter((word) => word.length > 0 && !['the', 'a', 'an'].includes(word))
+    .filter((word) => word.length > 0 && !ARTICLES.has(word))
     .join(' ')
 }
 
@@ -81,11 +85,52 @@ function equalsIgnoringSeparators(left: string, right: string): boolean {
   return compact(left) === compact(right)
 }
 
+const TITLES = new Set(['king', 'queen', 'prophet', 'prophetess', 'apostle', 'saint', 'st', 'st.', 'judge', 'priest'])
+
+/** Only brackets and commas split words here, so "Moses!" stays a different word from "Moses". */
+function nameWords(value: string, strict: boolean): string[] {
+  const words = normalizePunctuation(value.replace(/[(),]/g, ' ')).split(' ').filter(Boolean)
+  return strict ? words : words.filter((word) => !ARTICLES.has(word))
+}
+
+/** Titles players put in front of a name ("King David", "High Priest Eli"). Never drops the last word. */
+function dropTitles(words: string[]): string[] {
+  let rest = words
+  for (;;) {
+    if (rest.length > 2 && rest[0] === 'high' && rest[1] === 'priest') rest = rest.slice(2)
+    else if (rest.length > 1 && TITLES.has(rest[0])) rest = rest.slice(1)
+    else return rest
+  }
+}
+
+function sameWordsAnyOrder(left: string[], right: string[]): boolean {
+  return left.length === right.length && [...left].sort().join(' ') === [...right].sort().join(' ')
+}
+
+/**
+ * Qualifiers without brackets ("Simon the Zealot", "Zealot Simon", "Abimelech, king of Gerar") and leading titles.
+ * Any extra words must be the answer's own qualifier, so "John the Baptist" never matches "John (the apostle)".
+ */
+function matchesQualifiedName(input: string, answer: string, strict: boolean): boolean {
+  const guess = dropTitles(nameWords(input, strict))
+  const main = dropTitles(nameWords(stripParentheticals(answer), strict))
+  if (guess.length === 0 || main.length === 0) return false
+  const qualifier = (answer.match(/\([^)]*\)/g) ?? []).flatMap((part) => nameWords(part, strict))
+  const full = [...main, ...qualifier]
+  const same = (words: string[]) => {
+    const left = compact(guess.join(' '))
+    const right = compact(words.join(' '))
+    return left === right || (!strict && isNearMiss(left, right))
+  }
+  return same(main) || same(full) || sameWordsAnyOrder(guess, full)
+}
+
 function matches(input: string, answer: string, strict: boolean): boolean {
   if (!input || !answer) return false
 
   const { left: leftBase, right: rightBase } = normalizeForGuess(input, answer)
   if (equalsIgnoringSeparators(leftBase, rightBase)) return true
+  if (matchesQualifiedName(input, answer, strict)) return true
 
   if (strict) return false
 
@@ -108,9 +153,9 @@ export function validateGuess(
 
 export type GuessCloseness = 'spelling' | 'close' | null
 
-/** Comparable core for closeness: no parentheticals, articles, case or separators. */
+/** Comparable core for closeness: no parentheticals, articles, leading titles, case or separators. */
 function closenessCore(value: string): string {
-  return compact(stripArticles(normalizePunctuation(stripParentheticals(value))))
+  return compact(dropTitles(nameWords(stripParentheticals(value), false)).join(' '))
 }
 
 /** Typos still counted as "close": none for names under 4 letters, 1 up to 7, 2 from 8. */
