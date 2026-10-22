@@ -15,6 +15,7 @@ vi.mock('../db/maintenance.js', () => ({
 import { supabase } from '../db/supabase.js'
 import cardsRouter, { DAILY_CHALLENGE_VERSION } from './cards.js'
 import { resetDailyChallengeCacheForTests } from '../game/dailyChallenge.js'
+import { clearContentCache } from '../game/contentCache.js'
 import {
   createQueryBuilder,
   hasEq,
@@ -22,6 +23,9 @@ import {
   type QueryResolver,
   type QueryState
 } from '../test-utils/supabaseQueryBuilder.js'
+
+// Each test installs its own content, so nothing may carry over in the public cache.
+beforeEach(() => clearContentCache())
 
 function makeApp() {
   const app = express()
@@ -129,7 +133,8 @@ function inPersonMockResolver(
   return (state: QueryState) => {
     const table = state.table
     if (table === 'datasets') {
-      return { data: DATASET_ENABLED, error: null }
+      // A single lookup for the default dataset; the full list for the public card cache.
+      return { data: hasOp(state, 'maybeSingle') ? DATASET_ENABLED : [DATASET_ENABLED], error: null }
     }
     if (table === 'entities') {
       if (hasOp(state, 'maybeSingle')) {
@@ -216,7 +221,7 @@ describe('GET /cards/random', () => {
       createQueryBuilder(table, () => {
         if (table === 'datasets') {
           return {
-            data: { ...DATASET_ENABLED, is_enabled: false },
+            data: [{ ...DATASET_ENABLED, is_enabled: false }],
             error: null
           }
         }

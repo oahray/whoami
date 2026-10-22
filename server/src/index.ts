@@ -21,6 +21,7 @@ import publicCardsRoutes from './routes/cards.js'
 import publicMaintenanceRoutes from './routes/maintenance.js'
 import publicHistoryKeyRoutes from './routes/historyPublicKey.js'
 import publicPlayTotalsRoutes from './routes/playTotals.js'
+import { PUBLIC_RATE_LIMITS, rateLimit } from './middleware/rateLimit.js'
 import { supabase } from './db/supabase.js'
 import { logger } from './utils/logger.js'
 import { errorHandler } from './middleware/errorHandler.js'
@@ -38,6 +39,14 @@ dotenv.config()
 
 const app = express()
 const server = createServer(app)
+
+/**
+ * How many proxies sit in front of the server (Railway's edge is one; add one more if
+ * Cloudflare proxies the API too). Express then reads the client address from the right
+ * end of X-Forwarded-For, which a client cannot fake the way it can fake the left end.
+ */
+const TRUST_PROXY_HOPS = Number.parseInt(process.env.TRUST_PROXY_HOPS ?? '1', 10)
+app.set('trust proxy', Number.isFinite(TRUST_PROXY_HOPS) ? TRUST_PROXY_HOPS : 1)
 const PORT = process.env.PORT || 3001
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'http://localhost:5173'
 const CLIENT_ORIGINS = process.env.CLIENT_ORIGINS
@@ -56,13 +65,8 @@ const WARMTH_WINDOW_MS = 5 * 60 * 1000 // 5 minutes
 const WARMTH_MAX_REQUESTS = 30         // per IP per window
 const warmthBuckets = new Map<string, WarmthBucket>()
 
-function getClientIp(req: express.Request): string {
-  const xfwd = (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim()
-  return xfwd || req.ip || 'unknown'
-}
-
 function isWarmthAllowed(req: express.Request): boolean {
-  const ip = getClientIp(req)
+  const ip = req.ip ?? 'unknown'
   const now = Date.now()
   const bucket = warmthBuckets.get(ip)
 
@@ -142,6 +146,11 @@ app.get('/internal/warmth', async (req, res) => {
     })
   }
 })
+
+const publicPaths = ['/datasets', '/cards', '/maintenance', '/history-public-key', '/play-totals']
+app.use(publicPaths, rateLimit(PUBLIC_RATE_LIMITS.overall))
+app.use('/cards/deck', rateLimit(PUBLIC_RATE_LIMITS.deck))
+app.use('/play-totals', rateLimit(PUBLIC_RATE_LIMITS.playTotals))
 
 app.use(publicDatasetsRoutes)
 app.use(publicCardsRoutes)
