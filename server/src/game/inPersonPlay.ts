@@ -1,6 +1,6 @@
 import {
   getCluesForEntity,
-  getDataset,
+  listDatasets,
   GAME_DIFFICULTY_MODES,
   type GameDifficultyMode,
   type Entity
@@ -10,6 +10,7 @@ import { supabase } from '../db/supabase.js'
 import { IN_PERSON_CLUES_MIN, IN_PERSON_CLUES_MAX } from './config.js'
 import {
   countCluesForSelection,
+  isAnyDifficultySelection,
   parseDifficultySelection,
   type DifficultySelection
 } from './difficultySelection.js'
@@ -19,6 +20,7 @@ import {
   type EntityTypeFilter
 } from './entityTypeFilter.js'
 import { shuffle, seededShuffle } from './shuffle.js'
+import { cachedContent } from './contentCache.js'
 
 export type InPersonCardPayload = {
   entity: {
@@ -67,7 +69,9 @@ export class InPersonPlayError extends Error {
 }
 
 async function assertPlayableDataset(datasetId: string) {
-  const dataset = await getDataset(datasetId)
+  // The whole (small) datasets table is cached, so unknown ids never reach the database.
+  const datasets = await cachedContent('datasets', listDatasets)
+  const dataset = datasets.find((entry) => entry.id === datasetId) ?? null
   if (!dataset) {
     throw new InPersonPlayError('INVALID_DATASET', 'Dataset not found')
   }
@@ -81,6 +85,11 @@ async function fetchPublishedEntities(
   datasetId: string,
   entityType: EntityTypeFilter = DEFAULT_ENTITY_TYPE_FILTER
 ): Promise<Entity[]> {
+  const all = await cachedContent(`published:${datasetId}`, () => loadPublishedEntities(datasetId))
+  return all.filter((e) => entityMatchesTypeFilter(e.type, entityType))
+}
+
+async function loadPublishedEntities(datasetId: string): Promise<Entity[]> {
   try {
     const data = await fetchAllPages<Entity>((from, to) =>
       supabase
@@ -92,7 +101,7 @@ async function fetchPublishedEntities(
         .order('id')
         .range(from, to)
     )
-    return data.filter((e) => entityMatchesTypeFilter(e.type, entityType))
+    return data
   } catch (error) {
     const message = error instanceof Error ? error.message : 'unknown error'
     throw new Error(`Failed to fetch entities: ${message}`)
@@ -103,6 +112,19 @@ type EntityClueCounts = Record<GameDifficultyMode, number>
 
 function emptyClueCounts(): EntityClueCounts {
   return { any: 0, easy: 0, medium: 0, hard: 0, nightmare: 0 }
+}
+
+/** Clue counts for the given published entities, read from one cached map per dataset. */
+async function clueCountsFor(
+  datasetId: string,
+  entityIds: string[]
+): Promise<Map<string, EntityClueCounts>> {
+  const all = await cachedContent(`clueCounts:${datasetId}`, async () =>
+    fetchClueCountsByEntity((await fetchPublishedEntities(datasetId, 'all')).map((e) => e.id))
+  )
+  const subset = new Map<string, EntityClueCounts>()
+  for (const id of entityIds) subset.set(id, all.get(id) ?? emptyClueCounts())
+  return subset
 }
 
 async function fetchClueCountsByEntity(
@@ -183,7 +205,7 @@ export async function getInPersonEligibility(
     else if (entity.type === 'character') types.character += 1
   }
   const entities = published.filter((entity) => entityMatchesTypeFilter(entity.type, entityType))
-  const countsByEntity = await fetchClueCountsByEntity(entities.map((e) => e.id))
+  const countsByEntity = await clueCountsFor(datasetId, entities.map((e) => e.id))
   return { ...countEligibleModes(countsByEntity, coerceSelection(difficultySelection)), types }
 }
 
@@ -195,7 +217,7 @@ export async function getEligibleEntities(
   await assertPlayableDataset(datasetId)
   const selection = coerceSelection(difficultySelection)
   const entities = await fetchPublishedEntities(datasetId, entityType)
-  const countsByEntity = await fetchClueCountsByEntity(entities.map((e) => e.id))
+  const countsByEntity = await clueCountsFor(datasetId, entities.map((e) => e.id))
   return entities
     .filter((e) => {
       const counts = countsByEntity.get(e.id)
@@ -250,43 +272,6 @@ function normalizeEntityName(name: string): string {
   return name.trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
-async function fetchPublishedEntitiesByIds(
-  datasetId: string,
-  ids: string[]
-): Promise<Entity[]> {
-  if (ids.length === 0) return []
-  const { data, error } = await supabase
-    .from('entities')
-    .select('*')
-    .eq('is_published', true)
-    .eq('dataset_id', datasetId)
-    .in('id', ids)
-  if (error) {
-    throw new Error(`Failed to resolve entities by id: ${error.message}`)
-  }
-  return (data as Entity[] | null) ?? []
-}
-
-/** Light id+name catalog used only when some requested ids are missing. */
-async function fetchPublishedNameCatalog(
-  datasetId: string
-): Promise<Array<{ id: string; name: string }>> {
-  try {
-    return await fetchAllPages((from, to) =>
-      supabase
-        .from('entities')
-        .select('id, name')
-        .eq('is_published', true)
-        .eq('dataset_id', datasetId)
-        .order('id')
-        .range(from, to)
-    )
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'unknown error'
-    throw new Error(`Failed to fetch entity name catalog: ${message}`)
-  }
-}
-
 /**
  * Resolve a small set of client-known entity ids for Review.
  * Matches by id first, then by normalized name when ids changed after a reimport.
@@ -313,17 +298,16 @@ export async function resolvePublishedEntities(
   }
   if (unique.length === 0) return []
 
-  const byIdRows = await fetchPublishedEntitiesByIds(
-    datasetId,
-    unique.map((entry) => entry.id)
+  const published = await fetchPublishedEntities(datasetId, 'all')
+  const requested = new Set(unique.map((entry) => entry.id))
+  const byId = new Map(
+    published.filter((entity) => requested.has(entity.id)).map((entity) => [entity.id, entity])
   )
-  const byId = new Map(byIdRows.map((entity) => [entity.id, entity]))
 
   const unresolved = unique.filter((entry) => !byId.has(entry.id) && entry.name)
   const byName = new Map<string, { id: string; name: string }>()
   if (unresolved.length > 0) {
-    const catalog = await fetchPublishedNameCatalog(datasetId)
-    for (const entity of catalog) {
+    for (const entity of published) {
       const normalized = normalizeEntityName(entity.name)
       if (normalized && !byName.has(normalized)) byName.set(normalized, entity)
     }
@@ -347,7 +331,7 @@ export async function resolvePublishedEntities(
     candidates.push({ id: match.id, name: match.name, previousId: entry.id })
   }
 
-  const countsByEntity = await fetchClueCountsByEntity(candidates.map((c) => c.id))
+  const countsByEntity = await clueCountsFor(datasetId, candidates.map((c) => c.id))
   return candidates.filter((candidate) => {
     const counts = countsByEntity.get(candidate.id) ?? emptyClueCounts()
     return isEligibleForSelection(counts, [])
@@ -370,22 +354,17 @@ export async function buildInPersonCardForEntity(params: {
   const difficultySelection = coerceSelection(params.difficultySelection ?? params.difficultyMode)
   await assertPlayableDataset(datasetId)
 
-  const { data: entity, error } = await supabase
-    .from('entities')
-    .select('*')
-    .eq('id', entityId)
-    .eq('dataset_id', datasetId)
-    .eq('is_published', true)
-    .maybeSingle()
-
-  if (error) {
-    throw new Error(`Failed to fetch entity: ${error.message}`)
-  }
+  // Looked up in the cached published list, so made-up ids never reach the database.
+  const entity = (await fetchPublishedEntities(datasetId, 'all')).find((e) => e.id === entityId)
   if (!entity) {
     throw new InPersonPlayError('ENTITY_NOT_FOUND', 'Character not found in this content pack')
   }
 
-  const clues = await getCluesForEntity(entityId, { difficultySelection })
+  const allClues = await cachedContent(`clues:${entityId}`, () => getCluesForEntity(entityId))
+  // Same rule as the database filter it replaces: a specific selection drops unrated clues.
+  const clues = isAnyDifficultySelection(difficultySelection)
+    ? allClues
+    : allClues.filter((clue) => clue.difficulty != null && difficultySelection.includes(clue.difficulty))
   if (clues.length < IN_PERSON_CLUES_MIN) {
     throw new InPersonPlayError(
       'NO_CARDS',
