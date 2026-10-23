@@ -10,6 +10,7 @@ vi.mock('../db/supabase.js', () => ({
 
 import { supabase } from '../db/supabase.js'
 import publicDatasetsRouter from './datasets.js'
+import { clearContentCache } from '../game/contentCache.js'
 import { createQueryBuilder } from '../test-utils/supabaseQueryBuilder.js'
 
 function makeApp() {
@@ -54,6 +55,7 @@ const ROW_DISABLED = {
 describe('public datasets route', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    clearContentCache()
   })
 
   it('returns only enabled datasets with public-safe fields', async () => {

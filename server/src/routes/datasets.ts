@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { listDatasets } from '../db/entities.js'
+import { cachedContent } from '../game/contentCache.js'
 import { logger } from '../utils/logger.js'
 
 /**
@@ -11,7 +12,7 @@ const router = Router()
 
 router.get('/datasets', async (_req, res) => {
   try {
-    const datasets = await listDatasets()
+    const datasets = await cachedContent('datasets', listDatasets)
     const enabled = datasets
       .filter((d) => d.is_enabled)
       .map((d) => ({
