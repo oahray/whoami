@@ -18,6 +18,11 @@ import {
   saveSoloSession,
   saveSoloSetupPreferences,
   loadSoloSession,
+  discardSoloRun,
+  loadResumableSoloRun,
+  parkSoloRun,
+  restoreParkedDaily,
+  resumeSoloRun,
   type SoloConfig
 } from './soloSession'
 
@@ -400,5 +405,60 @@ describe('soloSession', () => {
     expect(formatSoloRecordAchievedAt('2026-08-03T10:00:00.000Z', now)).toBe('2h ago')
     expect(formatSoloRecordAchievedAt('2026-08-01T12:00:00.000Z', now)).toBe('2d ago')
     expect(formatSoloRecordAchievedAt('2026-01-15T12:00:00.000Z', now)).toMatch(/2026|Jan/)
+  })
+
+  describe('resuming Classic and Endurance runs', () => {
+    const daily = () =>
+      createSoloSession(
+        { ...config, variation: 'daily', dailyChallengeId: 'daily-1', dailyDateKey: '2026-10-26' },
+        ['d1', 'd2']
+      )
+
+    it('offers an unfinished Classic run that is still the active session', () => {
+      const run = createSoloSession(config, ['a', 'b'])
+      saveSoloSession(run)
+      expect(loadResumableSoloRun()?.entityIds).toEqual(run.entityIds)
+      expect(resumeSoloRun()).toBe(true)
+      expect(loadSoloSession()?.variation).toBe('challenge')
+    })
+
+    it('does not offer Daily or Review sessions for resume', () => {
+      saveSoloSession(daily())
+      expect(loadResumableSoloRun()).toBeNull()
+      saveSoloSession(createSoloSession({ ...config, variation: 'review' }, ['a']))
+      expect(loadResumableSoloRun()).toBeNull()
+    })
+
+    it('keeps an Endurance run parked while a Daily plays, then swaps them back', () => {
+      const run = createSoloSession({ ...config, variation: 'endurance' }, ['a', 'b', 'c'])
+      saveSoloSession(run)
+      parkSoloRun()
+      saveSoloSession(daily())
+
+      expect(loadResumableSoloRun()?.variation).toBe('endurance')
+      expect(resumeSoloRun()).toBe(true)
+      expect(loadSoloSession()?.variation).toBe('endurance')
+
+      expect(restoreParkedDaily('daily-1')).toBe(true)
+      expect(loadSoloSession()?.variation).toBe('daily')
+      expect(loadResumableSoloRun()?.variation).toBe('endurance')
+    })
+
+    it('drops a parked Daily from an earlier challenge', () => {
+      saveSoloSession(daily())
+      parkSoloRun()
+      expect(restoreParkedDaily('daily-2')).toBe(false)
+      expect(restoreParkedDaily('daily-1')).toBe(false)
+    })
+
+    it('discards the run without touching an unfinished Daily', () => {
+      saveSoloSession(createSoloSession(config, ['a']))
+      parkSoloRun()
+      saveSoloSession(daily())
+      discardSoloRun()
+      expect(loadResumableSoloRun()).toBeNull()
+      expect(loadSoloSession()?.variation).toBe('daily')
+      expect(resumeSoloRun()).toBe(false)
+    })
   })
 })
