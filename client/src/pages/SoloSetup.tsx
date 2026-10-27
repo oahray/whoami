@@ -65,19 +65,25 @@ import {
 } from '../lib/soloMastery'
 import {
   createSoloSession,
+  discardSoloRun,
   formatSoloRecordAchievedAt,
   formatSoloScore,
   formatSoloTime,
   getSoloRecord,
   listSoloRecords,
+  loadResumableSoloRun,
   loadSoloSession,
   loadSoloSetupPreferences,
+  parkSoloRun,
+  restoreParkedDaily,
+  resumeSoloRun,
   saveSoloSession,
   saveSoloSetupPreferences,
   soloConfigSummary,
   SOLO_CHALLENGE_ROUNDS,
   type KnowledgeScoreRules,
   type SoloConfig,
+  type SoloSession,
   type SoloRecord,
   type SoloVariation
 } from '../lib/soloSession'
@@ -120,6 +126,8 @@ function SoloSetup() {
   const [loading, setLoading] = useState(true)
   const [eligibilityLoading, setEligibilityLoading] = useState(false)
   const [starting, setStarting] = useState(false)
+  const [savedRun, setSavedRun] = useState(loadResumableSoloRun)
+  const [confirmNewRun, setConfirmNewRun] = useState(false)
   const [dailyChallenge, setDailyChallenge] = useState<DailyChallenge | null>(null)
   const [dailyLoading, setDailyLoading] = useState(true)
   // Bumped when the next Daily unlocks so it loads without a manual refresh.
@@ -526,6 +534,23 @@ function SoloSetup() {
     })
   }
 
+  const resume = () => {
+    unlockAudio()
+    fadeOutMenuMusic()
+    playSound('go')
+    if (resumeSoloRun()) {
+      navigate('/solo/play')
+      return
+    }
+    setSavedRun(null)
+  }
+
+  const endSavedRun = () => {
+    discardSoloRun()
+    setSavedRun(null)
+    setConfirmNewRun(false)
+  }
+
   const start = async () => {
     if (!canStart) return
     setStarting(true)
@@ -568,6 +593,7 @@ function SoloSetup() {
           : undefined
       )
       saveSoloSetupPreferences(config)
+      parkSoloRun()
       saveSoloSession(session)
       reportSoloPlay(session.variation, 'started')
       navigate('/solo/play')
@@ -590,6 +616,10 @@ function SoloSetup() {
       navigate('/solo/play')
       return
     }
+    if (restoreParkedDaily(dailyChallenge.challengeId)) {
+      navigate('/solo/play')
+      return
+    }
     const session = createSoloSession(
       {
         datasetId: dailyChallenge.datasetId,
@@ -607,6 +637,7 @@ function SoloSetup() {
         rules: dailyChallenge.scoringRules
       }
     )
+    parkSoloRun()
     saveSoloSession(session)
     reportSoloPlay('daily', 'started')
     unlockAudio()
@@ -673,6 +704,7 @@ function SoloSetup() {
           ? { version: scoringVersion, rules: scoringRules }
           : undefined
       )
+      parkSoloRun()
       saveSoloSession(session)
       reportSoloPlay('review', 'started')
       navigate('/solo/play')
@@ -1318,36 +1350,97 @@ function SoloSetup() {
       {!loading && datasets.length > 0 && (
         <div className="sticky bottom-0 z-10 border-t border-edge bg-surface/80 p-2 backdrop-blur-md pb-[max(0.5rem,env(safe-area-inset-bottom))]">
           <div className="setup-shell flex flex-col gap-1.5 px-1 md:px-2">
-            <p
-              id="solo-custom-start-summary"
-              className="text-center text-[11px] font-medium leading-snug text-foreground-muted"
-            >
-              {customStartSummary}{' '}
-              {/* Kept together so a narrow screen breaks before the timing, not mid-phrase. */}
-              <span className="whitespace-nowrap">{customStartTiming}</span>
-            </p>
-            <button
-              type="button"
-              onClick={() => void start()}
-              disabled={!canStart}
-              aria-describedby="solo-custom-start-summary"
-              className={`w-full rounded-lg py-3 font-bold disabled:opacity-50 ${
-                dailyStillToPlay
-                  ? 'border-2 border-primary bg-primary/10 text-primary hover:bg-primary/20'
-                  : 'bg-primary text-white shadow-lg shadow-primary/20'
-              }`}
-            >
-              {starting
-                ? 'Starting…'
-                : variation === 'challenge'
-                  ? 'Start Classic'
-                  : 'Start Endurance'}
-            </button>
+            {savedRun ? (
+              <>
+                <p
+                  id="solo-resume-summary"
+                  className="text-center text-[11px] font-medium leading-snug text-foreground-muted"
+                >
+                  {savedRunSummary(savedRun)}
+                </p>
+                <button
+                  type="button"
+                  onClick={resume}
+                  aria-describedby="solo-resume-summary"
+                  data-testid="solo-resume"
+                  className={`w-full rounded-lg py-3 font-bold ${
+                    dailyStillToPlay
+                      ? 'border-2 border-primary bg-primary/10 text-primary hover:bg-primary/20'
+                      : 'bg-primary text-white shadow-lg shadow-primary/20'
+                  }`}
+                >
+                  {savedRun.variation === 'challenge' ? 'Resume Classic' : 'Resume Endurance'}
+                </button>
+                {confirmNewRun ? (
+                  <div className="flex items-center justify-center gap-3 text-xs" role="group" aria-label="End current run">
+                    <span className="text-foreground-muted">This ends your current run.</span>
+                    <button
+                      type="button"
+                      onClick={endSavedRun}
+                      data-testid="solo-end-run"
+                      className="font-semibold text-red-600 underline-offset-2 hover:underline dark:text-red-300"
+                    >
+                      End it
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmNewRun(false)}
+                      className="font-semibold text-foreground-muted underline-offset-2 hover:underline"
+                    >
+                      Keep it
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmNewRun(true)}
+                    data-testid="solo-new-run"
+                    className="py-0.5 text-xs font-semibold text-foreground-muted underline-offset-2 hover:text-foreground hover:underline"
+                  >
+                    Start a new run instead
+                  </button>
+                )}
+              </>
+            ) : (
+              <>
+                <p
+                  id="solo-custom-start-summary"
+                  className="text-center text-[11px] font-medium leading-snug text-foreground-muted"
+                >
+                  {customStartSummary}{' '}
+                  {/* Kept together so a narrow screen breaks before the timing, not mid-phrase. */}
+                  <span className="whitespace-nowrap">{customStartTiming}</span>
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void start()}
+                  disabled={!canStart}
+                  aria-describedby="solo-custom-start-summary"
+                  className={`w-full rounded-lg py-3 font-bold disabled:opacity-50 ${
+                    dailyStillToPlay
+                      ? 'border-2 border-primary bg-primary/10 text-primary hover:bg-primary/20'
+                      : 'bg-primary text-white shadow-lg shadow-primary/20'
+                  }`}
+                >
+                  {starting
+                    ? 'Starting…'
+                    : variation === 'challenge'
+                      ? 'Start Classic'
+                      : 'Start Endurance'}
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}
     </div>
   )
+}
+
+function savedRunSummary(run: SoloSession): string {
+  const correct = `${run.correctCount} correct`
+  if (run.variation === 'endurance') return `Endurance run in progress · ${correct} so far`
+  return `Classic run in progress · round ${Math.min(run.index + 1, run.entityIds.length)} of ${run.entityIds.length} · ${correct}`
 }
 
 export default SoloSetup

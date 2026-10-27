@@ -182,8 +182,12 @@ export function saveSoloSession(session: SoloSession): void {
 }
 
 export function loadSoloSession(): SoloSession | null {
+  return readSoloSession(SESSION_KEY)
+}
+
+function readSoloSession(key: string): SoloSession | null {
   try {
-    const raw = sessionStorage.getItem(SESSION_KEY)
+    const raw = sessionStorage.getItem(key)
     if (!raw) return null
     const session = normalizeConfigDifficulty(JSON.parse(raw) as SoloSession)
     if (!Array.isArray(session.entityIds) || !session.datasetId || !session.variation) return null
@@ -210,6 +214,64 @@ export function loadSoloSession(): SoloSession | null {
 
 export function clearSoloSession(): void {
   sessionStorage.removeItem(SESSION_KEY)
+}
+
+// Only one session drives the play page, so an unfinished run waits here while another mode plays.
+const PARKED_RUN_KEY = 'whoami-solo-parked-run'
+const PARKED_DAILY_KEY = 'whoami-solo-parked-daily'
+
+function isResumableRun(session: SoloSession | null): session is SoloSession {
+  return session?.variation === 'challenge' || session?.variation === 'endurance'
+}
+
+function writeParked(key: string, session: SoloSession): void {
+  try {
+    sessionStorage.setItem(key, JSON.stringify(session))
+  } catch {
+    // quota / private mode: the run is lost, same as before parking existed
+  }
+}
+
+/** Moves an unfinished Classic, Endurance or Daily session aside before another mode takes the slot. */
+export function parkSoloRun(): void {
+  const current = loadSoloSession()
+  if (isResumableRun(current)) writeParked(PARKED_RUN_KEY, current)
+  else if (current?.variation === 'daily') writeParked(PARKED_DAILY_KEY, current)
+}
+
+/** The unfinished Classic or Endurance run, whether it is active or parked. */
+export function loadResumableSoloRun(): SoloSession | null {
+  const current = loadSoloSession()
+  if (isResumableRun(current)) return current
+  const parked = readSoloSession(PARKED_RUN_KEY)
+  return isResumableRun(parked) ? parked : null
+}
+
+/** Makes the unfinished Classic or Endurance run the active session. False when there is none. */
+export function resumeSoloRun(): boolean {
+  if (isResumableRun(loadSoloSession())) return true
+  const parked = readSoloSession(PARKED_RUN_KEY)
+  sessionStorage.removeItem(PARKED_RUN_KEY)
+  if (!isResumableRun(parked)) return false
+  parkSoloRun()
+  saveSoloSession(parked)
+  return true
+}
+
+/** Brings back a parked Daily for the same challenge. Stale ones are dropped. */
+export function restoreParkedDaily(challengeId: string): boolean {
+  const parked = readSoloSession(PARKED_DAILY_KEY)
+  sessionStorage.removeItem(PARKED_DAILY_KEY)
+  if (parked?.variation !== 'daily' || parked.dailyChallengeId !== challengeId) return false
+  parkSoloRun()
+  saveSoloSession(parked)
+  return true
+}
+
+/** Ends the unfinished Classic or Endurance run so a new one can start. */
+export function discardSoloRun(): void {
+  if (isResumableRun(loadSoloSession())) clearSoloSession()
+  sessionStorage.removeItem(PARKED_RUN_KEY)
 }
 
 export function saveSoloSetupPreferences(prefs: SoloSetupPreferences): void {
