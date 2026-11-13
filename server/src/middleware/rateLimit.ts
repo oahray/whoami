@@ -58,3 +58,10 @@ export const PUBLIC_RATE_LIMITS = {
   /** Anonymous play counters for the admin dashboard. */
   playTotals: { windowMs: 60_000, max: 120 }
 } satisfies Record<string, RateLimitRule>
+
+/**
+ * Every /admin request, signed in or not. One admin's dashboard and live view stay far
+ * below it; the point is that requests with bad tokens can't each cost a Supabase auth call
+ * without limit.
+ */
+export const ADMIN_RATE_LIMIT: RateLimitRule = { windowMs: 60_000, max: 300 }

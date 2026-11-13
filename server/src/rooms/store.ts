@@ -1,3 +1,4 @@
+import { randomInt } from 'crypto'
 import type { Entity } from '../db/entities.js'
 import { coerceAvatarId, type AvatarId } from '../game/avatars.js'
 import {
@@ -138,7 +139,7 @@ function generateRoomCode(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
   let code = ''
   for (let i = 0; i < 6; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length))
+    code += chars.charAt(randomInt(chars.length))
   }
 
   if (rooms.has(code)) {

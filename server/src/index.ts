@@ -21,14 +21,11 @@ import publicCardsRoutes from './routes/cards.js'
 import publicMaintenanceRoutes from './routes/maintenance.js'
 import publicHistoryKeyRoutes from './routes/historyPublicKey.js'
 import publicPlayTotalsRoutes from './routes/playTotals.js'
-import { PUBLIC_RATE_LIMITS, rateLimit } from './middleware/rateLimit.js'
+import { ADMIN_RATE_LIMIT, PUBLIC_RATE_LIMITS, rateLimit } from './middleware/rateLimit.js'
 import { supabase } from './db/supabase.js'
 import { logger } from './utils/logger.js'
 import { errorHandler } from './middleware/errorHandler.js'
-import {
-  BULK_IMPORT_JSON_BODY_LIMIT,
-  DEFAULT_JSON_BODY_LIMIT
-} from './config/bodyLimits.js'
+import { jsonBody } from './middleware/jsonBody.js'
 import { startPlayCountReconcileSchedule } from './analytics/reconcilePlayCounts.js'
 import { isRedisConfigured } from './redis/client.js'
 import { fetchRoomsFromRedis } from './rooms/persist.js'
@@ -90,15 +87,9 @@ app.use(cors({
   credentials: true
 }))
 
-const defaultJsonParser = express.json({ limit: DEFAULT_JSON_BODY_LIMIT })
-const bulkImportJsonParser = express.json({ limit: BULK_IMPORT_JSON_BODY_LIMIT })
-
-app.use((req, res, next) => {
-  if (req.method === 'POST' && req.path === '/admin/bulk-import') {
-    return bulkImportJsonParser(req, res, next)
-  }
-  return defaultJsonParser(req, res, next)
-})
+// Ahead of the body parser, so a flood of bad admin requests is turned away before any work.
+app.use('/admin', rateLimit(ADMIN_RATE_LIMIT))
+app.use(jsonBody)
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
@@ -125,7 +116,7 @@ app.get('/internal/warmth', async (req, res) => {
       return res.status(500).json({
         status: 'error',
         source: 'internal',
-        message: error.message
+        message: 'Database check failed'
       })
     }
 
@@ -138,7 +129,7 @@ app.get('/internal/warmth', async (req, res) => {
     logger.error('Supabase warmth unexpected error', err)
     res.status(500).json({
       status: 'error',
-      message: err instanceof Error ? err.message : 'Unknown error'
+      message: 'Database check failed'
     })
   }
 })
