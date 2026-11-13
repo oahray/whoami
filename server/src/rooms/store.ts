@@ -29,6 +29,8 @@ export interface Player {
   isLocked: boolean
   /** Random per-browser id sent on create and join. Makes kick bans survive a nickname change and keeps a disconnected seat for its own browser. Never sent to other players. */
   deviceId?: string
+  /** Joined while a game was running: watches it, then plays from the next game. */
+  isSpectator?: boolean
 }
 
 export interface RoomSettings {

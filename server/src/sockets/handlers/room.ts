@@ -8,7 +8,7 @@ import {
 } from '../../game/lobbyReactions.js'
 import { nicknameIsBlocked } from '../../game/nicknameFilter.js'
 import { recordPlayCount } from '../../analytics/playCounts.js'
-import { getRoom, getRoomBySocket, createRoom, deleteRoom } from '../../rooms/store.js'
+import { getRoom, getRoomBySocket, createRoom, deleteRoom, type Player } from '../../rooms/store.js'
 import { persistRoom } from '../../rooms/persist.js'
 import {
   allowRoomCreate,
@@ -225,14 +225,6 @@ export function handleJoinRoom(io: Server, socket: Socket, payload: any) {
       }
     }
 
-    if (room.status === 'in_progress') {
-      socket.emit('ROOM_ERROR', {
-        code: 'GAME_IN_PROGRESS',
-        message: 'Cannot join game in progress'
-      })
-      return
-    }
-
     // Only reclaim an existing seat when that player is no longer connected.
     const existingEntry = Array.from(room.players.entries()).find(
       ([, p]) => p.nickname.toLowerCase() === nickname.toLowerCase()
@@ -268,14 +260,18 @@ export function handleJoinRoom(io: Server, socket: Socket, payload: any) {
 
       socket.join(roomCode)
 
-      socket.emit('ROOM_JOINED', {
-        playerId: socket.id,
-        isHost: existingPlayer.isHost,
-        players: Array.from(room.players.values()).map(toPublicPlayer),
-        settings: room.settings,
-        roomCode: room.code,
-        gameHistory: room.gameHistory
-      })
+      if (room.status === 'in_progress') {
+        socket.emit('RECONNECT_SUCCESS', buildReconnectPayload(room, existingPlayer))
+      } else {
+        socket.emit('ROOM_JOINED', {
+          playerId: socket.id,
+          isHost: existingPlayer.isHost,
+          players: Array.from(room.players.values()).map(toPublicPlayer),
+          settings: room.settings,
+          roomCode: room.code,
+          gameHistory: room.gameHistory
+        })
+      }
 
       socket.to(roomCode).emit('PLAYER_RECONNECTED', {
         id: socket.id,
@@ -295,7 +291,9 @@ export function handleJoinRoom(io: Server, socket: Socket, payload: any) {
     }
 
     leavePreviousRoom()
-    const player = {
+    // Late arrivals watch the game already running and play from the next one.
+    const spectating = room.status === 'in_progress'
+    const player: Player = {
       id: socket.id,
       nickname,
       avatarId,
@@ -305,24 +303,31 @@ export function handleJoinRoom(io: Server, socket: Socket, payload: any) {
       guessCount: 0,
       lastGuessAt: null,
       isLocked: false,
-      ...(deviceId ? { deviceId } : {})
+      ...(deviceId ? { deviceId } : {}),
+      ...(spectating ? { isSpectator: true } : {})
     }
 
     room.players.set(socket.id, player)
     socket.join(roomCode)
 
-    socket.emit('ROOM_JOINED', {
-      playerId: socket.id,
-      isHost: false,
-      players: Array.from(room.players.values()).map(toPublicPlayer),
-      settings: room.settings,
-      gameHistory: room.gameHistory
-    })
+    socket.emit(
+      'ROOM_JOINED',
+      spectating
+        ? { ...buildReconnectPayload(room, player), roomCode: room.code }
+        : {
+            playerId: socket.id,
+            isHost: false,
+            players: Array.from(room.players.values()).map(toPublicPlayer),
+            settings: room.settings,
+            gameHistory: room.gameHistory
+          }
+    )
 
     socket.to(roomCode).emit('PLAYER_JOINED', {
       id: socket.id,
       nickname,
-      avatarId
+      avatarId,
+      ...(spectating ? { isSpectator: true } : {})
     })
     persistRoom(room)
     recordPlayCount('multiplayerPlayerConnections')

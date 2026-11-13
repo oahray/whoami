@@ -243,7 +243,11 @@ export function findReturningPlayer(room: RoomState, nickname: string): Player |
 
 export function transferHost(room: RoomState): string | null {
   const oldHostId = room.hostId
-  for (const [playerId, player] of room.players.entries()) {
+  // Someone playing the current game is a better host than someone only watching it.
+  const candidates = Array.from(room.players.entries()).sort(
+    ([, a], [, b]) => Number(Boolean(a.isSpectator)) - Number(Boolean(b.isSpectator))
+  )
+  for (const [playerId, player] of candidates) {
     if (player.isConnected && playerId !== oldHostId) {
       const oldHost = room.players.get(oldHostId)
       if (oldHost) {
@@ -273,7 +277,8 @@ export function toPublicPlayer(player: Player) {
     nickname: player.nickname,
     avatarId: player.avatarId,
     isHost: player.isHost,
-    isConnected: player.isConnected
+    isConnected: player.isConnected,
+    ...(player.isSpectator ? { isSpectator: true } : {})
   }
 }
 
@@ -284,9 +289,11 @@ export function emitGameEnded(io: Server, room: RoomState): void {
     gameHistory: room.gameHistory,
     stumpedRounds: findStumpedRounds(room.roundHistory)
   }
+  const playedIds = new Set((room.finalScoreboard ?? []).map((row) => row.playerId))
   for (const player of room.players.values()) {
     if (!player.isConnected) continue
-    const signedArchive = latest
+    // Only players get the game in their history; someone who joined to watch did not play it.
+    const signedArchive = latest && playedIds.has(player.id)
       ? signHistoryArchive(latest, room.code, player.id)
       : undefined
     io.to(player.id).emit('GAME_ENDED', {

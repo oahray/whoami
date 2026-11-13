@@ -49,7 +49,7 @@ function rankScoreboard<T extends Record<string, any>>(items: T[], getScore: (t:
 function Game() {
   const navigate = useNavigate()
   const { emit, on, off } = useSocket()
-  const { roomCode, playerId, gameState, settings, error, players, isReconnecting, gameHistory, setError, reset } = useGame()
+  const { roomCode, playerId, gameState, settings, error, players, isSpectator, isReconnecting, gameHistory, setError, reset } = useGame()
   const [guess, setGuess] = useState('')
   // Private closeness hint for this player's last wrong guess.
   const [guessHint, setGuessHint] = useState<string | null>(null)
@@ -88,6 +88,7 @@ function Game() {
     onScroll: onGuessesScroll,
     resetStick: resetGuessesStick
   } = useStickToBottom<HTMLDivElement>([guessFeed.length])
+  const watchers = players.filter((p) => p.isSpectator && p.isConnected)
   const canGuess = !!gameState && !isFinalScoresView && (currentPhase === 'active' || currentPhase === 'clue_revealed')
   const preGuessPhase = !!gameState && !isFinalScoresView && currentPhase === 'starting'
   const hasStoredRoom = typeof window !== 'undefined' && !!localStorage.getItem('whoami_room')
@@ -263,10 +264,10 @@ function Game() {
   }, [gameEndData])
 
   useEffect(() => {
-    if (canGuess && !gameState?.isLocked) {
+    if (canGuess && !isSpectator && !gameState?.isLocked) {
       guessInputRef.current?.focus()
     }
-  }, [canGuess, gameState?.isLocked, gameState?.roundNumber, gameState?.phase])
+  }, [canGuess, isSpectator, gameState?.isLocked, gameState?.roundNumber, gameState?.phase])
 
   useEffect(() => {
     resetCluesStick()
@@ -869,12 +870,34 @@ function Game() {
                     </div>
                   ))}
                 </div>
+                {watchers.length > 0 && (
+                  <p className="pt-1 text-xs text-foreground-muted">
+                    Watching:{' '}
+                    {watchers.map((p) => (p.id === playerId ? `${p.nickname} (You)` : p.nickname)).join(', ')}
+                  </p>
+                )}
               </section>
             </aside>
           </div>
         </main>
 
-        {!gameState.isLocked && canGuess && (
+        {isSpectator && !isFinalScoresView && (
+          <div
+            role="status"
+            className="shrink-0 bg-surface border-t border-edge px-3 py-3 text-center lg:px-8 lg:py-4"
+            style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))' }}
+          >
+            <p className="text-sm font-semibold text-foreground">
+              <span className="material-symbols-outlined mr-1 align-middle text-base text-primary" aria-hidden>
+                visibility
+              </span>
+              You&apos;re watching this game
+            </p>
+            <p className="mt-0.5 text-xs text-foreground-muted">You joined after it started. You&apos;ll play in the next one.</p>
+          </div>
+        )}
+
+        {!gameState.isLocked && canGuess && !isSpectator && (
           <div
             className="shrink-0 bg-surface border-t border-edge px-3 py-2 lg:px-8 lg:py-4"
             style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom, 0px))' }}

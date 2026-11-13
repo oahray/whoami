@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { act, fireEvent, render, screen } from '@testing-library/react'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { PreferencesProvider } from '../context/PreferencesContext'
 import Home from './Home'
@@ -150,6 +150,50 @@ describe('Home', () => {
     })
     expect(localStorage.getItem('whoami_device_id')).toMatch(/^[A-Za-z0-9_-]{8,64}$/)
     expect(setError).toHaveBeenCalledWith(null)
+  })
+
+  it('sends someone joining a running game straight to the game to watch', () => {
+    vi.useFakeTimers()
+    const handlers: Record<string, (data: unknown) => void> = {}
+    mockUseSocket.mockReturnValue({
+      socket: {
+        on: vi.fn((event: string, handler: (data: unknown) => void) => {
+          handlers[event] = handler
+        }),
+        off: vi.fn(),
+        connect: vi.fn()
+      },
+      emit: vi.fn(),
+      connected: true,
+      transportStatus: 'connected',
+      retryConnect: vi.fn()
+    })
+
+    render(
+      <PreferencesProvider>
+        <MemoryRouter initialEntries={['/']}>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/game" element={<p>Game screen</p>} />
+            <Route path="/lobby" element={<p>Lobby screen</p>} />
+          </Routes>
+        </MemoryRouter>
+      </PreferencesProvider>
+    )
+
+    act(() => {
+      handlers.ROOM_JOINED({
+        playerId: 'late-1',
+        isHost: false,
+        roomCode: 'AB12CD',
+        players: [{ id: 'late-1', nickname: 'Ruth', isHost: false, isConnected: true, isSpectator: true }],
+        gameState: { phase: 'active', roundNumber: 2 }
+      })
+      vi.advanceTimersByTime(150)
+    })
+
+    expect(screen.getByText('Game screen')).toBeInTheDocument()
+    vi.useRealTimers()
   })
 
   it('emits CREATE_ROOM from the primary host action', () => {

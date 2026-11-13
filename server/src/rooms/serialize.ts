@@ -142,6 +142,7 @@ export function prepareRoomForHydrate(room: RoomState, now = Date.now()): RoomSt
       player.guessCount = 0
       player.lastGuessAt = null
       player.isLocked = false
+      player.isSpectator = false
     }
   }
 

@@ -1,7 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { INTER_ROUND_DELAY_MS } from '../../game/multiplayerDefaults.js'
 import { createRoom } from '../../rooms/store.js'
-import { broadcastRoundEnd, buildReconnectPayload, findReturningPlayer, GRACE_PERIOD_MS } from './utils.js'
+import {
+  broadcastRoundEnd,
+  buildReconnectPayload,
+  findReturningPlayer,
+  GRACE_PERIOD_MS,
+  toPublicPlayer,
+  transferHost
+} from './utils.js'
 
 describe('socket handler utils', () => {
   describe('findReturningPlayer', () => {
@@ -274,5 +281,42 @@ describe('broadcastRoundEnd', () => {
       aliases: [],
       clues: [{ text: 'Led Israel out of Egypt', citations: 'Exodus 3:1' }]
     })
+  })
+})
+
+describe('spectators in shared helpers', () => {
+  function addPlayer(room: ReturnType<typeof createRoom>, id: string, extra: Record<string, unknown> = {}) {
+    room.players.set(id, {
+      id,
+      nickname: id,
+      avatarId: 'avatar-01',
+      isHost: false,
+      isConnected: true,
+      disconnectedAt: null,
+      guessCount: 0,
+      lastGuessAt: null,
+      isLocked: false,
+      ...extra
+    })
+  }
+
+  it('hands the host role to a player before someone watching', () => {
+    const room = createRoom('host-1', 'Host')
+    addPlayer(room, 'watcher', { isSpectator: true })
+    addPlayer(room, 'player')
+    expect(transferHost(room)).toBe('player')
+  })
+
+  it('falls back to a spectator when nobody else is connected', () => {
+    const room = createRoom('host-1', 'Host')
+    addPlayer(room, 'watcher', { isSpectator: true })
+    expect(transferHost(room)).toBe('watcher')
+  })
+
+  it('marks spectators in the public player list', () => {
+    const room = createRoom('host-1', 'Host')
+    addPlayer(room, 'watcher', { isSpectator: true })
+    expect(toPublicPlayer(room.players.get('watcher')!)).toMatchObject({ isSpectator: true })
+    expect(toPublicPlayer(room.players.get('host-1')!)).not.toHaveProperty('isSpectator')
   })
 })

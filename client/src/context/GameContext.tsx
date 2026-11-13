@@ -15,6 +15,8 @@ interface Player {
   avatarId?: string
   isHost: boolean
   isConnected: boolean
+  /** Joined mid-game: watching until it ends, then a normal player. */
+  isSpectator?: boolean
 }
 
 interface RoomSettings {
@@ -54,6 +56,8 @@ interface GameContextType {
   playerId: string | null
   isHost: boolean
   players: Player[]
+  /** True while this browser is watching a game it joined late. */
+  isSpectator: boolean
   settings: RoomSettings | null
   gameState: GameState | null
   gameHistory: GameHistoryEntry[]
@@ -174,6 +178,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setGameHistory(Array.isArray(data.gameHistory) ? data.gameHistory : [])
       void saveSignedArchiveIfPresent(data.signedArchive)
       setIsReconnecting(false)
+      if (data.gameState) {
+        setGameState({
+          ...data.gameState,
+          serverStartTime: data.gameState.serverStartTime || Date.now()
+        })
+      }
       if (data.roomCode) {
         setRoomCode(data.roomCode)
         const player = data.players.find((p: Player) => p.id === data.playerId)
@@ -189,10 +199,17 @@ export function GameProvider({ children }: { children: ReactNode }) {
       setError(null)
     }
 
-    const handlePlayerJoined = (data: { id: string; nickname: string; avatarId?: string }) => {
+    const handlePlayerJoined = (data: { id: string; nickname: string; avatarId?: string; isSpectator?: boolean }) => {
       setPlayers(prev => [
         ...prev,
-        { id: data.id, nickname: data.nickname, avatarId: data.avatarId, isHost: false, isConnected: true }
+        {
+          id: data.id,
+          nickname: data.nickname,
+          avatarId: data.avatarId,
+          isHost: false,
+          isConnected: true,
+          ...(data.isSpectator ? { isSpectator: true } : {})
+        }
       ])
       playSound('player-join')
     }
@@ -369,6 +386,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       gameHistory?: GameHistoryEntry[]
       signedArchive?: unknown
     }) => {
+      // The server makes everyone a player once a game ends; mirror that here.
+      setPlayers((prev) => prev.map((p) => (p.isSpectator ? { ...p, isSpectator: false } : p)))
       setGameState({
         phase: 'ended',
         roundNumber: 0,
@@ -458,6 +477,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     playerId,
     isHost,
     players,
+    isSpectator: Boolean(players.find((p) => p.id === playerId)?.isSpectator),
     settings,
     gameState,
     gameHistory,

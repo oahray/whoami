@@ -20,6 +20,7 @@ export type ErrorCode =
   | 'ALREADY_IN_ROOM'
   | 'ROOM_RATE_LIMITED'
   | 'SERVER_BUSY'
+  | 'SPECTATING'
   | 'INVALID_NICKNAME'
   | 'ROOM_FULL'
   | 'INVALID_SETTINGS'
@@ -47,6 +48,7 @@ const errorMessages: Record<ErrorCode, string> = {
   ALREADY_IN_ROOM: 'You are already in this room.',
   ROOM_RATE_LIMITED: 'Too many attempts. Please wait a few minutes and try again.',
   SERVER_BUSY: 'Too many games are running right now. Please try again in a few minutes.',
+  SPECTATING: "You're watching this game. You'll be able to play in the next one.",
   INVALID_NICKNAME: 'Choose a different nickname.',
   PLAYER_BANNED: 'You have been removed from this room and cannot rejoin it.',
   ROOM_FULL: 'This room is full. Please join a different room.',

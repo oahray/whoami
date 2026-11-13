@@ -126,8 +126,10 @@ function Home() {
           }
         }
       }
+      // A latecomer arrives with the running game's state and goes straight in to watch.
+      const destination = data.gameState ? '/game' : '/lobby'
       setTimeout(() => {
-        navigate('/lobby', { replace: true })
+        navigate(destination, { replace: true })
       }, 100)
     }
 

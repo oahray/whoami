@@ -139,6 +139,14 @@ export function handleSubmitGuess(io: Server, socket: Socket, payload: any) {
       return
     }
 
+    if (player.isSpectator) {
+      socket.emit('ROOM_ERROR', {
+        code: 'SPECTATING',
+        message: 'You are watching this game. You can play in the next one.'
+      })
+      return
+    }
+
     const result = processGuess(room, socket.id, guessValue.trim())
 
     if (result === null) {

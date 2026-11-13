@@ -373,4 +373,53 @@ describe('roundState unit', () => {
       { playerId: 'host-1', nickname: 'Host', score: 100 }
     ])
   })
+
+  describe('spectators', () => {
+    async function roomWithSpectator() {
+      const room = createTestRoom()
+      await startGame(room)
+      room.currentRound!.phase = 'active'
+      room.currentRound!.activeStartTime = Date.now() - 1000
+      room.players.set('late-1', {
+        id: 'late-1',
+        nickname: 'Late',
+        avatarId: 'avatar-01',
+        isHost: false,
+        isConnected: true,
+        disconnectedAt: null,
+        guessCount: 0,
+        lastGuessAt: null,
+        isLocked: false,
+        isSpectator: true
+      })
+      return room
+    }
+
+    it('ignores guesses from someone watching', async () => {
+      const room = await roomWithSpectator()
+      expect(processGuess(room, 'late-1', 'Moses')).toBeNull()
+      expect(room.scores.has('late-1')).toBe(false)
+    })
+
+    it('ends the round early once every player is right, without waiting for the spectator', async () => {
+      const room = await roomWithSpectator()
+      processGuess(room, 'host-1', 'Moses')
+      processGuess(room, 'player-1', 'Moses')
+      processGuess(room, 'player-2', 'Moses')
+      expect(room.currentRound?.phase).toBe('ended')
+    })
+
+    it('leaves the spectator off the round scoreboard', async () => {
+      const room = await roomWithSpectator()
+      endRound(room)
+      expect(room.roundHistory[0].scoreboard.map((row: { playerId: string }) => row.playerId)).not.toContain('late-1')
+    })
+
+    it('turns spectators into players when the game ends', async () => {
+      const room = await roomWithSpectator()
+      endGame(room)
+      expect(room.finalScoreboard?.map((row) => row.playerId)).not.toContain('late-1')
+      expect(room.players.get('late-1')?.isSpectator).toBe(false)
+    })
+  })
 })

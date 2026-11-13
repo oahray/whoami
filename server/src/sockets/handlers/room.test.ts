@@ -785,3 +785,46 @@ describe('room socket handlers', () => {
     })
   })
 })
+
+describe('joining a game in progress', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    resetRoomGuardsForTests()
+  })
+
+  function lateSocket(id: string) {
+    const broadcast = vi.fn()
+    return { socket: { id, emit: vi.fn(), join: vi.fn(), to: vi.fn(() => ({ emit: broadcast })) } as any, broadcast }
+  }
+
+  it('lets a latecomer in as a spectator with the current game state', () => {
+    const room = actualStore.createRoom('host-live-1', 'Peter')
+    room.status = 'in_progress'
+    vi.mocked(getRoom).mockReturnValue(room)
+    vi.mocked(findReturningPlayer).mockReturnValue(null)
+    vi.mocked(buildReconnectPayload).mockReturnValue({ playerId: 'late-1', gameState: { roundNumber: 2 } } as any)
+
+    const { socket, broadcast } = lateSocket('late-1')
+    handleJoinRoom({} as any, socket, { roomCode: room.code, nickname: 'Ruth' })
+
+    expect(room.players.get('late-1')?.isSpectator).toBe(true)
+    expect(socket.join).toHaveBeenCalledWith(room.code)
+    expect(socket.emit).toHaveBeenCalledWith(
+      'ROOM_JOINED',
+      expect.objectContaining({ roomCode: room.code, gameState: { roundNumber: 2 } })
+    )
+    expect(broadcast).toHaveBeenCalledWith('PLAYER_JOINED', expect.objectContaining({ nickname: 'Ruth', isSpectator: true }))
+  })
+
+  it('joins a waiting room as a normal player', () => {
+    const room = actualStore.createRoom('host-live-2', 'Peter')
+    vi.mocked(getRoom).mockReturnValue(room)
+    vi.mocked(findReturningPlayer).mockReturnValue(null)
+
+    const { socket, broadcast } = lateSocket('early-1')
+    handleJoinRoom({} as any, socket, { roomCode: room.code, nickname: 'Ruth' })
+
+    expect(room.players.get('early-1')?.isSpectator).toBeUndefined()
+    expect(broadcast).toHaveBeenCalledWith('PLAYER_JOINED', expect.not.objectContaining({ isSpectator: true }))
+  })
+})
