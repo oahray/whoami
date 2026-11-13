@@ -1,4 +1,4 @@
-import { resolveTheme, type ColorPalette, type ThemeMode } from './preferences'
+import { resolveTheme, type ColorPalette, type TextSize, type ThemeMode } from './preferences'
 
 const THEME_COLOR_DARK = '#101322'
 
@@ -38,4 +38,11 @@ export function applyResolvedTheme(resolved: 'light' | 'dark'): void {
 
 export function applyThemeMode(mode: ThemeMode): void {
   applyResolvedTheme(resolveTheme(mode))
+}
+
+/** Scales every rem-based size; the CSS for each step is in index.css. */
+export function applyTextSize(size: TextSize): void {
+  if (typeof document === 'undefined') return
+  if (size === 'default') delete document.documentElement.dataset.textSize
+  else document.documentElement.dataset.textSize = size
 }

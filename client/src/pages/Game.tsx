@@ -15,6 +15,8 @@ import { useGame } from '../hooks/useGame'
 import { useSocket } from '../hooks/useSocket'
 import { useStickToBottom } from '../hooks/useStickToBottom'
 import { useVisualViewportLock } from '../hooks/useVisualViewportLock'
+import { useWakeLock } from '../hooks/useWakeLock'
+import { vibrate } from '../lib/haptics'
 
 /**
  * Sort a scoreboard descending and assign competition rankings (1, 1, 3, ...)
@@ -47,13 +49,17 @@ function rankScoreboard<T extends Record<string, any>>(items: T[], getScore: (t:
 function Game() {
   const navigate = useNavigate()
   const { emit, on, off } = useSocket()
-  const { roomCode, playerId, gameState, settings, error, players, isReconnecting, gameHistory, setError, reset } = useGame()
+  const { roomCode, playerId, gameState, settings, error, players, isSpectator, isReconnecting, gameHistory, setError, reset } = useGame()
   const [guess, setGuess] = useState('')
   // Private closeness hint for this player's last wrong guess.
   const [guessHint, setGuessHint] = useState<string | null>(null)
   const [timeRemaining, setTimeRemaining] = useState(0)
   const [roundEndData, setRoundEndData] = useState<any>(null)
   const [gameEndData, setGameEndData] = useState<any>(null)
+  useWakeLock(!gameEndData)
+  // Read inside the socket handlers, which are registered once.
+  const myNicknameRef = useRef<string | null>(null)
+  myNicknameRef.current = players.find((player) => player.id === playerId)?.nickname ?? null
   const [autoReturnSeconds, setAutoReturnSeconds] = useState<number | null>(null)
   const [nextRoundSeconds, setNextRoundSeconds] = useState<number | null>(null)
   const [awaitingNextRound, setAwaitingNextRound] = useState(false)
@@ -82,6 +88,7 @@ function Game() {
     onScroll: onGuessesScroll,
     resetStick: resetGuessesStick
   } = useStickToBottom<HTMLDivElement>([guessFeed.length])
+  const watchers = players.filter((p) => p.isSpectator && p.isConnected)
   const canGuess = !!gameState && !isFinalScoresView && (currentPhase === 'active' || currentPhase === 'clue_revealed')
   const preGuessPhase = !!gameState && !isFinalScoresView && currentPhase === 'starting'
   const hasStoredRoom = typeof window !== 'undefined' && !!localStorage.getItem('whoami_room')
@@ -207,8 +214,10 @@ function Game() {
       setAwaitingNextRound(false)
       setGameEndData(data)
     }
-    const handleGuessBroadcast = (data: { nickname: string; avatarId?: string; guess?: string; correct: boolean }) => {
+    const handleGuessBroadcast = (...args: unknown[]) => {
+      const data = args[0] as { nickname: string; avatarId?: string; guess?: string; correct: boolean }
       setGuessFeed(prev => [...prev.slice(-14), data])
+      if (!data.correct && data.nickname === myNicknameRef.current) vibrate('wrong')
     }
     const handlePlayerCorrect = () => {}
     const handleGuessFeedback = (...args: unknown[]) => {
@@ -255,10 +264,10 @@ function Game() {
   }, [gameEndData])
 
   useEffect(() => {
-    if (canGuess && !gameState?.isLocked) {
+    if (canGuess && !isSpectator && !gameState?.isLocked) {
       guessInputRef.current?.focus()
     }
-  }, [canGuess, gameState?.isLocked, gameState?.roundNumber, gameState?.phase])
+  }, [canGuess, isSpectator, gameState?.isLocked, gameState?.roundNumber, gameState?.phase])
 
   useEffect(() => {
     resetCluesStick()
@@ -508,9 +517,14 @@ function Game() {
               </button>
               <div className="min-w-0">
                 <h2 className="truncate text-base font-bold leading-none lg:text-lg">
-                  {isFinalScoresView
-                    ? 'Final Scores'
-                    : `Round ${gameState.roundNumber} of ${settings?.totalRounds ?? 0}`}
+                  {isFinalScoresView ? (
+                    'Final Scores'
+                  ) : (
+                    <>
+                      <span className="max-[430px]:[html[data-text-size]_&]:hidden">Round </span>
+                      {gameState.roundNumber} of {settings?.totalRounds ?? 0}
+                    </>
+                  )}
                 </h2>
                 {roomCode && (
                   <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary lg:text-xs">
@@ -531,7 +545,7 @@ function Game() {
               <SoundToggle />
               {!isFinalScoresView && (
                 <div className="flex items-center gap-2 rounded-lg border border-primary/10 bg-primary/5 px-3 py-1.5">
-                  <span className="material-symbols-outlined text-base text-primary">timer</span>
+                  <span className="material-symbols-outlined text-base text-primary max-[430px]:[html[data-text-size]_&]:hidden">timer</span>
                   <div className="leading-tight">
                     <p className="text-[9px] font-bold uppercase tracking-wider text-primary">
                       {preGuessPhase ? 'Starts in' : 'Time'}
@@ -856,12 +870,34 @@ function Game() {
                     </div>
                   ))}
                 </div>
+                {watchers.length > 0 && (
+                  <p className="pt-1 text-xs text-foreground-muted">
+                    Watching:{' '}
+                    {watchers.map((p) => (p.id === playerId ? `${p.nickname} (You)` : p.nickname)).join(', ')}
+                  </p>
+                )}
               </section>
             </aside>
           </div>
         </main>
 
-        {!gameState.isLocked && canGuess && (
+        {isSpectator && !isFinalScoresView && (
+          <div
+            role="status"
+            className="shrink-0 bg-surface border-t border-edge px-3 py-3 text-center lg:px-8 lg:py-4"
+            style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))' }}
+          >
+            <p className="text-sm font-semibold text-foreground">
+              <span className="material-symbols-outlined mr-1 align-middle text-base text-primary" aria-hidden>
+                visibility
+              </span>
+              You&apos;re watching this game
+            </p>
+            <p className="mt-0.5 text-xs text-foreground-muted">You joined after it started. You&apos;ll play in the next one.</p>
+          </div>
+        )}
+
+        {!gameState.isLocked && canGuess && !isSpectator && (
           <div
             className="shrink-0 bg-surface border-t border-edge px-3 py-2 lg:px-8 lg:py-4"
             style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom, 0px))' }}

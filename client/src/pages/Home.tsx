@@ -126,8 +126,10 @@ function Home() {
           }
         }
       }
+      // A latecomer arrives with the running game's state and goes straight in to watch.
+      const destination = data.gameState ? '/game' : '/lobby'
       setTimeout(() => {
-        navigate('/lobby', { replace: true })
+        navigate(destination, { replace: true })
       }, 100)
     }
 
@@ -164,7 +166,7 @@ function Home() {
     unlockAudio()
     localStorage.setItem('whoami_nickname', nickname.trim())
     writeStoredAvatarId(avatarId)
-    emit('CREATE_ROOM', { nickname: nickname.trim(), avatarId })
+    emit('CREATE_ROOM', { nickname: nickname.trim(), avatarId, deviceId: getDeviceId() })
   }
 
   const handleJoinRoom = () => {
@@ -246,18 +248,19 @@ function Home() {
             question_mark
           </span>
 
-          <div className="mb-3 inline-flex -rotate-1 items-center gap-1.5 rounded-full border border-white/25 bg-white/15 px-3 py-1 text-[0.65rem] font-bold uppercase tracking-[0.2em] text-white shadow-sm backdrop-blur-sm">
+          <div className="mb-3 inline-flex -rotate-1 items-center gap-1.5 whitespace-nowrap rounded-full border border-white/25 bg-white/15 px-3 py-1 text-[10.4px] font-bold uppercase tracking-[0.2em] text-white shadow-sm backdrop-blur-sm">
             <span className="material-symbols-outlined text-sm text-amber-300" aria-hidden>
               auto_awesome
             </span>
             The Bible guessing game
           </div>
 
+          {/* The brand block is sized in px so the text size preference leaves it alone. */}
           <h1 className="home-brand-title text-white">
             <span className="sr-only">Who Am I?</span>
             <span
               aria-hidden="true"
-              className="inline-flex items-center justify-center gap-0 font-brand text-[3.25rem] font-normal leading-none tracking-wide sm:text-7xl"
+              className="inline-flex items-center justify-center gap-0 whitespace-nowrap font-brand text-[52px] font-normal leading-none tracking-wide sm:text-[72px]"
             >
               <span>Wh</span>
               <Logo
@@ -270,7 +273,7 @@ function Home() {
 
           <div
             aria-hidden="true"
-            className="mt-4 flex items-center gap-2 text-[0.7rem] font-bold uppercase tracking-wider text-white/75"
+            className="mt-4 flex items-center gap-2 text-[11.2px] font-bold uppercase tracking-wider text-white/75"
           >
             <span>Read clues</span>
             <span className="size-1 rounded-full bg-amber-300" />

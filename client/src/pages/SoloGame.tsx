@@ -74,6 +74,8 @@ import { recordTrendRun } from '../lib/soloTrends'
 import { reportSoloPlay } from '../lib/reportSoloPlay'
 import { playSound } from '../lib/sounds'
 import { API_BASE_URL } from '../lib/apiBase'
+import { useWakeLock } from '../hooks/useWakeLock'
+import { vibrate } from '../lib/haptics'
 import type { InPersonCard } from '../types'
 
 type RoundStatus = 'active' | 'correct' | 'timeout' | 'finished'
@@ -129,6 +131,7 @@ function SoloGame() {
     masteryChanges?: MasteryChange[]
     moment?: Moment | null
   } | null>(null)
+  useWakeLock(!result)
   const [restarting, setRestarting] = useState(false)
   const [reviewing, setReviewing] = useState(false)
   const [dailyShareState, setDailyShareState] = useState<
@@ -143,7 +146,7 @@ function SoloGame() {
   const activeSession = useRef<SoloSession | null>(null)
   const guessInputRef = useRef<HTMLInputElement | null>(null)
   const advanceButtonRef = useRef<HTMLButtonElement | null>(null)
-  const settlePanelRef = useRef<HTMLSectionElement | null>(null)
+  const settlePanelRef = useRef<HTMLElement | null>(null)
   const lastClueCountRef = useRef(0)
   const settledOnceRef = useRef(false)
   const viewportStyle = useVisualViewportLock()
@@ -157,7 +160,7 @@ function SoloGame() {
           1 + Math.floor((session.roundDurationMs - remainingMs) / session.clueRevealIntervalMs)
         )
       : 0
-  const { ref: cluesScrollRef, onScroll: onCluesScroll, resetStick } = useStickToBottom<HTMLElement>([
+  const { ref: cluesScrollRef, onScroll: onCluesScroll, resetStick } = useStickToBottom<HTMLDivElement>([
     revealedCountForScroll,
     settledForScroll,
     loading
@@ -466,6 +469,7 @@ function SoloGame() {
       settledOnceRef.current = true
       setStatus('timeout')
       playSound('uh-oh')
+      vibrate('timeout')
       const current = activeSession.current
       if (current) {
         const performance: SoloRoundPerformance = {
@@ -695,6 +699,7 @@ function SoloGame() {
         closenessMessage(guessCloseness(guess, card.entity.name, card.entity.aliases)) ??
           'Not quite. Keep trying.'
       )
+      vibrate('wrong')
       setGuess('')
       const current = activeSession.current
       if (current) {
@@ -715,6 +720,7 @@ function SoloGame() {
     settledOnceRef.current = true
     setFeedback('Correct!')
     playSound('correct')
+    vibrate('correct')
     const current = activeSession.current
     if (current) {
       const elapsedMs = Math.min(
@@ -1202,10 +1208,16 @@ function SoloGame() {
         : session.variation === 'challenge'
           ? 'Classic'
           : 'Endurance'
+  // With larger text on a narrow phone, "Round" is dropped so the numbers stay readable.
   const roundLabel =
-    session.variation !== 'endurance'
-      ? `Round ${Math.min(session.index + 1, session.entityIds.length)} of ${session.entityIds.length}`
-      : `${session.correctCount} correct`
+    session.variation !== 'endurance' ? (
+      <>
+        <span className="max-[430px]:[html[data-text-size]_&]:hidden">Round </span>
+        {Math.min(session.index + 1, session.entityIds.length)} of {session.entityIds.length}
+      </>
+    ) : (
+      `${session.correctCount} correct`
+    )
   const secondsLeft = Math.ceil(remainingMs / 1000)
   const timerProgressPct = Math.max(
     0,
@@ -1246,7 +1258,7 @@ function SoloGame() {
             <div className="flex shrink-0 items-center gap-1">
               <SoundToggle />
               <div className="flex items-center gap-2 rounded-lg border border-primary/10 bg-primary/5 px-3 py-1.5">
-                <span className="material-symbols-outlined text-base text-primary">timer</span>
+                <span className="material-symbols-outlined text-base text-primary max-[430px]:[html[data-text-size]_&]:hidden">timer</span>
                 <div className="leading-tight">
                   <p className="text-[9px] font-bold uppercase tracking-wider text-primary">Time</p>
                   <p className="text-base font-black text-foreground">{secondsLeft}s</p>

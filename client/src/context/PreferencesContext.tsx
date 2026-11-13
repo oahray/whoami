@@ -8,7 +8,7 @@ import {
   useState,
   type ReactNode
 } from 'react'
-import { applyPalette, applyThemeMode } from '../lib/applyTheme'
+import { applyPalette, applyTextSize, applyThemeMode } from '../lib/applyTheme'
 import {
   applyMenuMusicVolume,
   stopMenuMusic
@@ -24,14 +24,19 @@ import {
   readSfxVolume,
   readSfxVolumeLast,
   readPalette,
+  readTextSize,
   readTheme,
+  readVibrationEnabled,
   resolveTheme,
   writeMusicVolume,
   writePalette,
   writeSfxVolume,
+  writeTextSize,
   writeTheme,
+  writeVibrationEnabled,
   type ColorPalette,
   type ResolvedTheme,
+  type TextSize,
   type ThemeMode
 } from '../lib/preferences'
 
@@ -71,6 +76,11 @@ type PreferencesContextValue = {
   resolvedTheme: ResolvedTheme
   palette: ColorPalette
   setPalette: (palette: ColorPalette) => void
+  /** Buzz on guess outcomes, where the device can. */
+  vibrationEnabled: boolean
+  setVibrationEnabled: (enabled: boolean) => void
+  textSize: TextSize
+  setTextSize: (size: TextSize) => void
 }
 
 const PreferencesContext = createContext<PreferencesContextValue | null>(null)
@@ -82,6 +92,8 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<ThemeMode>(readTheme)
   const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() => resolveTheme(readTheme()))
   const [palette, setPaletteState] = useState<ColorPalette>(readPalette)
+  const [vibrationEnabled, setVibrationEnabledState] = useState(readVibrationEnabled)
+  const [textSize, setTextSizeState] = useState<TextSize>(readTextSize)
   const muteSnapshotRef = useRef<MuteSnapshot | null>(null)
 
   useEffect(() => {
@@ -95,6 +107,10 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     applyPalette(palette)
   }, [palette])
+
+  useEffect(() => {
+    applyTextSize(textSize)
+  }, [textSize])
 
   useEffect(() => {
     applyThemeMode(theme)
@@ -180,6 +196,17 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     applyPalette(next)
   }, [])
 
+  const setVibrationEnabled = useCallback((enabled: boolean) => {
+    setVibrationEnabledState(enabled)
+    writeVibrationEnabled(enabled)
+  }, [])
+
+  const setTextSize = useCallback((size: TextSize) => {
+    setTextSizeState(size)
+    writeTextSize(size)
+    applyTextSize(size)
+  }, [])
+
   const value = useMemo(
     () => ({
       sfxVolume,
@@ -198,7 +225,11 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       setTheme,
       resolvedTheme,
       palette,
-      setPalette
+      setPalette,
+      vibrationEnabled,
+      setVibrationEnabled,
+      textSize,
+      setTextSize
     }),
     [
       sfxVolume,
@@ -213,7 +244,11 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       setTheme,
       resolvedTheme,
       palette,
-      setPalette
+      setPalette,
+      vibrationEnabled,
+      setVibrationEnabled,
+      textSize,
+      setTextSize
     ]
   )
 

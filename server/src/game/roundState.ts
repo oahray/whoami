@@ -156,7 +156,7 @@ export function revealClue(room: RoomState): { order: number; text: string } | n
 
 function allPlayersLocked(room: RoomState): boolean {
   for (const player of room.players.values()) {
-    if (player.isConnected && !player.isLocked) {
+    if (player.isConnected && !player.isSpectator && !player.isLocked) {
       return false
     }
   }
@@ -178,7 +178,7 @@ export function processGuess(room: RoomState, playerId: string, guess: string): 
   }
 
   const player = room.players.get(playerId)
-  if (!player || !player.isConnected) {
+  if (!player || !player.isConnected || player.isSpectator) {
     return null
   }
 
@@ -285,16 +285,19 @@ export function endRound(room: RoomState): void {
     room.currentRound.correctGuesses.map(g => [g.playerId, g])
   )
 
-  const scoreboard = Array.from(room.players.entries()).map(([pid, player]) => {
-    const correct = correctMap.get(pid)
-    return {
-      playerId: pid,
-      nickname: player.nickname,
-      timeElapsedMs: correct?.timeElapsedMs ?? 0,
-      pointsEarned: correct?.pointsEarned ?? 0,
-      totalScore: room.scores.get(pid) || 0
-    }
-  }).sort((a, b) => b.totalScore - a.totalScore)
+  const scoreboard = Array.from(room.players.entries())
+    .filter(([, player]) => !player.isSpectator)
+    .map(([pid, player]) => {
+      const correct = correctMap.get(pid)
+      return {
+        playerId: pid,
+        nickname: player.nickname,
+        timeElapsedMs: correct?.timeElapsedMs ?? 0,
+        pointsEarned: correct?.pointsEarned ?? 0,
+        totalScore: room.scores.get(pid) || 0
+      }
+    })
+    .sort((a, b) => b.totalScore - a.totalScore)
 
   const revealedClueCount = room.currentRound.revealedClueCount
   const cluesForRound = room.currentRound.clues.slice(0, revealedClueCount)
@@ -329,6 +332,7 @@ export function endGame(room: RoomState): void {
     .sort((a, b) => b.score - a.score)
 
   room.finalScoreboard = finalScoreboard
+  for (const player of room.players.values()) player.isSpectator = false
   recordFinishedGame(room)
   if (!alreadyFinished) recordPlayCount('multiplayerGamesCompleted')
 }
@@ -347,6 +351,7 @@ export function resetRoomForNewGame(room: RoomState): void {
     player.guessCount = 0
     player.lastGuessAt = null
     player.isLocked = false
+    player.isSpectator = false
   }
   persistRoom(room)
 }

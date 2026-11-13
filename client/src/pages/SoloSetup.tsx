@@ -57,7 +57,7 @@ import { isMaintenanceBlockingNewGames } from '../lib/maintenance'
 import { describeSoloSetup } from '../lib/soloTrends'
 import {
   clearMasteryForDataset,
-  collectionGroups,
+  metCardGroups,
   getMasterySummary,
   listEntityMastery,
   type MasteryStage,
@@ -94,7 +94,7 @@ import type { PublicDataset } from '../types'
 
 const TIMER_OPTIONS = [15, 30, 45, 60]
 const CLUE_INTERVAL_OPTIONS = [5, 10, 15]
-const COLLECTION_STAGE_LABELS: Record<MasteryStage, string> = {
+const MET_CARDS_STAGE_LABELS: Record<MasteryStage, string> = {
   mastered: 'Mastered',
   familiar: 'Familiar',
   learning: 'Learning',
@@ -144,7 +144,7 @@ function SoloSetup() {
   >('idle')
   const [masteryTick, setMasteryTick] = useState(0)
   const [clearProgressOpen, setClearProgressOpen] = useState(false)
-  const [collectionOpen, setCollectionOpen] = useState(false)
+  const [metCardsOpen, setMetCardsOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [offline, setOffline] = useState(!navigator.onLine)
 
@@ -186,11 +186,11 @@ function SoloSetup() {
   const hasAnyRecords = challengeRecords.length > 0 || enduranceRecords.length > 0
   const selectedDatasetName = datasets.find((dataset) => dataset.id === datasetId)?.name
   const masterySummary = getMasterySummary(datasetId || undefined)
-  const collection = collectionOpen
-    ? collectionGroups(listEntityMastery(datasetId || undefined))
+  const metCards = metCardsOpen
+    ? metCardGroups(listEntityMastery(datasetId || undefined))
     : []
   const neverRightCount =
-    collection.find((group) => group.stage === 'encountered')?.entities.length ?? 0
+    metCards.find((group) => group.stage === 'encountered')?.entities.length ?? 0
   const todayResult = dailyChallenge
     ? dailyProgress.results[dailyChallenge.challengeId]
     : undefined
@@ -946,7 +946,7 @@ function SoloSetup() {
                     value: String(masterySummary.encountered),
                     label: 'Encountered',
                     iconClass: 'bg-primary/10 text-primary',
-                    opensCollection: true
+                    opensMetCards: true
                   },
                   {
                     icon: 'verified',
@@ -972,7 +972,7 @@ function SoloSetup() {
                 ] as const
               ).map((stat) => {
                 const opens =
-                  'opensCollection' in stat && stat.opensCollection && masterySummary.encountered > 0
+                  'opensMetCards' in stat && stat.opensMetCards && masterySummary.encountered > 0
                 const Tile = opens ? 'button' : 'div'
                 return (
                 <Tile
@@ -980,7 +980,7 @@ function SoloSetup() {
                   {...(opens
                     ? {
                         type: 'button' as const,
-                        onClick: () => setCollectionOpen(true),
+                        onClick: () => setMetCardsOpen(true),
                         'aria-haspopup': 'dialog' as const,
                         'aria-label': `Encountered: ${stat.value}. Show the cards you've met`
                       }
@@ -1183,21 +1183,21 @@ function SoloSetup() {
           </section>
         )}
 
-        {collectionOpen && (
+        {metCardsOpen && (
           <div
             className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/60 backdrop-blur-sm md:items-center md:p-6"
             role="presentation"
-            onClick={() => setCollectionOpen(false)}
+            onClick={() => setMetCardsOpen(false)}
           >
             <div
               role="dialog"
               aria-modal="true"
-              aria-labelledby="collection-title"
+              aria-labelledby="met-cards-title"
               className="flex max-h-[85vh] w-full max-w-md flex-col rounded-t-2xl border border-edge bg-surface shadow-2xl md:rounded-2xl"
               onClick={(event) => event.stopPropagation()}
             >
               <div className="shrink-0 px-6 pt-6">
-                <h3 id="collection-title" className="text-lg font-black text-foreground">
+                <h3 id="met-cards-title" className="text-lg font-black text-foreground">
                   Cards you&apos;ve met
                 </h3>
                 <p className="mt-1 text-sm text-foreground-muted">
@@ -1214,15 +1214,15 @@ function SoloSetup() {
                 </p>
               </div>
               <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
-                {collection
+                {metCards
                   .filter((group) => group.stage !== 'encountered')
                   .map((group) => (
-                  <section key={group.stage} aria-labelledby={`collection-${group.stage}`}>
+                  <section key={group.stage} aria-labelledby={`met-cards-${group.stage}`}>
                     <h4
-                      id={`collection-${group.stage}`}
+                      id={`met-cards-${group.stage}`}
                       className="text-[10px] font-bold uppercase tracking-widest text-foreground-muted"
                     >
-                      {COLLECTION_STAGE_LABELS[group.stage]} · {group.entities.length}
+                      {MET_CARDS_STAGE_LABELS[group.stage]} · {group.entities.length}
                     </h4>
                     <ul className="mt-2 flex flex-wrap gap-2">
                       {group.entities.map((entity) => (
@@ -1260,7 +1260,7 @@ function SoloSetup() {
               <div className="shrink-0 border-t border-edge px-6 py-4" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 0px))' }}>
                 <button
                   type="button"
-                  onClick={() => setCollectionOpen(false)}
+                  onClick={() => setMetCardsOpen(false)}
                   className="w-full rounded-lg border-2 border-edge py-3 font-semibold hover:bg-surface-muted"
                 >
                   Close

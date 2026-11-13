@@ -1,3 +1,4 @@
+import { randomInt } from 'crypto'
 import type { Entity } from '../db/entities.js'
 import { coerceAvatarId, type AvatarId } from '../game/avatars.js'
 import {
@@ -26,8 +27,10 @@ export interface Player {
   guessCount: number
   lastGuessAt: number | null
   isLocked: boolean
-  /** Random per-browser id sent on join; used only to make kick bans survive a nickname change. Never sent to other players. */
+  /** Random per-browser id sent on create and join. Makes kick bans survive a nickname change and keeps a disconnected seat for its own browser. Never sent to other players. */
   deviceId?: string
+  /** Joined while a game was running: watches it, then plays from the next game. */
+  isSpectator?: boolean
 }
 
 export interface RoomSettings {
@@ -138,7 +141,7 @@ function generateRoomCode(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
   let code = ''
   for (let i = 0; i < 6; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length))
+    code += chars.charAt(randomInt(chars.length))
   }
 
   if (rooms.has(code)) {
@@ -148,7 +151,12 @@ function generateRoomCode(): string {
   return code
 }
 
-export function createRoom(hostId: string, hostNickname: string, avatarId?: unknown): RoomState {
+export function createRoom(
+  hostId: string,
+  hostNickname: string,
+  avatarId?: unknown,
+  deviceId?: string | null
+): RoomState {
   const code = generateRoomCode()
 
   const room: RoomState = {
@@ -176,7 +184,8 @@ export function createRoom(hostId: string, hostNickname: string, avatarId?: unkn
     disconnectedAt: null,
     guessCount: 0,
     lastGuessAt: null,
-    isLocked: false
+    isLocked: false,
+    ...(deviceId ? { deviceId } : {})
   })
 
   rooms.set(code, room)

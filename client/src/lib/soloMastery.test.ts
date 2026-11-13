@@ -11,7 +11,7 @@ import {
   rekeyMasteryToCatalog,
   summarizeMasteryRun,
   pruneAppliedEvents,
-  collectionGroups,
+  metCardGroups,
   type EntityMastery
 } from './soloMastery'
 
@@ -373,7 +373,7 @@ describe('soloMastery', () => {
       lastEncounteredAt: '2026-10-20T12:00:00Z',
       state: lastCorrect ? 'learning' : 'needs_review'
     })
-    const groups = collectionGroups([
+    const groups = metCardGroups([
       entity('Ruth', 5, 1),
       entity('Abel', 0, 0, false),
       entity('Moses', 3),
@@ -389,7 +389,7 @@ describe('soloMastery', () => {
   })
 
   it('leaves out empty stages', () => {
-    expect(collectionGroups([]).length).toBe(0)
+    expect(metCardGroups([]).length).toBe(0)
   })
 
   describe('Review runs', () => {

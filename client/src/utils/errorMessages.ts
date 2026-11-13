@@ -16,6 +16,11 @@ export type ErrorCode =
   | 'PLAYER_LOCKED'
   | 'GUESS_RATE_LIMITED'
   | 'NICKNAME_TAKEN'
+  | 'SEAT_IN_USE'
+  | 'ALREADY_IN_ROOM'
+  | 'ROOM_RATE_LIMITED'
+  | 'SERVER_BUSY'
+  | 'SPECTATING'
   | 'INVALID_NICKNAME'
   | 'ROOM_FULL'
   | 'INVALID_SETTINGS'
@@ -39,6 +44,11 @@ const errorMessages: Record<ErrorCode, string> = {
   PLAYER_LOCKED: 'You have already guessed correctly this round. Wait for the next round!',
   GUESS_RATE_LIMITED: 'Please wait a moment before guessing again.',
   NICKNAME_TAKEN: 'This nickname is already taken. Please choose a different one.',
+  SEAT_IN_USE: 'Someone with this nickname is still in the room. Rejoin from the browser you were using, or pick another nickname.',
+  ALREADY_IN_ROOM: 'You are already in this room.',
+  ROOM_RATE_LIMITED: 'Too many attempts. Please wait a few minutes and try again.',
+  SERVER_BUSY: 'Too many games are running right now. Please try again in a few minutes.',
+  SPECTATING: "You're watching this game. You'll be able to play in the next one.",
   INVALID_NICKNAME: 'Choose a different nickname.',
   PLAYER_BANNED: 'You have been removed from this room and cannot rejoin it.',
   ROOM_FULL: 'This room is full. Please join a different room.',
@@ -109,6 +119,7 @@ export function isFatalError(code: string): boolean {
     'ROOM_NOT_FOUND',
     'GAME_IN_PROGRESS',
     'RECONNECTION_FAILED',
-    'PLAYER_BANNED'
+    'PLAYER_BANNED',
+    'SEAT_IN_USE'
   ].includes(code)
 }

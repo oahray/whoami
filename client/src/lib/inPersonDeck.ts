@@ -121,20 +121,16 @@ export function remainingEntityCount(session: InPersonDeckSession): number {
   return Math.max(0, session.masterPool.length - consumedThroughCurrentDeck)
 }
 
-export function totalDeckCount(session: InPersonDeckSession): number {
-  return Math.ceil(session.masterPool.length / IN_PERSON_DECK_SIZE)
-}
-
 export function currentDeckNumber(session: InPersonDeckSession): number {
   return Math.floor(session.deckStartOffset / IN_PERSON_DECK_SIZE) + 1
 }
 
+/** No deck total: that would reveal how many characters the dataset has, which keeps growing. */
 export function deckProgressLabel(session: InPersonDeckSession): string {
   const deck = currentDeckEntityIds(session)
-  const totalDecks = totalDeckCount(session)
   const deckNumber = currentDeckNumber(session)
   const current = Math.min(session.index + 1, deck.length)
-  return `Card ${current} of ${deck.length} · Deck ${deckNumber} of ${totalDecks}`
+  return `Card ${current} of ${deck.length} · Deck ${deckNumber}`
 }
 
 export function snapshotForIndex(

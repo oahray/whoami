@@ -23,7 +23,7 @@ const POOL = Array.from({ length: 25 }, (_, i) => `ent-${i + 1}`)
 function makeSession(overrides: Partial<Parameters<typeof saveDeckSession>[0]> = {}) {
   return {
     datasetId: 'ds-1',
-    difficulty: [] as const,
+    difficulty: [],
     entityType: 'character' as const,
     masterPool: POOL,
     deckStartOffset: 0,
@@ -80,7 +80,7 @@ describe('inPersonDeck', () => {
 
   it('formats progress with deck number', () => {
     const session = makeSession({ deckStartOffset: 10, index: 2 })
-    expect(deckProgressLabel(session)).toBe('Card 3 of 10 · Deck 2 of 3')
+    expect(deckProgressLabel(session)).toBe('Card 3 of 10 · Deck 2')
   })
 
   it('stores and restores card snapshots by index', () => {

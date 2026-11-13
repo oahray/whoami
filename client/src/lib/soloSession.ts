@@ -220,7 +220,9 @@ export function clearSoloSession(): void {
 const PARKED_RUN_KEY = 'whoami-solo-parked-run'
 const PARKED_DAILY_KEY = 'whoami-solo-parked-daily'
 
-function isResumableRun(session: SoloSession | null): session is SoloSession {
+function isResumableRun(
+  session: SoloSession | null
+): session is SoloSession & { variation: 'challenge' | 'endurance' } {
   return session?.variation === 'challenge' || session?.variation === 'endurance'
 }
 

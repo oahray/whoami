@@ -66,6 +66,15 @@ body {
   min-height: 100%;
 }
 
+/* Text size preference. Percentages keep the browser's own font setting as the base. */
+html[data-text-size='large'] {
+  font-size: 112.5%;
+}
+
+html[data-text-size='larger'] {
+  font-size: 125%;
+}
+
 .material-symbols-outlined {
   font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
 }

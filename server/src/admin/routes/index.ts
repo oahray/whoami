@@ -1,6 +1,7 @@
 import express from 'express'
 import { adminAuth } from '../auth.js'
 import { clearContentCache } from '../../game/contentCache.js'
+import { bulkImportJsonBody } from '../../middleware/jsonBody.js'
 import entitiesRoutes from './entities.js'
 import cluesRoutes from './clues.js'
 import statsRoutes from './stats.js'
@@ -13,6 +14,7 @@ import maintenanceRoutes from './maintenance.js'
 const router = express.Router()
 
 router.use(adminAuth)
+router.post('/bulk-import', bulkImportJsonBody)
 // Content edits show up straight away instead of after the public cache expires.
 router.use((req, res, next) => {
   if (req.method !== 'GET') {

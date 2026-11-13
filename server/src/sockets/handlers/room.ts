@@ -8,8 +8,15 @@ import {
 } from '../../game/lobbyReactions.js'
 import { nicknameIsBlocked } from '../../game/nicknameFilter.js'
 import { recordPlayCount } from '../../analytics/playCounts.js'
-import { getRoom, getRoomBySocket, createRoom, deleteRoom } from '../../rooms/store.js'
+import { getRoom, getRoomBySocket, createRoom, deleteRoom, type Player } from '../../rooms/store.js'
 import { persistRoom } from '../../rooms/persist.js'
+import {
+  allowRoomCreate,
+  allowRoomJoin,
+  canReclaimSeat,
+  memoryPressureHigh,
+  socketClientAddress
+} from '../../rooms/roomGuards.js'
 import {
   findReturningPlayer,
   transferHost,
@@ -21,6 +28,9 @@ import {
 } from './utils.js'
 import { safeTimer } from '../dispatch.js'
 import { logger } from '../../utils/logger.js'
+
+const SEAT_IN_USE_MESSAGE =
+  'Someone with this nickname is still in the room. Rejoin from the browser you were using, or pick another nickname.'
 
 function migratePlayerReferences(room: any, oldPlayerId: string, newPlayerId: string) {
   if (oldPlayerId === newPlayerId) {
@@ -75,7 +85,7 @@ function migratePlayerReferences(room: any, oldPlayerId: string, newPlayerId: st
   }
 }
 
-export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
+export function handleJoinRoom(io: Server, socket: Socket, payload: any) {
   try {
     if (!payload || typeof payload !== 'object') {
       socket.emit('ROOM_ERROR', {
@@ -121,6 +131,14 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
       return
     }
 
+    if (!allowRoomJoin(socketClientAddress(socket))) {
+      socket.emit('ROOM_ERROR', {
+        code: 'ROOM_RATE_LIMITED',
+        message: 'Too many attempts. Please wait a minute and try again.'
+      })
+      return
+    }
+
     const room = getRoom(roomCode)
     if (!room) {
       socket.emit('ROOM_ERROR', {
@@ -128,6 +146,19 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
         message: 'Room not found'
       })
       return
+    }
+
+    // One room per socket: joining elsewhere leaves the old room, so a socket cannot pile up seats.
+    const previousRoom = getRoomBySocket(socket.id)
+    if (previousRoom?.code === room.code) {
+      socket.emit('ROOM_ERROR', {
+        code: 'ALREADY_IN_ROOM',
+        message: 'You are already in this room'
+      })
+      return
+    }
+    const leavePreviousRoom = () => {
+      if (previousRoom) handleLeaveRoom(io, socket)
     }
 
     // Check if player has been kicked too many times (banned from this room).
@@ -143,6 +174,13 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
     }
 
     const returning = findReturningPlayer(room, nickname)
+    if (returning && !canReclaimSeat(returning, deviceId)) {
+      socket.emit('ROOM_ERROR', {
+        code: 'SEAT_IN_USE',
+        message: SEAT_IN_USE_MESSAGE
+      })
+      return
+    }
     if (returning) {
       let oldPlayerId: string | null = null
       for (const [playerId, player] of room.players.entries()) {
@@ -153,6 +191,7 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
       }
 
       if (oldPlayerId) {
+        leavePreviousRoom()
         returning.id = socket.id
         returning.isConnected = true
         returning.disconnectedAt = null
@@ -186,14 +225,6 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
       }
     }
 
-    if (room.status === 'in_progress') {
-      socket.emit('ROOM_ERROR', {
-        code: 'GAME_IN_PROGRESS',
-        message: 'Cannot join game in progress'
-      })
-      return
-    }
-
     // Only reclaim an existing seat when that player is no longer connected.
     const existingEntry = Array.from(room.players.entries()).find(
       ([, p]) => p.nickname.toLowerCase() === nickname.toLowerCase()
@@ -209,6 +240,15 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
         return
       }
 
+      if (!canReclaimSeat(existingPlayer, deviceId)) {
+        socket.emit('ROOM_ERROR', {
+          code: 'SEAT_IN_USE',
+          message: SEAT_IN_USE_MESSAGE
+        })
+        return
+      }
+
+      leavePreviousRoom()
       existingPlayer.id = socket.id
       existingPlayer.isConnected = true
       existingPlayer.disconnectedAt = null
@@ -220,14 +260,18 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
 
       socket.join(roomCode)
 
-      socket.emit('ROOM_JOINED', {
-        playerId: socket.id,
-        isHost: existingPlayer.isHost,
-        players: Array.from(room.players.values()).map(toPublicPlayer),
-        settings: room.settings,
-        roomCode: room.code,
-        gameHistory: room.gameHistory
-      })
+      if (room.status === 'in_progress') {
+        socket.emit('RECONNECT_SUCCESS', buildReconnectPayload(room, existingPlayer))
+      } else {
+        socket.emit('ROOM_JOINED', {
+          playerId: socket.id,
+          isHost: existingPlayer.isHost,
+          players: Array.from(room.players.values()).map(toPublicPlayer),
+          settings: room.settings,
+          roomCode: room.code,
+          gameHistory: room.gameHistory
+        })
+      }
 
       socket.to(roomCode).emit('PLAYER_RECONNECTED', {
         id: socket.id,
@@ -246,7 +290,10 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
       return
     }
 
-    const player = {
+    leavePreviousRoom()
+    // Late arrivals watch the game already running and play from the next one.
+    const spectating = room.status === 'in_progress'
+    const player: Player = {
       id: socket.id,
       nickname,
       avatarId,
@@ -256,24 +303,31 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
       guessCount: 0,
       lastGuessAt: null,
       isLocked: false,
-      ...(deviceId ? { deviceId } : {})
+      ...(deviceId ? { deviceId } : {}),
+      ...(spectating ? { isSpectator: true } : {})
     }
 
     room.players.set(socket.id, player)
     socket.join(roomCode)
 
-    socket.emit('ROOM_JOINED', {
-      playerId: socket.id,
-      isHost: false,
-      players: Array.from(room.players.values()).map(toPublicPlayer),
-      settings: room.settings,
-      gameHistory: room.gameHistory
-    })
+    socket.emit(
+      'ROOM_JOINED',
+      spectating
+        ? { ...buildReconnectPayload(room, player), roomCode: room.code }
+        : {
+            playerId: socket.id,
+            isHost: false,
+            players: Array.from(room.players.values()).map(toPublicPlayer),
+            settings: room.settings,
+            gameHistory: room.gameHistory
+          }
+    )
 
     socket.to(roomCode).emit('PLAYER_JOINED', {
       id: socket.id,
       nickname,
-      avatarId
+      avatarId,
+      ...(spectating ? { isSpectator: true } : {})
     })
     persistRoom(room)
     recordPlayCount('multiplayerPlayerConnections')
@@ -289,7 +343,7 @@ export function handleJoinRoom(_io: Server, socket: Socket, payload: any) {
   }
 }
 
-export function handleCreateRoom(_io: Server, socket: Socket, payload: any) {
+export function handleCreateRoom(io: Server, socket: Socket, payload: any) {
   try {
     if (!payload || typeof payload !== 'object') {
       socket.emit('ROOM_ERROR', {
@@ -325,7 +379,31 @@ export function handleCreateRoom(_io: Server, socket: Socket, payload: any) {
       return
     }
 
-    const room = createRoom(socket.id, nickname, coerceAvatarId(rawAvatarId))
+    if (!allowRoomCreate(socketClientAddress(socket))) {
+      socket.emit('ROOM_ERROR', {
+        code: 'ROOM_RATE_LIMITED',
+        message: 'Too many rooms created. Please wait a few minutes and try again.'
+      })
+      return
+    }
+
+    if (memoryPressureHigh()) {
+      socket.emit('ROOM_ERROR', {
+        code: 'SERVER_BUSY',
+        message: 'Too many games are running right now. Please try again in a few minutes.'
+      })
+      return
+    }
+
+    // One room per socket: creating a new room leaves the old one instead of stranding a seat in it.
+    if (getRoomBySocket(socket.id)) handleLeaveRoom(io, socket)
+
+    const room = createRoom(
+      socket.id,
+      nickname,
+      coerceAvatarId(rawAvatarId),
+      normalizeDeviceId(payload.deviceId)
+    )
     socket.join(room.code)
 
     socket.emit('ROOM_JOINED', {

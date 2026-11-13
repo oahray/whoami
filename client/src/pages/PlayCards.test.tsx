@@ -192,7 +192,8 @@ describe('PlayCards', () => {
     await waitFor(() => {
       expect(screen.getByText(/all cards in this deck/i)).toBeInTheDocument()
     })
-    expect(screen.getByText(/2 characters remaining/i)).toBeInTheDocument()
+    expect(screen.getByText(/more characters are waiting/i)).toBeInTheDocument()
+    expect(screen.queryByText(/characters remaining/i)).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /next deck/i })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /play again/i })).not.toBeInTheDocument()
   })

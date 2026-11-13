@@ -302,16 +302,16 @@ export function listEntityMastery(datasetId?: string): EntityMastery[] {
     .sort((left, right) => right.lastEncounteredAt.localeCompare(left.lastEncounteredAt))
 }
 
-export type CollectionGroup = { stage: MasteryStage; entities: EntityMastery[] }
+export type MetCardGroup = { stage: MasteryStage; entities: EntityMastery[] }
 
-const COLLECTION_ORDER: MasteryStage[] = ['mastered', 'familiar', 'learning', 'encountered']
+const MET_CARDS_ORDER: MasteryStage[] = ['mastered', 'familiar', 'learning', 'encountered']
 
 /**
  * Met cards grouped by ladder stage, alphabetical within each. Grouped by stage rather than
  * state so the groups match the Mastered tile; needs-review cards keep their stage.
  */
-export function collectionGroups(entities: EntityMastery[]): CollectionGroup[] {
-  return COLLECTION_ORDER.map((stage) => ({
+export function metCardGroups(entities: EntityMastery[]): MetCardGroup[] {
+  return MET_CARDS_ORDER.map((stage) => ({
     stage,
     entities: entities
       .filter((entity) => masteryStage(entity.correctCount, entity.firstClueCorrectCount) === stage)

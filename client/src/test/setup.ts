@@ -1,9 +1,7 @@
-import { afterEach, beforeEach, expect, vi } from 'vitest'
+import { afterEach, beforeEach, vi } from 'vitest'
 import { cleanup } from '@testing-library/react'
-import * as matchers from '@testing-library/jest-dom/matchers'
+import '@testing-library/jest-dom/vitest'
 import { stubMatchMedia } from './matchMedia'
-
-expect.extend(matchers)
 
 stubMatchMedia()
 

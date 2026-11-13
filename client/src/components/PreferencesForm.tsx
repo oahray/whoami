@@ -5,7 +5,9 @@ import {
   musicVolumeToPercent,
   sfxPercentToVolume,
   sfxVolumeToPercent,
+  supportsVibration,
   type ColorPalette,
+  type TextSize,
   type ThemeMode
 } from '../lib/preferences'
 
@@ -17,6 +19,12 @@ const THEME_OPTIONS: { value: ThemeMode; label: string }[] = [
   { value: 'system', label: 'System' },
   { value: 'light', label: 'Light' },
   { value: 'dark', label: 'Dark' },
+]
+
+const TEXT_SIZE_OPTIONS: { value: TextSize; label: string; sample: string }[] = [
+  { value: 'default', label: 'Default', sample: 'text-sm' },
+  { value: 'large', label: 'Large', sample: 'text-base' },
+  { value: 'larger', label: 'Larger', sample: 'text-lg' },
 ]
 
 const PALETTE_OPTIONS: { value: ColorPalette; label: string; swatch: string }[] = [
@@ -38,12 +46,18 @@ function PreferencesForm({ idPrefix = 'pref' }: PreferencesFormProps) {
     theme,
     setTheme,
     palette,
-    setPalette
+    setPalette,
+    vibrationEnabled,
+    setVibrationEnabled,
+    textSize,
+    setTextSize
   } = usePreferences()
   const sfxId = `${idPrefix}-sfx-volume`
   const musicId = `${idPrefix}-music-volume`
   const themeGroupId = `${idPrefix}-theme`
   const paletteGroupId = `${idPrefix}-palette`
+  const textSizeGroupId = `${idPrefix}-text-size`
+  const vibrationId = `${idPrefix}-vibration`
   const sfxPercent = sfxVolumeToPercent(sfxVolume)
   const musicPercent = musicVolumeToPercent(musicVolume)
 
@@ -127,6 +141,44 @@ function PreferencesForm({ idPrefix = 'pref' }: PreferencesFormProps) {
         </div>
       </fieldset>
 
+      <fieldset className="space-y-2">
+        <legend className="text-foreground text-sm font-medium">Text size</legend>
+        <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-labelledby={textSizeGroupId}>
+          <span id={textSizeGroupId} className="sr-only">
+            Text size
+          </span>
+          {TEXT_SIZE_OPTIONS.map((option) => {
+            const id = `${idPrefix}-text-size-${option.value}`
+            const selected = textSize === option.value
+            return (
+              <label
+                key={option.value}
+                htmlFor={id}
+                className={`cursor-pointer rounded-lg border px-2 py-2 text-center font-semibold transition-colors ${
+                  selected
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-edge bg-surface-muted text-foreground-muted hover:bg-surface-elevated'
+                }`}
+              >
+                <input
+                  type="radio"
+                  id={id}
+                  name={`${idPrefix}-text-size`}
+                  value={option.value}
+                  checked={selected}
+                  onChange={() => setTextSize(option.value)}
+                  className="sr-only"
+                />
+                <span aria-hidden="true" className={`block leading-none ${option.sample}`}>
+                  Aa
+                </span>
+                <span className="mt-1 block text-xs">{option.label}</span>
+              </label>
+            )
+          })}
+        </div>
+      </fieldset>
+
       <div className="space-y-1.5">
         <div className="flex items-baseline justify-between gap-2">
           <label htmlFor={sfxId} className="text-foreground text-sm font-medium">
@@ -184,6 +236,28 @@ function PreferencesForm({ idPrefix = 'pref' }: PreferencesFormProps) {
           Soft theme on lobby and setup screens. Separate from sound effects.
         </p>
       </div>
+
+      {supportsVibration() && (
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <label htmlFor={vibrationId} className="text-foreground text-sm font-medium">
+              Vibration
+            </label>
+            <p className="text-xs text-foreground-muted">A short buzz when a guess is right, wrong, or time runs out.</p>
+          </div>
+          <input
+            type="checkbox"
+            role="switch"
+            id={vibrationId}
+            checked={vibrationEnabled}
+            onChange={(event) => {
+              setVibrationEnabled(event.target.checked)
+              if (event.target.checked) navigator.vibrate?.(30)
+            }}
+            className="mt-1 size-5 shrink-0 accent-primary"
+          />
+        </div>
+      )}
 
       {reducedMotion && (
         <p className="text-xs text-amber-900 dark:text-amber-100 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-lg px-3 py-2">

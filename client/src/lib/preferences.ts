@@ -6,6 +6,8 @@ export const STORAGE_KEY_SFX_VOLUME_LAST = 'whoami_sfx_volume_last'
 export const STORAGE_KEY_MUSIC_VOLUME_LAST = 'whoami_music_volume_last'
 export const STORAGE_KEY_THEME = 'whoami_theme'
 export const STORAGE_KEY_PALETTE = 'whoami_palette'
+export const STORAGE_KEY_VIBRATION = 'whoami_vibration_enabled'
+export const STORAGE_KEY_TEXT_SIZE = 'whoami_text_size'
 
 /** Soft default — audible without jump-scare. */
 export const DEFAULT_SFX_VOLUME = 0.7
@@ -20,11 +22,14 @@ export const MUSIC_VOLUME_MAX = 0.25
 export type ThemeMode = 'system' | 'light' | 'dark'
 export type ResolvedTheme = 'light' | 'dark'
 export type ColorPalette = 'blue' | 'green' | 'wine' | 'purple'
+export type TextSize = 'default' | 'large' | 'larger'
 
 const DEFAULT_THEME: ThemeMode = 'system'
 const THEME_MODES: ThemeMode[] = ['system', 'light', 'dark']
 export const DEFAULT_PALETTE: ColorPalette = 'blue'
 const COLOR_PALETTES: ColorPalette[] = ['blue', 'green', 'wine', 'purple']
+export const DEFAULT_TEXT_SIZE: TextSize = 'default'
+const TEXT_SIZES: TextSize[] = ['default', 'large', 'larger']
 
 export function clampVolume(value: number): number {
   if (!Number.isFinite(value)) return 0
@@ -192,6 +197,47 @@ export function readPalette(): ColorPalette {
 export function writePalette(palette: ColorPalette): void {
   try {
     localStorage.setItem(STORAGE_KEY_PALETTE, palette)
+  } catch {
+    // private mode / quota
+  }
+}
+
+/** iPhone Safari has no vibration API, so the setting is hidden there. */
+export function supportsVibration(): boolean {
+  return typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function'
+}
+
+export function readVibrationEnabled(): boolean {
+  if (typeof window === 'undefined') return true
+  try {
+    return localStorage.getItem(STORAGE_KEY_VIBRATION) !== 'false'
+  } catch {
+    return true
+  }
+}
+
+export function writeVibrationEnabled(enabled: boolean): void {
+  try {
+    localStorage.setItem(STORAGE_KEY_VIBRATION, String(enabled))
+  } catch {
+    // private mode / quota
+  }
+}
+
+export function readTextSize(): TextSize {
+  if (typeof window === 'undefined') return DEFAULT_TEXT_SIZE
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY_TEXT_SIZE)
+    if (raw && TEXT_SIZES.includes(raw as TextSize)) return raw as TextSize
+    return DEFAULT_TEXT_SIZE
+  } catch {
+    return DEFAULT_TEXT_SIZE
+  }
+}
+
+export function writeTextSize(size: TextSize): void {
+  try {
+    localStorage.setItem(STORAGE_KEY_TEXT_SIZE, size)
   } catch {
     // private mode / quota
   }
