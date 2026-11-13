@@ -424,7 +424,7 @@ function SoloStats() {
                 <p className="text-xs font-medium text-foreground-muted">Your nemesis</p>
                 {nemesis.state === 'needs_review' ? (
                   <p className="text-lg font-bold">
-                    {/* Same placeholder as the collection, so a card waiting in Review stays hidden. */}
+                    {/* Same placeholder as the Cards you've met dialog, so a card waiting in Review stays hidden. */}
                     <span className="select-none blur-sm" aria-hidden>
                       Hidden card
                     </span>
