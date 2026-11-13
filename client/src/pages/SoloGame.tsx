@@ -143,7 +143,7 @@ function SoloGame() {
   const activeSession = useRef<SoloSession | null>(null)
   const guessInputRef = useRef<HTMLInputElement | null>(null)
   const advanceButtonRef = useRef<HTMLButtonElement | null>(null)
-  const settlePanelRef = useRef<HTMLSectionElement | null>(null)
+  const settlePanelRef = useRef<HTMLElement | null>(null)
   const lastClueCountRef = useRef(0)
   const settledOnceRef = useRef(false)
   const viewportStyle = useVisualViewportLock()
@@ -157,7 +157,7 @@ function SoloGame() {
           1 + Math.floor((session.roundDurationMs - remainingMs) / session.clueRevealIntervalMs)
         )
       : 0
-  const { ref: cluesScrollRef, onScroll: onCluesScroll, resetStick } = useStickToBottom<HTMLElement>([
+  const { ref: cluesScrollRef, onScroll: onCluesScroll, resetStick } = useStickToBottom<HTMLDivElement>([
     revealedCountForScroll,
     settledForScroll,
     loading

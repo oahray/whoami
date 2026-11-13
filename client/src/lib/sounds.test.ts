@@ -81,7 +81,7 @@ describe('sounds', () => {
       addEventListener: (event: string, handler: () => void) => {
         if (event === 'error') errorHandler = handler
       }
-    }))
+    }) as unknown as HTMLAudioElement)
 
     playSound('go')
     expect(playMock).toHaveBeenCalledTimes(1)

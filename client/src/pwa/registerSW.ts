@@ -43,8 +43,8 @@ export function useRegisterSW() {
     if (!wb) return
 
     const handleWaiting = () => setNeedRefresh(true)
+    // Since Workbox 6, 'waiting' also fires for a worker installed by another tab.
     wb.addEventListener('waiting', handleWaiting)
-    wb.addEventListener('externalwaiting', handleWaiting)
 
     if (!registered) {
       registered = true
@@ -55,7 +55,6 @@ export function useRegisterSW() {
 
     return () => {
       wb.removeEventListener('waiting', handleWaiting)
-      wb.removeEventListener('externalwaiting', handleWaiting)
     }
   }, [])
 
@@ -64,14 +63,13 @@ export function useRegisterSW() {
     if (!wb) return Promise.resolve()
 
     return new Promise<void>((resolve) => {
-      wb.addEventListener(
-        'controlling',
-        () => {
-          if (reload) window.location.reload()
-          resolve()
-        },
-        { once: true } as AddEventListenerOptions
-      )
+      // Workbox's addEventListener takes no options, so the listener removes itself.
+      const handleControlling = () => {
+        wb.removeEventListener('controlling', handleControlling)
+        if (reload) window.location.reload()
+        resolve()
+      }
+      wb.addEventListener('controlling', handleControlling)
       void wb.messageSkipWaiting()
     })
   }

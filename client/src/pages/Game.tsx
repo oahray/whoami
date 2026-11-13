@@ -207,7 +207,8 @@ function Game() {
       setAwaitingNextRound(false)
       setGameEndData(data)
     }
-    const handleGuessBroadcast = (data: { nickname: string; avatarId?: string; guess?: string; correct: boolean }) => {
+    const handleGuessBroadcast = (...args: unknown[]) => {
+      const data = args[0] as { nickname: string; avatarId?: string; guess?: string; correct: boolean }
       setGuessFeed(prev => [...prev.slice(-14), data])
     }
     const handlePlayerCorrect = () => {}

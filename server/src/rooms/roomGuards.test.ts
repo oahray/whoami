@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { canReclaimSeat, socketClientAddress, sweepStaleRooms } from './roomGuards.js'
+import { canReclaimSeat, memoryPressureHigh, socketClientAddress, sweepStaleRooms } from './roomGuards.js'
 import { createRoom, getRoom } from './store.js'
 
 describe('socketClientAddress', () => {
@@ -68,5 +68,17 @@ describe('sweepStaleRooms', () => {
 
     expect(room.currentRound?.timers.clueReveal).toBeNull()
     return new Promise<void>((resolve) => setTimeout(() => { expect(fired).toBe(false); resolve() }, 30))
+  })
+})
+
+describe('memoryPressureHigh', () => {
+  it('trips only once the heap is nearly full', () => {
+    expect(memoryPressureHigh(() => ({ used: 50, limit: 100 }))).toBe(false)
+    expect(memoryPressureHigh(() => ({ used: 85, limit: 100 }))).toBe(false)
+    expect(memoryPressureHigh(() => ({ used: 86, limit: 100 }))).toBe(true)
+  })
+
+  it('stays open when the limit cannot be read', () => {
+    expect(memoryPressureHigh(() => ({ used: 10, limit: 0 }))).toBe(false)
   })
 })

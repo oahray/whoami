@@ -23,7 +23,7 @@ const POOL = Array.from({ length: 25 }, (_, i) => `ent-${i + 1}`)
 function makeSession(overrides: Partial<Parameters<typeof saveDeckSession>[0]> = {}) {
   return {
     datasetId: 'ds-1',
-    difficulty: [] as const,
+    difficulty: [],
     entityType: 'character' as const,
     masterPool: POOL,
     deckStartOffset: 0,

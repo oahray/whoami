@@ -9,7 +9,7 @@ import { formatSoloScore, type SoloRecord } from './soloSession'
 
 const classicRecord: SoloRecord = {
   datasetId: 'ds-1',
-  difficulty: 'any',
+  difficulty: [],
   entityType: 'character',
   variation: 'challenge',
   roundDurationMs: 30_000,

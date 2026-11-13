@@ -14,7 +14,7 @@ import {
   allowRoomCreate,
   allowRoomJoin,
   canReclaimSeat,
-  roomCapacityReached,
+  memoryPressureHigh,
   socketClientAddress
 } from '../../rooms/roomGuards.js'
 import {
@@ -382,7 +382,7 @@ export function handleCreateRoom(io: Server, socket: Socket, payload: any) {
       return
     }
 
-    if (roomCapacityReached()) {
+    if (memoryPressureHigh()) {
       socket.emit('ROOM_ERROR', {
         code: 'SERVER_BUSY',
         message: 'Too many games are running right now. Please try again in a few minutes.'

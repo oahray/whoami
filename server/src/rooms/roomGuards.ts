@@ -1,4 +1,5 @@
 import { timingSafeEqual } from 'crypto'
+import v8 from 'node:v8'
 import { createRateLimiter, type RateLimitRule } from '../middleware/rateLimit.js'
 import { TRUST_PROXY_HOPS } from '../config/proxy.js'
 import { deleteRoom, getAllRooms, type Player, type RoomState } from './store.js'
@@ -10,9 +11,11 @@ import { deleteRoom, getAllRooms, type Player, type RoomState } from './store.js
 export const ROOM_LIMITS = {
   create: { windowMs: 10 * 60_000, max: 10 },
   join: { windowMs: 60_000, max: 30 },
-  maxRooms: 500,
+  // Share of the V8 heap in use above which new rooms are refused, so a flood degrades to
+  // "server busy" instead of an out-of-memory crash that would end every running game.
+  heapBusyRatio: 0.85,
   sweepIntervalMs: 5 * 60_000
-} satisfies { create: RateLimitRule; join: RateLimitRule; maxRooms: number; sweepIntervalMs: number }
+} satisfies { create: RateLimitRule; join: RateLimitRule; heapBusyRatio: number; sweepIntervalMs: number }
 
 let createLimiter = createRateLimiter(ROOM_LIMITS.create)
 let joinLimiter = createRateLimiter(ROOM_LIMITS.join)
@@ -47,8 +50,15 @@ export function allowRoomJoin(address: string): boolean {
   return joinLimiter.hit(address).allowed
 }
 
-export function roomCapacityReached(): boolean {
-  return getAllRooms().size >= ROOM_LIMITS.maxRooms
+type HeapReading = { used: number; limit: number }
+
+function readHeap(): HeapReading {
+  return { used: process.memoryUsage().heapUsed, limit: v8.getHeapStatistics().heap_size_limit }
+}
+
+export function memoryPressureHigh(read: () => HeapReading = readHeap): boolean {
+  const { used, limit } = read()
+  return limit > 0 && used / limit > ROOM_LIMITS.heapBusyRatio
 }
 
 /**

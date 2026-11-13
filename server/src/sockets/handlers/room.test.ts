@@ -732,6 +732,21 @@ describe('room socket handlers', () => {
       expect(elsewhere.emit).toHaveBeenCalledWith('ROOM_JOINED', expect.anything())
     })
 
+    it('refuses new rooms while the heap is nearly full', () => {
+      const memory = vi.spyOn(process, 'memoryUsage').mockReturnValue({
+        ...process.memoryUsage(),
+        heapUsed: Number.MAX_SAFE_INTEGER
+      })
+      try {
+        const socket = hostSocket('busy-host')
+        handleCreateRoom({} as any, socket, { nickname: 'Peter' })
+        expect(socket.emit).toHaveBeenCalledWith('ROOM_ERROR', expect.objectContaining({ code: 'SERVER_BUSY' }))
+        expect(createRoomInStore).not.toHaveBeenCalled()
+      } finally {
+        memory.mockRestore()
+      }
+    })
+
     it('leaves the old room before creating another from the same socket', () => {
       const oldRoom = actualStore.createRoom('repeat-host', 'Peter')
       const io = { to: vi.fn(() => ({ emit: vi.fn() })) } as any
