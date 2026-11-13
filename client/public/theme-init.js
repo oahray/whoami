@@ -11,6 +11,10 @@
     var palette = localStorage.getItem('whoami_palette') || 'blue';
     if (!paletteColors[palette]) palette = 'blue';
     document.documentElement.setAttribute('data-palette', palette);
+    var textSize = localStorage.getItem('whoami_text_size');
+    if (textSize === 'large' || textSize === 'larger') {
+      document.documentElement.setAttribute('data-text-size', textSize);
+    }
     var dark =
       mode === 'dark' ||
       (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);

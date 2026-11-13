@@ -9,6 +9,7 @@
     "server"
   ],
   "scripts": {
+    "dev": "node scripts/dev.mjs",
     "dev:client": "npm run dev --workspace=client",
     "dev:admin": "npm run dev --workspace=admin",
     "dev:server": "npm run dev --workspace=server",

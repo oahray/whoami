@@ -15,18 +15,23 @@ import {
   readPalette,
   readSfxVolume,
   readSfxVolumeLast,
+  readTextSize,
   readTheme,
+  readVibrationEnabled,
   resolveTheme,
   STORAGE_KEY_MUSIC_ENABLED,
   STORAGE_KEY_MUSIC_VOLUME,
   STORAGE_KEY_PALETTE,
   STORAGE_KEY_SFX_ENABLED,
   STORAGE_KEY_SFX_VOLUME,
+  STORAGE_KEY_TEXT_SIZE,
   STORAGE_KEY_THEME,
   writeMusicVolume,
   writePalette,
   writeSfxVolume,
-  writeTheme
+  writeTextSize,
+  writeTheme,
+  writeVibrationEnabled
 } from './preferences'
 
 describe('preferences', () => {
@@ -163,5 +168,26 @@ describe('preferences', () => {
     expect(resolveTheme('system')).toBe('dark')
     stubMatchMedia({ prefersDark: false })
     expect(resolveTheme('system')).toBe('light')
+  })
+})
+
+describe('text size and vibration', () => {
+  beforeEach(() => localStorage.clear())
+
+  it('defaults to the normal text size and ignores unknown values', () => {
+    expect(readTextSize()).toBe('default')
+    localStorage.setItem(STORAGE_KEY_TEXT_SIZE, 'huge')
+    expect(readTextSize()).toBe('default')
+  })
+
+  it('remembers the chosen text size', () => {
+    writeTextSize('larger')
+    expect(readTextSize()).toBe('larger')
+  })
+
+  it('has vibration on until the player turns it off', () => {
+    expect(readVibrationEnabled()).toBe(true)
+    writeVibrationEnabled(false)
+    expect(readVibrationEnabled()).toBe(false)
   })
 })

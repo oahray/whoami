@@ -80,7 +80,7 @@ describe('inPersonDeck', () => {
 
   it('formats progress with deck number', () => {
     const session = makeSession({ deckStartOffset: 10, index: 2 })
-    expect(deckProgressLabel(session)).toBe('Card 3 of 10 · Deck 2 of 3')
+    expect(deckProgressLabel(session)).toBe('Card 3 of 10 · Deck 2')
   })
 
   it('stores and restores card snapshots by index', () => {

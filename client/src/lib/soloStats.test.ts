@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest'
 import {
   computeDailyExtras,
   computeModeStats,
+  findFirstClueBest,
+  findMostCorrect,
   findNemesis,
+  listNeverMissed,
   statsDayFromDaily,
   statsDayFromTrend
 } from './soloStats'
@@ -201,5 +204,56 @@ describe('findNemesis', () => {
 
   it('has no nemesis without misses', () => {
     expect(findNemesis([entity('Ruth', 0, 5)])).toBeNull()
+  })
+})
+
+describe('highlights', () => {
+  const entity = (
+    entityName: string,
+    fields: Partial<EntityMastery> & { lastEncounteredAt?: string } = {}
+  ): EntityMastery => ({
+    datasetId: 'bible',
+    entityId: entityName.toLowerCase(),
+    entityName,
+    encounters: 1,
+    correctCount: 1,
+    firstClueCorrectCount: 0,
+    missCount: 0,
+    lastCorrect: true,
+    lastEncounteredAt: '2026-10-20T12:00:00Z',
+    state: 'learning',
+    ...fields
+  })
+
+  it('picks the card answered right most, breaking ties by the most recent', () => {
+    const picks = [
+      entity('Ruth', { correctCount: 4, lastEncounteredAt: '2026-10-01T00:00:00Z' }),
+      entity('Esther', { correctCount: 4, lastEncounteredAt: '2026-10-05T00:00:00Z' }),
+      entity('Annas', { correctCount: 2 })
+    ]
+    expect(findMostCorrect(picks)?.entityName).toBe('Esther')
+  })
+
+  it('never names a card waiting in Review', () => {
+    const picks = [
+      entity('Othniel', { correctCount: 9, firstClueCorrectCount: 9, state: 'needs_review' }),
+      entity('Ruth', { correctCount: 2, firstClueCorrectCount: 1 })
+    ]
+    expect(findMostCorrect(picks)?.entityName).toBe('Ruth')
+    expect(findFirstClueBest(picks)?.entityName).toBe('Ruth')
+  })
+
+  it('has no first-clue best until something is solved on clue 1', () => {
+    expect(findFirstClueBest([entity('Ruth', { correctCount: 3 })])).toBeNull()
+  })
+
+  it('lists cards seen at least three times and never missed, most seen first', () => {
+    const list = listNeverMissed([
+      entity('Ruth', { encounters: 3, correctCount: 3 }),
+      entity('Esther', { encounters: 6, correctCount: 6 }),
+      entity('Lucky', { encounters: 1, correctCount: 1 }),
+      entity('Annas', { encounters: 5, correctCount: 4, missCount: 1 })
+    ])
+    expect(list.map((item) => item.entityName)).toEqual(['Esther', 'Ruth'])
   })
 })

@@ -15,6 +15,8 @@ import { useGame } from '../hooks/useGame'
 import { useSocket } from '../hooks/useSocket'
 import { useStickToBottom } from '../hooks/useStickToBottom'
 import { useVisualViewportLock } from '../hooks/useVisualViewportLock'
+import { useWakeLock } from '../hooks/useWakeLock'
+import { vibrate } from '../lib/haptics'
 
 /**
  * Sort a scoreboard descending and assign competition rankings (1, 1, 3, ...)
@@ -54,6 +56,10 @@ function Game() {
   const [timeRemaining, setTimeRemaining] = useState(0)
   const [roundEndData, setRoundEndData] = useState<any>(null)
   const [gameEndData, setGameEndData] = useState<any>(null)
+  useWakeLock(!gameEndData)
+  // Read inside the socket handlers, which are registered once.
+  const myNicknameRef = useRef<string | null>(null)
+  myNicknameRef.current = players.find((player) => player.id === playerId)?.nickname ?? null
   const [autoReturnSeconds, setAutoReturnSeconds] = useState<number | null>(null)
   const [nextRoundSeconds, setNextRoundSeconds] = useState<number | null>(null)
   const [awaitingNextRound, setAwaitingNextRound] = useState(false)
@@ -210,6 +216,7 @@ function Game() {
     const handleGuessBroadcast = (...args: unknown[]) => {
       const data = args[0] as { nickname: string; avatarId?: string; guess?: string; correct: boolean }
       setGuessFeed(prev => [...prev.slice(-14), data])
+      if (!data.correct && data.nickname === myNicknameRef.current) vibrate('wrong')
     }
     const handlePlayerCorrect = () => {}
     const handleGuessFeedback = (...args: unknown[]) => {
@@ -509,9 +516,14 @@ function Game() {
               </button>
               <div className="min-w-0">
                 <h2 className="truncate text-base font-bold leading-none lg:text-lg">
-                  {isFinalScoresView
-                    ? 'Final Scores'
-                    : `Round ${gameState.roundNumber} of ${settings?.totalRounds ?? 0}`}
+                  {isFinalScoresView ? (
+                    'Final Scores'
+                  ) : (
+                    <>
+                      <span className="max-[430px]:[html[data-text-size]_&]:hidden">Round </span>
+                      {gameState.roundNumber} of {settings?.totalRounds ?? 0}
+                    </>
+                  )}
                 </h2>
                 {roomCode && (
                   <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary lg:text-xs">
@@ -532,7 +544,7 @@ function Game() {
               <SoundToggle />
               {!isFinalScoresView && (
                 <div className="flex items-center gap-2 rounded-lg border border-primary/10 bg-primary/5 px-3 py-1.5">
-                  <span className="material-symbols-outlined text-base text-primary">timer</span>
+                  <span className="material-symbols-outlined text-base text-primary max-[430px]:[html[data-text-size]_&]:hidden">timer</span>
                   <div className="leading-tight">
                     <p className="text-[9px] font-bold uppercase tracking-wider text-primary">
                       {preGuessPhase ? 'Starts in' : 'Time'}

@@ -3,6 +3,7 @@ import { useSocket } from '../hooks/useSocket'
 import { saveSignedArchiveIfPresent } from '../lib/deviceArchive'
 import type { GameHistoryEntry } from '../lib/gameHistory'
 import { playSound } from '../lib/sounds'
+import { vibrate } from '../lib/haptics'
 import { getErrorMessage, isFatalError } from '../utils/errorMessages'
 import { getDeviceId } from '../lib/deviceId'
 
@@ -341,6 +342,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       if (currentPlayer && data.nickname === currentPlayer.nickname) {
         setGameState(prev => prev ? { ...prev, isLocked: true } : null)
         playSound('correct')
+        vibrate('correct')
       }
     }
 
@@ -358,6 +360,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
       if (!data.answerRevealed) {
         playSound('uh-oh')
+        vibrate('timeout')
       }
     }
 

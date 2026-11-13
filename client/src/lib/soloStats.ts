@@ -247,3 +247,34 @@ export function findNemesis(entities: EntityMastery[]): EntityMastery | null {
       )[0] ?? null
   )
 }
+
+function byRecentThenName(a: EntityMastery, b: EntityMastery): number {
+  return b.lastEncounteredAt.localeCompare(a.lastEncounteredAt) || a.entityName.localeCompare(b.entityName)
+}
+
+/** The card answered right most often. Cards waiting in Review are skipped so their names stay hidden. */
+export function findMostCorrect(entities: EntityMastery[]): EntityMastery | null {
+  return (
+    entities
+      .filter((entity) => entity.correctCount > 0 && entity.state !== 'needs_review')
+      .sort((a, b) => b.correctCount - a.correctCount || byRecentThenName(a, b))[0] ?? null
+  )
+}
+
+/** The card solved on the first clue most often. */
+export function findFirstClueBest(entities: EntityMastery[]): EntityMastery | null {
+  return (
+    entities
+      .filter((entity) => entity.firstClueCorrectCount > 0 && entity.state !== 'needs_review')
+      .sort((a, b) => b.firstClueCorrectCount - a.firstClueCorrectCount || byRecentThenName(a, b))[0] ?? null
+  )
+}
+
+export const NEVER_MISSED_MIN_ENCOUNTERS = 3
+
+/** Cards seen a few times and never missed, most seen first. One lucky guess does not count. */
+export function listNeverMissed(entities: EntityMastery[]): EntityMastery[] {
+  return entities
+    .filter((entity) => entity.encounters >= NEVER_MISSED_MIN_ENCOUNTERS && entity.missCount === 0)
+    .sort((a, b) => b.encounters - a.encounters || a.entityName.localeCompare(b.entityName))
+}

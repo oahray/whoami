@@ -41,6 +41,7 @@ import {
 import { playSound, unlockAudio, warmSoundCache } from '../lib/sounds'
 import { reportPassAndPlayCharacter, reportPassAndPlayStart } from '../lib/reportSoloPlay'
 import type { InPersonCard } from '../types'
+import { useWakeLock } from '../hooks/useWakeLock'
 
 function PlayCards() {
   const navigate = useNavigate()
@@ -58,6 +59,7 @@ function PlayCards() {
   const [deckSession, setDeckSession] = useState<InPersonDeckSession | null>(null)
   const [deckComplete, setDeckComplete] = useState(false)
   const [sessionComplete, setSessionComplete] = useState(false)
+  useWakeLock(deckSession !== null && !sessionComplete)
   const [revealedCount, setRevealedCount] = useState(1)
   const [showAnswer, setShowAnswer] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -459,9 +461,7 @@ function PlayCards() {
           <div role="status" className="banner-success text-center">
             All cards in this deck have been played.
             {remainingEntityCount(deckSession) > 0 && (
-              <span className="block mt-1">
-                {remainingEntityCount(deckSession)} characters remaining in this session.
-              </span>
+              <span className="block mt-1">More characters are waiting in this session.</span>
             )}
           </div>
         )}

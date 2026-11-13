@@ -8,7 +8,11 @@ import { formatSoloScore, formatSoloTime } from '../lib/soloSession'
 import {
   computeDailyExtras,
   computeModeStats,
+  findFirstClueBest,
+  findMostCorrect,
   findNemesis,
+  listNeverMissed,
+  NEVER_MISSED_MIN_ENCOUNTERS,
   STATS_MIN_DAYS,
   statsDayFromDaily,
   statsDayFromTrend,
@@ -59,6 +63,27 @@ function Section({ title, icon, children }: { title: string; icon: string; child
       {children}
     </section>
   )
+}
+
+function Highlight({ icon, label, title, detail }: { icon: string; label: string; title: string; detail: string }) {
+  return (
+    <div className="flex items-center gap-3 rounded-md border border-edge bg-surface-muted/40 p-3">
+      <span className="material-symbols-outlined text-primary" aria-hidden>
+        {icon}
+      </span>
+      <div className="min-w-0">
+        <p className="text-xs font-medium text-foreground-muted">{label}</p>
+        <p className="truncate text-lg font-bold">{title}</p>
+        <p className="text-xs text-foreground-muted">{detail}</p>
+      </div>
+    </div>
+  )
+}
+
+const NEVER_MISSED_NAMES_SHOWN = 5
+
+function times(count: number): string {
+  return `${count} ${count === 1 ? 'time' : 'times'}`
 }
 
 function Tiles({ items }: { items: Array<{ label: string; value: string; hint?: string }> }) {
@@ -254,6 +279,9 @@ function SoloStats() {
   const dailyExtras = useMemo(() => computeDailyExtras(dailyProgress), [dailyProgress])
   const entities = useMemo(() => listEntityMastery(), [])
   const nemesis = findNemesis(entities)
+  const mostCorrect = findMostCorrect(entities)
+  const firstClueBest = findFirstClueBest(entities)
+  const neverMissed = listNeverMissed(entities)
   const current = MODES.find((entry) => entry.id === mode)!
   const enough = mode === 'daily' ? stats.daysPlayed >= STATS_MIN_DAYS : stats.runs >= STATS_MIN_DAYS
   const foundCount = entities.filter((entity) => entity.correctCount > 0).length
@@ -440,6 +468,38 @@ function SoloStats() {
                 </p>
               </div>
             </div>
+          )}
+          {mostCorrect && (
+            <Highlight
+              icon="star"
+              label="Most often right"
+              title={mostCorrect.entityName}
+              detail={`Right ${times(mostCorrect.correctCount)}`}
+            />
+          )}
+          {firstClueBest && (
+            <Highlight
+              icon="bolt"
+              label="Quickest to spot"
+              title={firstClueBest.entityName}
+              detail={`Solved on the first clue ${times(firstClueBest.firstClueCorrectCount)}`}
+            />
+          )}
+          {neverMissed.length > 0 && (
+            <Highlight
+              icon="verified"
+              label={`Never missed, seen ${NEVER_MISSED_MIN_ENCOUNTERS}+ times`}
+              title={`${neverMissed.length} ${neverMissed.length === 1 ? 'card' : 'cards'}`}
+              detail={
+                neverMissed
+                  .slice(0, NEVER_MISSED_NAMES_SHOWN)
+                  .map((entity) => entity.entityName)
+                  .join(', ') +
+                (neverMissed.length > NEVER_MISSED_NAMES_SHOWN
+                  ? ` and ${neverMissed.length - NEVER_MISSED_NAMES_SHOWN} more`
+                  : '')
+              }
+            />
           )}
         </Section>
       </main>
