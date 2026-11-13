@@ -33,20 +33,16 @@ import { startPlayCountReconcileSchedule } from './analytics/reconcilePlayCounts
 import { isRedisConfigured } from './redis/client.js'
 import { fetchRoomsFromRedis } from './rooms/persist.js'
 import { loadHydratedRooms } from './rooms/store.js'
-import { rearmAllHydratedRoomTimers } from './sockets/handlers/utils.js'
+import { GRACE_PERIOD_MS, rearmAllHydratedRoomTimers } from './sockets/handlers/utils.js'
+import { ROOM_LIMITS, sweepStaleRooms } from './rooms/roomGuards.js'
+import { TRUST_PROXY_HOPS } from './config/proxy.js'
 
 dotenv.config()
 
 const app = express()
 const server = createServer(app)
 
-/**
- * How many proxies sit in front of the server (Railway's edge is one; add one more if
- * Cloudflare proxies the API too). Express then reads the client address from the right
- * end of X-Forwarded-For, which a client cannot fake the way it can fake the left end.
- */
-const TRUST_PROXY_HOPS = Number.parseInt(process.env.TRUST_PROXY_HOPS ?? '1', 10)
-app.set('trust proxy', Number.isFinite(TRUST_PROXY_HOPS) ? TRUST_PROXY_HOPS : 1)
+app.set('trust proxy', TRUST_PROXY_HOPS)
 const PORT = process.env.PORT || 3001
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'http://localhost:5173'
 const CLIENT_ORIGINS = process.env.CLIENT_ORIGINS
@@ -227,6 +223,11 @@ async function boot() {
   }
 
   startPlayCountReconcileSchedule()
+
+  setInterval(() => {
+    const removed = sweepStaleRooms(GRACE_PERIOD_MS)
+    if (removed > 0) logger.info('Swept abandoned rooms', { removed })
+  }, ROOM_LIMITS.sweepIntervalMs).unref()
 
   server.listen(PORT, () => {
     const rearmed = rearmAllHydratedRoomTimers(io, hydratedRooms)

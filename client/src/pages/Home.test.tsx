@@ -178,7 +178,8 @@ describe('Home', () => {
 
     expect(emit).toHaveBeenCalledWith('CREATE_ROOM', {
       nickname: 'Paul',
-      avatarId: expect.stringMatching(/^avatar-\d{2}$/)
+      avatarId: expect.stringMatching(/^avatar-\d{2}$/),
+      deviceId: localStorage.getItem('whoami_device_id')
     })
   })
 

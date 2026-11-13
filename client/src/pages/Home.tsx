@@ -164,7 +164,7 @@ function Home() {
     unlockAudio()
     localStorage.setItem('whoami_nickname', nickname.trim())
     writeStoredAvatarId(avatarId)
-    emit('CREATE_ROOM', { nickname: nickname.trim(), avatarId })
+    emit('CREATE_ROOM', { nickname: nickname.trim(), avatarId, deviceId: getDeviceId() })
   }
 
   const handleJoinRoom = () => {
