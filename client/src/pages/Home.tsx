@@ -18,6 +18,7 @@ import { parseRoomCodeInput, ROOM_CODE_LENGTH } from '../lib/roomCode'
 import { getDeviceId } from '../lib/deviceId'
 import AvatarPicker from '../components/AvatarPicker'
 import IosInstallHint from '../components/IosInstallHint'
+import WelcomeCard from '../components/WelcomeCard'
 import FeedbackLink from '../components/FeedbackLink'
 import PreferencesMenu from '../components/PreferencesMenu'
 import LoadingState from '../components/LoadingState'
@@ -282,6 +283,8 @@ function Home() {
             <span className="text-amber-300">Challenge friends</span>
           </div>
         </section>
+
+        <WelcomeCard />
 
         <div className="w-full max-w-md bg-surface rounded-xl shadow-2xl border border-edge py-8 px-5 flex flex-col gap-6">
           <div className="-mb-1 text-center">
