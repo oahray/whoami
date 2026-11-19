@@ -97,6 +97,12 @@ function Home() {
   }, [historySheetOpen])
 
   useEffect(() => {
+    // Anything the page doesn't cover (overscroll, a viewport taller than the layout) stays poster blue.
+    document.documentElement.classList.add('home-poster')
+    return () => document.documentElement.classList.remove('home-poster')
+  }, [])
+
+  useEffect(() => {
     if (typeof window === 'undefined') return
     const msg = window.sessionStorage.getItem('whoami_kick_message')
     if (msg) {
@@ -201,7 +207,7 @@ function Home() {
   }
 
   return (
-    <div className="relative flex min-h-screen min-h-full w-full flex-col bg-primary home-hero-pattern overflow-x-hidden font-display antialiased">
+    <div className="relative flex w-full flex-1 flex-col bg-primary home-hero-pattern overflow-x-hidden font-display antialiased">
       <div className="absolute right-4 top-[max(0.75rem,env(safe-area-inset-top))] z-30">
         <PreferencesMenu tone="onPoster" />
       </div>
@@ -234,7 +240,7 @@ function Home() {
         </div>
       )}
 
-      <div className="flex flex-1 flex-col items-center justify-center p-6 pb-12">
+      <div className="flex flex-1 flex-col items-center justify-center px-6 pt-5 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
         <section className="relative isolate mb-5 flex w-full max-w-lg flex-col items-center text-center">
           <span
             aria-hidden="true"
@@ -286,7 +292,7 @@ function Home() {
 
         <WelcomeCard />
 
-        <div className="w-full max-w-md bg-surface rounded-xl shadow-2xl border border-edge py-8 px-5 flex flex-col gap-6">
+        <div className="w-full max-w-md bg-surface rounded-xl shadow-2xl border border-edge py-6 px-5 flex flex-col gap-5">
           <div className="-mb-1 text-center">
             <h2 className="text-lg font-bold text-foreground">Start a multiplayer game</h2>
             <p className="mt-1 text-xs font-medium text-foreground-muted">
@@ -296,7 +302,7 @@ function Home() {
           {maintenanceStatus.phase !== 'none' && (
             <MaintenanceBanner status={maintenanceStatus} />
           )}
-          <form onSubmit={handleOnlineSubmit} className="flex flex-col gap-6">
+          <form onSubmit={handleOnlineSubmit} className="flex flex-col gap-5">
             <div className="flex flex-col gap-2">
               <label className="text-foreground text-sm font-semibold ml-1">Your Nickname</label>
               <div className="relative">
@@ -448,7 +454,7 @@ function Home() {
 
         <nav
           aria-label="Other ways to play"
-          className="mt-6 flex flex-wrap justify-center gap-2 w-full max-w-sm mx-auto"
+          className="mt-5 flex flex-wrap justify-center gap-2 w-full max-w-sm mx-auto"
         >
           <Link
             to="/solo"

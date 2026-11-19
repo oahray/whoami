@@ -66,6 +66,11 @@ body {
   min-height: 100%;
 }
 
+html.home-poster,
+html.home-poster body {
+  background-color: rgb(var(--color-primary));
+}
+
 /* Text size preference. Percentages keep the browser's own font setting as the base. */
 html[data-text-size='large'] {
   font-size: 112.5%;
