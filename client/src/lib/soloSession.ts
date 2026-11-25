@@ -13,7 +13,7 @@ import { estimateLegacySoloScore } from './soloScoring'
 export const SOLO_CHALLENGE_ROUNDS = 10
 export const SOLO_RECORDS_PER_MODE = 10
 const SESSION_KEY = 'whoami-solo-session'
-const RECORDS_KEY = 'whoami-solo-records'
+export const RECORDS_KEY = 'whoami-solo-records'
 const SETUP_KEY = 'whoami-solo-setup'
 
 export type SoloVariation = 'challenge' | 'endurance' | 'daily' | 'review'
@@ -620,4 +620,48 @@ export function soloConfigSummary(
     `${config.clueRevealIntervalMs / 1000}s clues`
   ]
   return parts.join(' · ')
+}
+
+export function listAllSoloRecords(): SoloRecord[] {
+  return readSoloRecords()
+}
+
+/** Records from untrusted data, such as a restored backup. */
+export function coerceSoloRecords(raw: unknown): SoloRecord[] {
+  if (!Array.isArray(raw)) return []
+  const records = raw.filter(
+    (entry): entry is SoloRecord =>
+      typeof entry === 'object' &&
+      entry !== null &&
+      typeof (entry as SoloRecord).datasetId === 'string' &&
+      typeof (entry as SoloRecord).variation === 'string' &&
+      typeof (entry as SoloRecord).correctCount === 'number' &&
+      typeof (entry as SoloRecord).achievedAt === 'string'
+  )
+  return prepareSoloRecords(records).records
+}
+
+/** Union of both lists, exact repeats dropped, then the usual top 10 per mode. */
+export function combineSoloRecords(local: SoloRecord[], incoming: SoloRecord[]): SoloRecord[] {
+  const seen = new Set<string>()
+  const merged: SoloRecord[] = []
+  for (const record of [...local, ...incoming]) {
+    const id = JSON.stringify([
+      record.datasetId,
+      record.variation,
+      record.achievedAt,
+      record.score ?? null,
+      record.correctCount,
+      record.roundDurationMs,
+      record.clueRevealIntervalMs
+    ])
+    if (seen.has(id)) continue
+    seen.add(id)
+    merged.push(record)
+  }
+  return prepareSoloRecords(merged).records
+}
+
+export function storeSoloRecords(records: SoloRecord[]): void {
+  writeSoloRecords(records)
 }

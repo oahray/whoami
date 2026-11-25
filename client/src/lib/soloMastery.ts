@@ -1,4 +1,4 @@
-const MASTERY_KEY = 'whoami-solo-mastery-v1'
+export const MASTERY_KEY = 'whoami-solo-mastery-v1'
 
 export type MasteryState =
   | 'encountered'
@@ -516,4 +516,57 @@ export function applyResolveRemaps(
 
   saveStore({ version: 1, entities: nextEntities, appliedEvents: nextEvents })
   return { remapped, removed }
+}
+
+export function loadMasteryEntities(): Record<string, EntityMastery> {
+  return loadStore().entities
+}
+
+/** Mastery rows from untrusted data, such as a restored backup. */
+export function coerceMasteryEntities(raw: unknown): Record<string, EntityMastery> {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return {}
+  const entities: Record<string, EntityMastery> = {}
+  for (const entity of Object.values(raw as Record<string, unknown>)) {
+    const row = entity as EntityMastery
+    if (
+      typeof row !== 'object' ||
+      row === null ||
+      typeof row.datasetId !== 'string' ||
+      typeof row.entityId !== 'string' ||
+      typeof row.encounters !== 'number' ||
+      typeof row.correctCount !== 'number'
+    ) {
+      continue
+    }
+    entities[key(row.datasetId, row.entityId)] = {
+      ...row,
+      state: deriveState(row.correctCount, row.firstClueCorrectCount ?? 0, Boolean(row.lastCorrect))
+    }
+  }
+  return entities
+}
+
+/**
+ * Keeps whichever side met each character more often. Adding them up would count a
+ * backup twice when it's restored onto the device it came from.
+ */
+export function combineMasteryEntities(
+  local: Record<string, EntityMastery>,
+  incoming: Record<string, EntityMastery>
+): Record<string, EntityMastery> {
+  const merged = { ...local }
+  for (const [entityKey, entity] of Object.entries(incoming)) {
+    const existing = merged[entityKey]
+    if (!existing || entity.encounters > existing.encounters) merged[entityKey] = entity
+  }
+  return merged
+}
+
+/** Throws when storage is full, unlike {@link saveStore}, so a restore can roll back. */
+export function storeMasteryEntities(entities: Record<string, EntityMastery>): void {
+  const store = loadStore()
+  localStorage.setItem(
+    MASTERY_KEY,
+    JSON.stringify({ ...store, entities, appliedEvents: pruneAppliedEvents(store.appliedEvents) })
+  )
 }

@@ -9,7 +9,7 @@ import {
 import { entityTypeOptionLabel, type EntityTypeFilter } from './entityTypeFilter'
 import type { SoloRecord } from './soloSession'
 
-const TRENDS_KEY = 'whoami-solo-trends-v1'
+export const TRENDS_KEY = 'whoami-solo-trends-v1'
 
 export type TrendVariation = 'challenge' | 'endurance'
 export type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'night'
@@ -166,4 +166,41 @@ export function parseSetupKey(key: string): SoloSetupChoice | null {
     roundDurationMs,
     clueRevealIntervalMs
   }
+}
+
+export function loadTrendStoreDays(): Record<string, TrendDay> {
+  return loadStore().days
+}
+
+/** Trend days from untrusted data, such as a restored backup. */
+export function coerceTrendDays(raw: unknown): Record<string, TrendDay> {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return {}
+  return Object.fromEntries(
+    Object.entries(raw as Record<string, TrendDay>).filter(
+      ([, day]) =>
+        typeof day === 'object' &&
+        day !== null &&
+        (day.variation === 'challenge' || day.variation === 'endurance') &&
+        typeof day.dateKey === 'string' &&
+        typeof day.runs === 'number'
+    )
+  )
+}
+
+/** Keeps whichever side has more runs for each day, so a restore never counts a day twice. */
+export function combineTrendDays(
+  local: Record<string, TrendDay>,
+  incoming: Record<string, TrendDay>
+): Record<string, TrendDay> {
+  const merged = { ...local }
+  for (const [id, day] of Object.entries(incoming)) {
+    const existing = merged[id]
+    if (!existing || day.runs > existing.runs) merged[id] = day
+  }
+  return merged
+}
+
+export function storeTrendDays(days: Record<string, TrendDay>): void {
+  const store: TrendStore = { version: 1, days }
+  localStorage.setItem(TRENDS_KEY, JSON.stringify(store))
 }
