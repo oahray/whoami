@@ -802,6 +802,10 @@ function SoloGame() {
       session.variation === 'endurance' && !result.isPersonalBest && bestRecord
         ? Math.max(0, bestRecord.correctCount - result.record.correctCount)
         : 0
+    const classicPointsShort =
+      session.variation === 'challenge' && !result.isPersonalBest && personalBestScore != null
+        ? Math.max(0, personalBestScore - (result.record.score ?? 0))
+        : null
     const topTenPlaceLabel =
       !result.isPersonalBest &&
       (session.variation === 'challenge' || session.variation === 'endurance')
@@ -995,7 +999,9 @@ function SoloGame() {
             session.variation === 'challenge' && (
             <p className="mt-3 text-sm text-foreground-muted">
               {topTenPlaceLabel ? `${topTenPlaceLabel}. ` : ''}
-              Personal best: {formatSoloScore(personalBestScore)} points.
+              {classicPointsShort
+                ? `${formatSoloScore(classicPointsShort)} points short of your best (${formatSoloScore(personalBestScore)}).`
+                : `You matched your best: ${formatSoloScore(personalBestScore)} points.`}
             </p>
           )}
           {result.endedByMaintenance && (

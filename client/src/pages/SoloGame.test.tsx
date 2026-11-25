@@ -165,7 +165,7 @@ describe('SoloGame', () => {
 
     expect(screen.getByRole('heading', { name: /classic complete/i })).toBeInTheDocument()
     expect(screen.getByText(/2nd in your top 10/i)).toBeInTheDocument()
-    expect(screen.getByText(/personal best: 5,000 points/i)).toBeInTheDocument()
+    expect(screen.getByText(/2nd in your top 10\. 5,000 points short of your best \(5,000\)/i)).toBeInTheDocument()
     expect(screen.queryByText(/new personal best/i)).not.toBeInTheDocument()
   })
 

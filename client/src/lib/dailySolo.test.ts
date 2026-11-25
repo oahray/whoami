@@ -153,7 +153,9 @@ describe('Daily rest days', () => {
       current: 3,
       best: 3,
       restDaysUsed: 1,
-      restDay: { usedOn: oct(3), nextAvailableOn: oct(10), coversYesterday: false }
+      restDay: { usedOn: oct(3), nextAvailableOn: oct(10), coversYesterday: false },
+      spareRestDays: 0,
+      sparesCoveringNow: 0
     })
   })
 
@@ -167,7 +169,9 @@ describe('Daily rest days', () => {
       current: 2,
       best: 2,
       restDaysUsed: 0,
-      restDay: { usedOn: oct(3), nextAvailableOn: oct(10), coversYesterday: true }
+      restDay: { usedOn: oct(3), nextAvailableOn: oct(10), coversYesterday: true },
+      spareRestDays: 0,
+      sparesCoveringNow: 0
     })
   })
 
@@ -193,6 +197,55 @@ describe('Daily rest days', () => {
 
   it('stops reporting the rest day once another one is available', () => {
     expect(computeDailyStreaks(days(1, 2, 4, 5, 6, 7, 8, 9, 10), oct(10)).restDay).toBeNull()
+  })
+
+  it('reports no spare rest days for a short streak', () => {
+    expect(computeDailyStreaks(days(1, 2, 3), oct(3))).toMatchObject({ spareRestDays: 0, sparesCoveringNow: 0 })
+  })
+
+  describe('spare rest days', () => {
+    // Day numbers run past October, so build dates from a fixed start.
+    const start = Date.UTC(2026, 0, 1)
+    const d = (n: number) => new Date(start + (n - 1) * 86_400_000).toISOString().slice(0, 10)
+    const range = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => d(from + i))
+
+    it('banks one spare every 30 played days, up to two', () => {
+      expect(computeDailyStreaks(range(1, 29), d(29)).spareRestDays).toBe(0)
+      expect(computeDailyStreaks(range(1, 30), d(30)).spareRestDays).toBe(1)
+      expect(computeDailyStreaks(range(1, 60), d(60)).spareRestDays).toBe(2)
+      expect(computeDailyStreaks(range(1, 90), d(90)).spareRestDays).toBe(2)
+    })
+
+    it('covers two missed days in a row with the weekly rest day plus a spare', () => {
+      const info = computeDailyStreaks([...range(1, 30), ...range(33, 35)], d(35))
+      expect(info.current).toBe(33)
+      expect(info.spareRestDays).toBe(0)
+      expect(info.restDaysUsed).toBe(2)
+    })
+
+    it('uses a spare when the weekly rest day was taken too recently', () => {
+      // Missed day 32 (weekly) and day 35 (spare).
+      const history = [...range(1, 31), ...range(33, 34), ...range(36, 37)]
+      expect(computeDailyStreaks(history, d(37))).toMatchObject({ current: 35, spareRestDays: 0 })
+    })
+
+    it('still breaks when the misses outrun the spares', () => {
+      const info = computeDailyStreaks([...range(1, 30), ...range(34, 35)], d(35))
+      expect(info.current).toBe(2)
+      expect(info.best).toBe(30)
+    })
+
+    it('keeps the streak alive today when spares cover the last few days', () => {
+      const info = computeDailyStreaks(range(1, 60), d(64))
+      expect(info.current).toBe(60)
+      expect(info.sparesCoveringNow).toBe(2)
+      expect(info.spareRestDays).toBe(0)
+    })
+
+    it('loses banked spares when the streak breaks', () => {
+      const history = [...range(1, 30), ...range(40, 45)]
+      expect(computeDailyStreaks(history, d(45))).toMatchObject({ current: 6, spareRestDays: 0 })
+    })
   })
 
   it('never lowers a best streak stored before rest days existed', () => {

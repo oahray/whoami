@@ -14,6 +14,9 @@ import {
   getBestDailyStreak,
   getDailyBestScore,
   getDailyRestDay,
+  getDailySpareRestDays,
+  SPARE_REST_DAY_CAP,
+  SPARE_REST_DAY_EVERY,
   hydrateDailyCardCache,
   loadDailyProgress,
   msUntilNextDaily,
@@ -220,18 +223,29 @@ function SoloSetup() {
   )
   const bestDailyStreak = getBestDailyStreak(dailyProgress, dailyChallenge?.dateKey)
   const dailyRestDay = getDailyRestDay(dailyProgress, dailyChallenge?.dateKey)
+  const { spareRestDays, sparesCoveringNow } = getDailySpareRestDays(
+    dailyProgress,
+    dailyChallenge?.dateKey
+  )
   const shortDay = (dateKey: string) =>
     new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' }).format(
       new Date(`${dateKey}T00:00:00Z`)
     )
-  const dailyRestDayNote =
-    dailyStreak === 0
-      ? null
+  const weeklyRestNote =
+    sparesCoveringNow > 0
+      ? 'Your rest days covered the days you missed. Play today to keep the streak.'
       : dailyRestDay == null
         ? 'Rest day available: miss one day and your streak survives.'
         : dailyRestDay.coversYesterday
           ? 'Yesterday was your rest day. Play today to keep the streak.'
           : `Rest day used ${shortDay(dailyRestDay.usedOn)}. Next one from ${shortDay(dailyRestDay.nextAvailableOn)}.`
+  const nextSpareAt = (Math.floor(dailyStreak / SPARE_REST_DAY_EVERY) + 1) * SPARE_REST_DAY_EVERY
+  const spareNote =
+    spareRestDays === 0
+      ? `Reach ${nextSpareAt} days to earn a spare rest day.`
+      : `${spareRestDays} spare rest ${spareRestDays === 1 ? 'day' : 'days'} saved` +
+        (spareRestDays < SPARE_REST_DAY_CAP ? `, next at ${nextSpareAt} days.` : '.')
+  const dailyRestDayNote = dailyStreak === 0 ? null : `${weeklyRestNote} ${spareNote}`
 
   const renderRecordRow = (record: SoloRecord, opts?: { highlightCurrent?: boolean }) => {
     const isCurrent =
