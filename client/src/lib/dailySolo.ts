@@ -217,69 +217,113 @@ function dateKeyFromDay(day: number): string {
 
 /** A missed day only counts as a rest day if no other rest day falls within the 7 days before it. */
 const REST_DAY_SPACING = 7
+/** Long streaks earn a spare rest day every this many played days. */
+export const SPARE_REST_DAY_EVERY = 30
+export const SPARE_REST_DAY_CAP = 2
 
 export type DailyStreakInfo = {
   current: number
   best: number
-  /** Missed days bridged between two played days, across all history. */
+  /** Missed days bridged between two played days, across all history. Spares included. */
   restDaysUsed: number
   /** Most recent rest day still blocking another one, if any. */
   restDay: { usedOn: string; nextAvailableOn: string; coversYesterday: boolean } | null
+  /** Spare rest days banked by the current streak. */
+  spareRestDays: number
+  /** Spare rest days spent on the days missed right before today. */
+  sparesCoveringNow: number
+}
+
+type StreakRun = { count: number; lastRest: number; spares: number }
+
+/**
+ * Covers each missed day with the weekly rest day when it's free, otherwise with a
+ * banked spare. Returns how many spares were spent, or null if the run breaks.
+ */
+function coverMissedDays(run: StreakRun, firstMissed: number, lastMissed: number): number | null {
+  let sparesSpent = 0
+  for (let day = firstMissed; day <= lastMissed; day++) {
+    if (day - run.lastRest >= REST_DAY_SPACING) {
+      run.lastRest = day
+    } else if (run.spares > 0) {
+      run.spares -= 1
+      sparesSpent += 1
+    } else {
+      return null
+    }
+  }
+  return sparesSpent
+}
+
+function addPlayedDay(run: StreakRun): void {
+  run.count += 1
+  if (run.count % SPARE_REST_DAY_EVERY === 0) {
+    run.spares = Math.min(SPARE_REST_DAY_CAP, run.spares + 1)
+  }
 }
 
 /**
  * Streaks from the full Daily history, so rule changes apply retroactively.
- * One missed day keeps a streak alive when it's at least 7 days after the
- * previous rest day (at most one rest day in any 7 days). Rest days don't
- * add to the count.
+ * One missed day is free when it's at least 7 days after the previous rest
+ * day. Every 30 played days in a streak also bank a spare rest day (up to 2)
+ * for misses the weekly one can't cover. Rest days don't add to the count.
  */
 export function computeDailyStreaks(dateKeys: string[], todayKey = dailyDateKey()): DailyStreakInfo {
   const days = [...new Set(dateKeys.map(dayNumber))].sort((a, b) => a - b)
-  let count = 0
+  const fresh = (): StreakRun => ({ count: 0, lastRest: Number.NEGATIVE_INFINITY, spares: 0 })
+  let run = fresh()
   let best = 0
   let restDaysUsed = 0
-  let lastRest = Number.NEGATIVE_INFINITY
   let prev: number | null = null
   for (const day of days) {
-    const gap = prev == null ? Number.POSITIVE_INFINITY : day - prev
-    if (gap === 1) {
-      count += 1
-    } else if (gap === 2 && day - 1 - lastRest >= REST_DAY_SPACING) {
-      count += 1
-      lastRest = day - 1
-      restDaysUsed += 1
-    } else {
-      count = 1
-      lastRest = Number.NEGATIVE_INFINITY
+    if (prev != null && day - prev > 1) {
+      const trial = { ...run }
+      if (coverMissedDays(trial, prev + 1, day - 1) == null) {
+        run = fresh()
+      } else {
+        run = trial
+        restDaysUsed += day - prev - 1
+      }
     }
-    best = Math.max(best, count)
+    addPlayedDay(run)
+    best = Math.max(best, run.count)
     prev = day
   }
 
   const today = dayNumber(todayKey)
   let current = 0
   let coversYesterday = false
-  if (prev != null) {
-    const gap = today - prev
-    if (gap === 0 || gap === 1) {
-      current = count
-    } else if (gap === 2 && today - 1 - lastRest >= REST_DAY_SPACING) {
-      current = count
-      lastRest = today - 1
-      coversYesterday = true
+  let sparesCoveringNow = 0
+  if (prev != null && today - prev <= 1) {
+    current = run.count
+  } else if (prev != null) {
+    const trial = { ...run }
+    const spent = coverMissedDays(trial, prev + 1, today - 1)
+    if (spent != null) {
+      current = run.count
+      coversYesterday = trial.lastRest === today - 1
+      sparesCoveringNow = spent
+      run = trial
     }
   }
 
   const restDay =
-    current > 0 && today - lastRest < REST_DAY_SPACING
+    current > 0 && today - run.lastRest < REST_DAY_SPACING
       ? {
-          usedOn: dateKeyFromDay(lastRest),
-          nextAvailableOn: dateKeyFromDay(lastRest + REST_DAY_SPACING),
+          usedOn: dateKeyFromDay(run.lastRest),
+          nextAvailableOn: dateKeyFromDay(run.lastRest + REST_DAY_SPACING),
           coversYesterday
         }
       : null
 
-  return { current, best, restDaysUsed, restDay }
+  return {
+    current,
+    best,
+    restDaysUsed,
+    restDay,
+    spareRestDays: current > 0 ? run.spares : 0,
+    sparesCoveringNow
+  }
 }
 
 function streaksFor(progress: DailyProgress, todayKey: string): DailyStreakInfo {
@@ -289,7 +333,7 @@ function streaksFor(progress: DailyProgress, todayKey: string): DailyStreakInfo 
   )
 }
 
-/** Streak still showing on `todayKey`, with at most one rest day in any 7 days. */
+/** Streak still showing on `todayKey`, after rest days and spares. */
 export function getActiveDailyStreak(
   progress: DailyProgress,
   todayKey = dailyDateKey()
@@ -307,6 +351,14 @@ export function getDailyRestDay(
   todayKey = dailyDateKey()
 ): DailyStreakInfo['restDay'] {
   return streaksFor(progress, todayKey).restDay
+}
+
+export function getDailySpareRestDays(
+  progress: DailyProgress,
+  todayKey = dailyDateKey()
+): Pick<DailyStreakInfo, 'spareRestDays' | 'sparesCoveringNow'> {
+  const { spareRestDays, sparesCoveringNow } = streaksFor(progress, todayKey)
+  return { spareRestDays, sparesCoveringNow }
 }
 
 export function saveDailyResult(result: DailyResult): DailyProgress {
