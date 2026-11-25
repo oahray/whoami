@@ -7,7 +7,7 @@ import type {
 } from './soloSession'
 import type { InPersonCard } from '../types'
 
-const DAILY_PROGRESS_KEY = 'whoami-solo-daily-progress'
+export const DAILY_PROGRESS_KEY = 'whoami-solo-daily-progress'
 
 export type DailyChallenge = {
   challengeId: string
@@ -392,4 +392,58 @@ export function saveDailyResult(result: DailyResult): DailyProgress {
     }
   }
   return next
+}
+
+function isRecordObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/** Daily progress from untrusted data, such as a restored backup. */
+export function coerceDailyProgress(raw: unknown): DailyProgress {
+  if (!isRecordObject(raw)) return emptyProgress()
+  const results = isRecordObject(raw.results) ? (raw.results as Record<string, DailyResult>) : {}
+  const summaries = isRecordObject(raw.summaries)
+    ? (raw.summaries as Record<string, DailySummary>)
+    : {}
+  const keep = <T extends { dateKey?: unknown }>(entries: Record<string, T>) =>
+    Object.fromEntries(
+      Object.entries(entries).filter(
+        ([, entry]) => isRecordObject(entry) && typeof entry.dateKey === 'string'
+      )
+    )
+  return withSummaries({
+    ...emptyProgress(),
+    bestStreak: typeof raw.bestStreak === 'number' ? raw.bestStreak : 0,
+    results: keep(results),
+    summaries: keep(summaries)
+  })
+}
+
+/** Both sides' Dailies, this device's copy winning where the same Daily is in both. */
+export function combineDailyProgress(local: DailyProgress, incoming: DailyProgress): DailyProgress {
+  return settleDailyProgress({
+    ...local,
+    bestStreak: Math.max(local.bestStreak, incoming.bestStreak),
+    results: { ...incoming.results, ...local.results },
+    summaries: { ...incoming.summaries, ...local.summaries }
+  })
+}
+
+/** Recomputes the stored streak fields and trims round detail, as saving a result does. */
+export function settleDailyProgress(progress: DailyProgress): DailyProgress {
+  const dateKeys = Object.values(progress.summaries).map((summary) => summary.dateKey)
+  if (dateKeys.length === 0) return { ...emptyProgress(), bestStreak: progress.bestStreak }
+  const latest = dateKeys.reduce((a, b) => (a > b ? a : b))
+  const streaks = computeDailyStreaks(dateKeys, latest)
+  return {
+    ...progress,
+    currentStreak: streaks.current,
+    bestStreak: Math.max(progress.bestStreak, streaks.best),
+    lastCompletedDate: latest,
+    results: trimDetail(progress.results, latest, DAILY_DETAIL_DAYS)
+  }
+}
+
+export function storeDailyProgress(progress: DailyProgress): void {
+  localStorage.setItem(DAILY_PROGRESS_KEY, JSON.stringify(progress))
 }

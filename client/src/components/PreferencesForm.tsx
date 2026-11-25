@@ -1,4 +1,5 @@
 import { usePreferences } from '../context/PreferencesContext'
+import ProgressBackupSection from './ProgressBackupSection'
 import { playSound, unlockAudio } from '../lib/sounds'
 import {
   musicPercentToVolume,
@@ -266,6 +267,8 @@ function PreferencesForm({ idPrefix = 'pref' }: PreferencesFormProps) {
           {sfxEnabled && !sfxAllowed ? ' Your volume settings are saved for later.' : null}
         </p>
       )}
+
+      <ProgressBackupSection />
     </div>
   )
 }

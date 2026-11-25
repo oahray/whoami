@@ -54,7 +54,7 @@ function PreferencesMenu({ className = '', tone = 'default' }: PreferencesMenuPr
           id={menuId}
           role="dialog"
           aria-label="Your preferences"
-          className="absolute right-0 top-full z-20 mt-2 w-72 max-w-[calc(100vw-1.5rem)] rounded-lg border border-edge bg-surface p-4 shadow-lg"
+          className="absolute right-0 top-full z-20 mt-2 max-h-[calc(100dvh-5rem)] w-72 max-w-[calc(100vw-1.5rem)] overflow-y-auto rounded-lg border border-edge bg-surface p-4 shadow-lg"
         >
           <h2 className="text-foreground text-sm font-bold mb-3">Your preferences</h2>
           <PreferencesForm idPrefix={menuId} />
